@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PITCH IQ CUT LIST — Fit-Out Estimator</title>
+<style>
+  :root{--amber:#FFB300;--steel:#1c1f24;--panel:#24282f;--line:#363b44;--green:#3ddc84;--blue:#5db8ff;--red:#ff5d5d;--txt:#e7e9ec;--mut:#8b929c;--mono:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  body{background:var(--steel);color:var(--txt);font-family:var(--mono);padding-bottom:50px}
+  input:focus,select:focus{outline:1px solid var(--amber)}
+  button{font-family:var(--mono);cursor:pointer}
+  .hide{display:none!important}
+  .auth{max-width:440px;margin:40px auto;padding:0 18px}
+  .authCard{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .authHead{padding:22px;border-bottom:2px solid var(--amber);text-align:center}
+  .logo{color:var(--amber);font-size:26px;letter-spacing:-2px}
+  .authTitle{font-size:26px;font-weight:800;letter-spacing:3px;margin-top:6px}
+  .authSub{font-size:9px;letter-spacing:2.5px;color:var(--mut);margin-top:4px}
+  .authBody{padding:22px}
+  .demoBanner{background:#2d2410;border:1px dashed var(--amber);color:var(--amber);font-size:10px;padding:8px 10px;border-radius:3px;margin-bottom:18px;line-height:1.5}
+  .lbl{font-size:10px;letter-spacing:1px;color:var(--mut);display:block;margin:14px 0 5px}
+  .inp{width:100%;background:var(--steel);color:#fff;border:1px solid var(--line);padding:11px 12px;font-family:var(--mono);font-size:14px;border-radius:3px}
+  .plans{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .plan{display:flex;justify-content:space-between;align-items:center;background:var(--steel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+  .plan.on{border-color:var(--amber);background:#2a2614}
+  .planName{font-size:12px;font-weight:700}.planDesc{font-size:9px;color:var(--mut);margin-top:2px}
+  .planPrice{font-size:16px;font-weight:800;color:var(--amber)}
+  .cta{width:100%;background:var(--amber);color:#000;border:none;padding:15px;font-weight:800;font-size:13px;letter-spacing:1px;border-radius:4px;margin-top:20px}
+  .trial{text-align:center;font-size:10px;color:var(--green);margin-top:12px}
+  .err{color:var(--red);font-size:11px;margin-top:8px;min-height:14px}
+  header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:2px solid var(--amber);flex-wrap:wrap;gap:10px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{color:var(--amber);font-size:22px;letter-spacing:-2px}
+  .title{font-size:22px;font-weight:800;letter-spacing:2px;line-height:1}
+  .sub{font-size:9px;letter-spacing:2.5px;color:var(--mut);margin-top:3px}
+  .headBtns{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .gbtn{background:transparent;color:var(--amber);border:1px solid var(--line);padding:9px 12px;font-weight:700;font-size:11px;letter-spacing:1px;border-radius:2px}
+  .pbtn{background:var(--amber);color:#000;border:none;padding:9px 14px;font-weight:800;font-size:11px;letter-spacing:1px;border-radius:2px}
+  .unit{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+  .unit button{background:transparent;color:var(--mut);border:none;padding:8px 11px;font-size:11px;font-weight:700}
+  .unit button.on{background:var(--amber);color:#000}
+  .trialBar{background:#0f2417;color:var(--green);font-size:11px;text-align:center;padding:6px;letter-spacing:1px}
+  .zoneBar{display:flex;align-items:center;gap:12px;padding:11px 18px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .zlbl{font-size:10px;letter-spacing:2px;color:var(--mut)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+  .chip{background:var(--steel);color:#b9c0ca;border:1px solid var(--line);padding:7px 12px;font-size:11px;border-radius:2px}
+  .chip.on{background:var(--amber);color:#000;font-weight:700;border-color:var(--amber)}
+  .chipX{background:transparent;color:var(--red);border:none;font-size:10px;padding:0 4px}
+  .zinp{background:var(--steel);color:#fff;border:1px solid var(--line);padding:8px 10px;font-size:12px;border-radius:2px;width:150px;font-family:var(--mono)}
+  .zadd{background:#2d2410;color:var(--amber);border:1px solid var(--amber);padding:8px 12px;font-size:11px;font-weight:700;border-radius:2px}
+  .controlBar{display:flex;justify-content:center;padding:12px 18px;border-bottom:1px solid var(--line)}
+  .tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .tab{background:transparent;color:var(--mut);border:1px solid var(--line);padding:9px 16px;font-weight:700;font-size:11px;letter-spacing:1px;border-radius:2px}
+  .tab.on{background:var(--amber);color:#000;font-weight:800;border-color:var(--amber)}
+  .body{padding:18px;max-width:1100px;margin:0 auto}
+  .settings{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .fl{font-size:9px;letter-spacing:1.5px;color:var(--mut)}
+  .fi{background:var(--panel);color:var(--amber);border:1px solid var(--line);padding:10px 12px;font-size:16px;font-weight:700;width:120px;border-radius:2px;font-family:var(--mono)}
+  .toggle{background:var(--panel);color:var(--mut);border:1px solid var(--line);padding:11px 14px;font-size:11px;font-weight:700;border-radius:2px;letter-spacing:1px}
+  .toggle.on{background:#0f2417;color:var(--green);border-color:var(--green)}
+  .grainCard{background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-bottom:16px;padding:14px}
+  .grainLbl{font-size:10px;letter-spacing:1.5px;color:var(--mut);margin-bottom:10px}
+  .grainRow{display:flex;gap:10px;flex-wrap:wrap}
+  .grainBtn{position:relative;flex:1 1 140px;background:var(--steel);border:1px solid var(--line);border-radius:3px;padding:12px 14px;text-align:left;color:#fff;font-family:var(--mono)}
+  .grainBtn.on{border-color:var(--amber);background:#2a2614}
+  .grainBtn.best{box-shadow:0 0 0 1px var(--green)}
+  .gT{font-size:12px;font-weight:800;letter-spacing:1px}.gD{font-size:9px;color:var(--mut);margin-top:2px}
+  .gP{font-size:24px;font-weight:800;margin-top:8px}
+  .bestTag{position:absolute;top:8px;right:10px;font-size:9px;color:var(--green);font-weight:700}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-bottom:16px;overflow:hidden}
+  .cardHead{padding:11px 16px;font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--amber);border-bottom:1px solid var(--line);background:#1f2329;display:flex;justify-content:space-between;align-items:center}
+  .scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:560px}
+  th{text-align:left;padding:9px 12px;font-size:10px;letter-spacing:1px;color:var(--mut);border-bottom:1px solid var(--line);font-weight:600}
+  th.r{text-align:right}
+  td{padding:5px 8px;border-bottom:1px solid #2c313a}td.r{text-align:right}
+  .cell{background:transparent;color:#fff;border:1px solid transparent;padding:7px 8px;font-size:13px;width:100%;border-radius:2px;font-family:var(--mono)}
+  .num{background:var(--steel);color:#fff;border:1px solid var(--line);padding:7px 8px;font-size:13px;width:74px;text-align:right;border-radius:2px;font-family:var(--mono)}
+  .numS{width:54px}
+  .sel{background:var(--steel);color:#fff;border:1px solid var(--line);padding:6px;font-size:12px;border-radius:2px;font-family:var(--mono)}
+  .cutSize{color:var(--blue);font-size:12px;font-weight:700}
+  .cost{color:var(--green);font-size:12px;font-weight:700}
+  .del{background:transparent;color:var(--red);border:none;font-size:14px;padding:4px}
+  .add{width:100%;background:#1f2329;color:var(--amber);border:none;border-top:1px solid var(--line);padding:12px;font-weight:700;font-size:12px;letter-spacing:1px}
+  .stats{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .stat{flex:1 1 90px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px 16px}
+  .stat.big{border-color:var(--amber)}.stat.money{border-color:var(--green)}
+  .sv{font-size:26px;font-weight:800;line-height:1}
+  .sl{font-size:9px;letter-spacing:1.5px;color:var(--mut);margin-top:6px}
+  .barRow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .barIdx{font-size:11px;color:var(--mut);width:42px;flex-shrink:0;display:flex;gap:3px;align-items:center}
+  .bar{height:30px;display:flex;background:#15181d;border-radius:2px;overflow:hidden;border:1px solid var(--line)}
+  .seg{display:flex;align-items:center;justify-content:center;border-right:1px solid rgba(0,0,0,.4);min-width:0}
+  .segT{font-size:10px;font-weight:700;color:#000;white-space:nowrap}
+  .dropSeg{display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,#23272e,#23272e 4px,#1a1d22 4px,#1a1d22 8px)}
+  .dropT{font-size:9px;color:#7a828d;white-space:nowrap}
+  .sheetGrid{display:flex;flex-wrap:wrap;gap:18px;padding:16px}
+  .sheetWrap{display:flex;flex-direction:column;gap:6px}
+  .sheetIdx{font-size:10px;letter-spacing:1px;color:var(--mut)}
+  .sheet{position:relative;background:#15181d;border:1px solid var(--line);border-radius:2px}
+  .part{position:absolute;border:1px solid rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000;overflow:hidden;text-align:center}
+  .orderCard{background:linear-gradient(135deg,#2a2614,#24282f);border:1px solid var(--amber);border-radius:6px;margin-bottom:16px;overflow:hidden}
+  .orderHead{padding:14px 18px;font-size:13px;font-weight:800;letter-spacing:2px;color:var(--amber);border-bottom:1px solid var(--line)}
+  .orderBody{padding:8px 18px 18px}
+  .orderLine{display:flex;justify-content:space-between;align-items:baseline;padding-top:16px;font-size:15px}
+  .orderQty{font-size:24px;font-weight:800;color:#fff}
+  .orderSub{font-size:11px;color:var(--mut);margin-top:4px}
+  .orderTotal{display:flex;justify-content:space-between;margin-top:20px;padding-top:14px;border-top:2px solid var(--amber);font-size:14px;font-weight:800;letter-spacing:1px;color:var(--amber)}
+  .bigPrint{width:100%;background:var(--amber);color:#000;border:none;padding:16px;font-weight:800;font-size:13px;letter-spacing:1.5px;border-radius:4px;margin-bottom:10px}
+  .empty{padding:40px;text-align:center;color:#6b7280;font-size:13px}
+  .bank{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px}
+  .bankItem{background:#0f2417;border:1px solid var(--green);border-radius:6px;padding:8px 12px;min-width:120px}
+  .bankSize{color:var(--green);font-weight:800;font-size:14px}
+  .bankMeta{color:var(--mut);font-size:9px;margin-top:3px}
+  footer{max-width:1100px;margin:0 auto;padding:0 18px;font-size:10px;color:#6b7280;line-height:1.6}
+  .hint{font-size:10px;color:var(--mut);padding:0 16px 12px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ============================================================================
+//  PITCH IQ CUT LIST — fit-out estimator (single-file, hostable)
+//  Guillotine nester · Offcut Bank · Paint calculator · Price Book auto-costing
+//  Demo accounts/paywall (NOT real payments). Metric/imperial. Grain along length.
+// ============================================================================
+// ---- Supabase connection ----
+const SUPABASE_URL='https://nzpngtgvppcshjmlkmsl.supabase.co';
+const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im56cG5ndGd2cHBjc2hqbWxrbXNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MTYwMjUsImV4cCI6MjA5NTQ5MjAyNX0.A9LZLFb9qL3FBZox0nR1ytnjK8zlgLCHZFvZ0A3HFd8';
+let sb=null;
+try{ if(window.supabase){ sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); } }catch(e){ console.error('Supabase init failed',e); }
+
+const CURRENCIES=['$','£','€','₦','₹','AED','﷼','R','¥','₱','₩','KSh','₵','RM','฿'];
+const PLANS=[
+  {id:'s_mo',name:'Single user · Monthly',desc:'1 seat',price:'$150/mo'},
+  {id:'s_yr',name:'Single user · Yearly',desc:'1 seat · save $300',price:'$1,500/yr'},
+  {id:'m_mo',name:'Multi user · Monthly',desc:'unlimited seats',price:'$250/mo'},
+  {id:'m_yr',name:'Multi user · Yearly',desc:'unlimited · save $500',price:'$2,500/yr'},
+];
+const LIP_PRESETS=[0,0.4,0.6,1,2,3,12,15,18,22,25];
+const EDGE_OPTS=[{v:'0',t:'None'},{v:'1w',t:'1W = 1 width lip'},{v:'2w',t:'2W = 2 width lip'},{v:'1h',t:'1H = 1 height lip'},{v:'2h',t:'2H = 2 height lip'},{v:'all',t:'All 4 lips'}];
+const MM_PER_IN=25.4;
+
+const store={
+  unit:'mm', currency:'$', taxPct:0,
+  zones:[{id:1,name:'Reception'},{id:2,name:'Meeting Rooms'}],
+  zoneFilter:'all', tab:'linear', reuse:true,
+  stockLen:3600, linKerf:3, linCode:'STUD-92', linThk:92,
+  linRows:[{id:1,zone:1,label:'Track top',code:'TRK-92',thk:92,len:2400,qty:12},{id:2,zone:1,label:'Stud',code:'STUD-92',thk:92,len:2700,qty:28},{id:3,zone:2,label:'Stud',code:'STUD-92',thk:92,len:3000,qty:40}],
+  sheetW:1220, sheetH:2440, sheetKerf:3, grain:'along', sheetCode:'GYP', sheetThk:12.5,
+  sheetRows:[{id:1,zone:1,label:'Bulkhead face',code:'GYP',thk:12.5,w:1220,h:900,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:6},{id:2,zone:2,label:'Wall lining',code:'GYP',thk:12.5,w:1220,h:2440,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:10},{id:3,zone:2,label:'Reveal',code:'MDF-OAK',thk:18,w:600,h:2440,lip:18,edge:'2w',lipCode:'LIP-OAK',lipLen:3600,qty:8}],
+  lipWaste:10,
+  paintRows:[{id:1,zone:1,label:'Walls',stage:'Primer',code:'PRIMER-WHT',area:48,coats:1,spread:10,waste:10},{id:2,zone:1,label:'Walls',stage:'Topcoat',code:'PNT-WHT-MATT',area:48,coats:2,spread:11,waste:10}],
+  supplierPrefs:{}, // {"<code>|<thk>":"BuildCo"} — codes pinned to a supplier; everything else = cheapest
+  priceBook:{
+    linear:[{supplier:'BuildCo',code:'STUD-92',thk:92,len:3000,price:8.5},{supplier:'BuildCo',code:'STUD-92',thk:92,len:3600,price:10},{supplier:'MetroMerchants',code:'STUD-92',thk:92,len:3600,price:9.6},{supplier:'BuildCo',code:'TRK-92',thk:92,len:3600,price:9},{supplier:'TimberLine',code:'LIP-OAK',thk:18,len:3600,price:7.5},{supplier:'TimberLine',code:'LIP-MDF',thk:22,len:3000,price:5.2}],
+    sheet:[{supplier:'BuildCo',code:'GYP',thk:12.5,w:1220,h:2440,price:14},{supplier:'MetroMerchants',code:'GYP',thk:12.5,w:1220,h:2440,price:13.5},{supplier:'BuildCo',code:'GYP',thk:15,w:1220,h:2440,price:17},{supplier:'TimberLine',code:'MDF-OAK',thk:18,w:1220,h:2440,price:42}],
+    paint:[{supplier:'BuildCo',code:'PRIMER-WHT',price:4.5},{supplier:'BuildCo',code:'PNT-WHT-MATT',price:6.5}],
+    ancillary:[
+      {supplier:'BuildCo',code:'DRYWALL-SCREW-25',desc:'Drywall screws 25mm (box 1000)',unit:'box',price:12},
+      {supplier:'BuildCo',code:'DRYWALL-SCREW-38',desc:'Drywall screws 38mm (box 1000)',unit:'box',price:14},
+      {supplier:'BuildCo',code:'SCRIM-TAPE-90M',desc:'Scrim tape 90m roll',unit:'roll',price:3.5},
+      {supplier:'BuildCo',code:'JOINT-COMP-25KG',desc:'Joint compound 25kg',unit:'bag',price:18},
+      {supplier:'BuildCo',code:'INSUL-50MM',desc:'Mineral wool 50mm (per m²)',unit:'m²',price:5.5},
+      {supplier:'BuildCo',code:'INSUL-100MM',desc:'Mineral wool 100mm (per m²)',unit:'m²',price:9},
+      {supplier:'BuildCo',code:'AC-SEALANT-TUBE',desc:'Acoustic sealant 310ml tube',unit:'tube',price:6.5},
+      {supplier:'BuildCo',code:'CORNER-BEAD-3M',desc:'Galvanised corner bead 3m',unit:'length',price:2.8},
+      {supplier:'BuildCo',code:'MF-PRIMARY-3.6M',desc:'MF primary channel 3.6m',unit:'length',price:9},
+      {supplier:'BuildCo',code:'MF-SECONDARY-3.6M',desc:'MF secondary channel 3.6m',unit:'length',price:7},
+      {supplier:'BuildCo',code:'MF-HANGER',desc:'MF hanger/cleat',unit:'each',price:1.4},
+      {supplier:'BuildCo',code:'PERIMETER-TRIM-3M',desc:'Perimeter trim 3m',unit:'length',price:4.5},
+      {supplier:'BuildCo',code:'TILE-ADHESIVE-20KG',desc:'Tile adhesive 20kg',unit:'bag',price:22},
+      {supplier:'BuildCo',code:'GROUT-5KG',desc:'Grout 5kg',unit:'bag',price:9},
+      {supplier:'BuildCo',code:'TILE-SPACER-PK',desc:'Tile spacers (pack 250)',unit:'pack',price:4},
+      {supplier:'BuildCo',code:'WOOD-SCREW-50',desc:'Wood screws 50mm (box 200)',unit:'box',price:8},
+      {supplier:'BuildCo',code:'WALL-PLUG-PK',desc:'Wall plugs (pack 100)',unit:'pack',price:3.5},
+      {supplier:'BuildCo',code:'BATTEN-25X50-3M',desc:'Timber batten 25×50mm × 3m',unit:'length',price:4.2},
+      {supplier:'BuildCo',code:'CONSTR-ADH-TUBE',desc:'Construction adhesive 310ml',unit:'tube',price:5.5},
+    ],
+  },
+  assemblyRows:[],
+  customAssemblies:[],
+  ancillaryRows:[],
+  bankedDrops:[], newZone:'', selPlan:'s_mo', account:null,
+  authMode:'signin', authBusy:false, authMsg:'', syncState:'', signupType:'contractor',
+  myCatalogue:[], catalogueAll:[], catLoaded:false, catAllLoaded:false, catSearch:'',
+  approvals:[], apprLoaded:false,
+  myOrders:[], myOrdersLoaded:false,
+  projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
+};
+try{const s=localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;Object.assign(store,j);}}catch(e){}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;localStorage.setItem('pitchiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+
+// ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
+let _saveTimer=null, _workspaceId=null;
+function scheduleCloudSave(){
+  if(!sb||!store.account||store.account.accountType!=='contractor')return;
+  clearTimeout(_saveTimer);
+  store.syncState='saving';
+  _saveTimer=setTimeout(cloudSave, 1500);
+}
+function projectPayload(){
+  return {
+    unit:store.unit, currency:store.currency, zones:store.zones, zoneFilter:store.zoneFilter,
+    reuse:store.reuse, stockLen:store.stockLen, linKerf:store.linKerf, linCode:store.linCode, linThk:store.linThk,
+    linRows:store.linRows, sheetW:store.sheetW, sheetH:store.sheetH, sheetKerf:store.sheetKerf, grain:store.grain,
+    sheetCode:store.sheetCode, sheetThk:store.sheetThk, sheetRows:store.sheetRows, lipWaste:store.lipWaste,
+    paintRows:store.paintRows, priceBook:store.priceBook, supplierPrefs:store.supplierPrefs,
+    assemblyRows:store.assemblyRows, bankedDrops:store.bankedDrops, customAssemblies:store.customAssemblies, taxPct:store.taxPct,
+  };
+}
+async function cloudSave(){
+  if(!sb||!store.account)return;
+  const payload=projectPayload();
+  try{
+    if(_workspaceId){
+      await sb.from('jobs').update({data:payload, name:store.projectName||'Untitled project', updated_at:new Date().toISOString()}).eq('id',_workspaceId);
+    }else{
+      const {data,error}=await sb.from('jobs').insert({
+        owner_id:store.account.uid, company_id:store.account.companyId,
+        name:store.projectName||'Untitled project', visibility:'private', data:payload
+      }).select().single();
+      if(!error&&data)_workspaceId=data.id;
+    }
+    store.syncState='saved';
+  }catch(e){ store.syncState='error'; }
+  updateSyncBadge();
+}
+// list all of this contractor's projects
+async function loadProjects(){
+  if(!sb||!store.account)return;
+  try{const {data}=await sb.from('jobs').select('id,name,updated_at').eq('owner_id',store.account.uid).order('updated_at',{ascending:false});store.projects=data||[];}catch(e){store.projects=[];}
+  store.projectsLoaded=true;render();
+}
+// open a specific project by id
+async function openProject(id){
+  if(!sb)return;
+  try{
+    const {data}=await sb.from('jobs').select('*').eq('id',id).maybeSingle();
+    if(data){ _workspaceId=data.id; store.projectName=data.name; const d=data.data||{}; applyProject(d); store.syncState='saved'; store.showProjects=false; render(); }
+  }catch(e){}
+}
+// apply a loaded project's data into the store (only the project fields)
+function applyProject(d){
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','grain','sheetCode','sheetThk','sheetRows','lipWaste','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
+}
+// start a fresh named project (saves current first)
+async function newProject(name){
+  if(!name)return;
+  // reset to a clean slate
+  _workspaceId=null;
+  store.projectName=name;
+  store.zones=[{id:1,name:'Zone 1'}]; store.zoneFilter='all';
+  store.linRows=[]; store.sheetRows=[]; store.paintRows=[]; store.assemblyRows=[]; store.customAssemblies=[]; store.bankedDrops=[];
+  store.projectsLoaded=false; store.showProjects=false;
+  await cloudSave();   // creates the new project row immediately
+  render();
+}
+async function cloudLoad(){
+  if(!sb||!store.account||_workspaceId)return;
+  try{
+    // open the most recently updated project, if any
+    const {data}=await sb.from('jobs').select('*').eq('owner_id',store.account.uid).order('updated_at',{ascending:false}).limit(1);
+    if(data&&data.length){ _workspaceId=data[0].id; store.projectName=data[0].name; const d=data[0].data||{}; applyProject(d); store.syncState='saved'; }
+  }catch(e){}
+}
+// Contractor: load the whole shared catalogue (all suppliers)
+async function loadCatalogueAll(){
+  if(!sb)return;
+  try{const {data}=await sb.from('catalogue').select('*').order('supplier_name',{ascending:true});store.catalogueAll=data||[];}catch(e){store.catalogueAll=[];}
+  store.catAllLoaded=true;render();
+}
+// Generate a printable approval certificate (browser print-to-PDF)
+function viewCertificate(orderId){
+  const o=(store.myOrders||[]).find(x=>x.id===orderId)||(store.approvals||[]).find(x=>x.id===orderId);
+  if(!o){alert('Order not found.');return;}
+  if(o.status!=='approved'){alert('A certificate is only available for approved orders.');return;}
+  const items=Array.isArray(o.items)?o.items:[];
+  const when=o.approved_at?new Date(o.approved_at):new Date();
+  const rows=items.map(it=>`<tr><td style="padding:6px 10px;border-bottom:1px solid #ddd">${it.item||it.name||''}</td><td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:right">${it.qty||''}</td><td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:right">${o.currency||'$'}${(it.cost||0).toFixed(2)}</td></tr>`).join('');
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Approval Certificate ${o.approval_ref||''}</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;max-width:760px;margin:30px auto;padding:0 24px}
+  .head{border-bottom:3px solid #FFB300;padding-bottom:14px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:flex-end}
+  .brand{font-size:22px;font-weight:800;letter-spacing:1px}.brand small{display:block;font-size:10px;font-weight:400;color:#666;letter-spacing:2px}
+  .ref{text-align:right;font-size:12px}.ref b{font-size:15px;color:#b67b00}
+  h1{font-size:16px;letter-spacing:1px;color:#333;margin:18px 0 6px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:13px;margin:14px 0}
+  .grid div{padding:4px 0;border-bottom:1px solid #eee}.grid b{color:#555}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th{text-align:left;padding:7px 10px;background:#f4f4f4;border-bottom:2px solid #ccc;font-size:11px;letter-spacing:1px}
+  .total{text-align:right;font-size:16px;font-weight:800;margin-top:10px}
+  .stamp{margin-top:26px;padding:16px;border:2px solid #2e7d32;border-radius:8px;background:#f3fbf4}
+  .stamp .big{font-size:15px;font-weight:800;color:#2e7d32;letter-spacing:1px}
+  .foot{margin-top:24px;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:10px}
+  @media print{button{display:none}}</style></head><body>
+  <div class="head"><div class="brand">PITCH IQ<small>CUT LIST · FIT-OUT ESTIMATOR</small></div>
+    <div class="ref">APPROVAL REFERENCE<br><b>${o.approval_ref||'—'}</b></div></div>
+  <h1>MATERIAL ORDER — APPROVAL CERTIFICATE</h1>
+  <div class="grid">
+    <div><b>Project:</b> ${o.project_name||'—'}</div><div><b>Revision:</b> ${o.revision||1}</div>
+    <div><b>Contractor:</b> ${o.contractor_name||'—'}</div><div><b>Company:</b> ${o.contractor_company||'—'}</div>
+    <div><b>Supplier:</b> ${o.supplier_name||'—'}</div><div><b>Submitted:</b> ${o.created_at?new Date(o.created_at).toLocaleDateString():'—'}</div>
+  </div>
+  <table><thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Cost</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="total">TOTAL: ${o.currency||'$'}${(o.total||0).toFixed(2)}</div>
+  <div class="stamp"><div class="big">✓ APPROVED</div>
+    <div style="font-size:13px;margin-top:6px">Approved by <b>${o.approver_name||'Manager'}</b> on <b>${when.toLocaleDateString()} at ${when.toLocaleTimeString()}</b></div>
+    ${o.approver_note?`<div style="font-size:12px;margin-top:4px;color:#555">Note: ${o.approver_note}</div>`:''}
+    <div style="font-size:11px;margin-top:8px;color:#666">Reference ${o.approval_ref||'—'} · This certificate confirms the above order was reviewed and approved within PITCH IQ.</div></div>
+  <div class="foot">Generated ${new Date().toLocaleString()} · PITCH IQ · This is a system-generated approval record. Verify the reference number against the company's PITCH IQ account.</div>
+  <button onclick="window.print()" style="margin-top:20px;padding:10px 18px;background:#FFB300;border:none;border-radius:6px;font-weight:700;cursor:pointer">⎙ PRINT / SAVE AS PDF</button>
+  </body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}else{alert('Please allow pop-ups to view the certificate.');}
+}
+
+// Contractor: load orders they've submitted, to see approval status
+async function loadMyOrders(){
+  if(!sb||!store.account)return;
+  try{const {data}=await sb.from('orders').select('*').eq('contractor_id',store.account.uid).order('created_at',{ascending:false});store.myOrders=data||[];}catch(e){store.myOrders=[];}
+  store.myOrdersLoaded=true;render();
+}
+
+// Contractor submits an order (one supplier or all) for manager approval
+async function submitOrderForApproval(lines, total, supplierName){
+  if(!sb||!store.account){alert('Not connected.');return;}
+  if(!store.account.companyId){alert('Your account has no company set, so there is no manager to approve. Ask your admin to set your company.');return;}
+  // find the most recent prior order for this supplier in this project
+  const prior=(store.myOrders||[])
+    .filter(o=>o.supplier_name===(supplierName||'(multiple)') && o.project_id===_workspaceId)
+    .sort((a,b)=>(b.revision||1)-(a.revision||1))[0];
+  let revision=1, supersedes=null;
+  if(prior){
+    if(prior.status==='pending_approval'){
+      alert(`This project's order to ${supplierName||'suppliers'} is already pending approval (Revision ${prior.revision||1}). Wait for your manager to act, or it will be confusing to send another version now.`);
+      return;
+    }
+    // prior was approved/rejected/sent — this becomes a new revision.
+    if(prior.status==='approved'){
+      const ok=confirm(`The previous order (Revision ${prior.revision||1}) was already APPROVED. Submitting a revision will supersede it and need fresh approval. Continue?`);
+      if(!ok)return;
+    }
+    revision=(prior.revision||1)+1;
+    supersedes=prior.id;
+  }
+  // mark which lines are newly added vs the prior revision (by item label + supplier)
+  let lineSet=lines;
+  if(prior&&Array.isArray(prior.items)){
+    const priorKeys=new Set(prior.items.map(it=>`${it.item||it.name||''}|${it.supplier||''}`));
+    lineSet=lines.map(l=>({...l, isNew:!priorKeys.has(`${l.item||l.name||''}|${l.supplier||''}`)}));
+  }
+  // resolve supplier account id by name
+  let supplierId=null;
+  if(supplierName&&supplierName!=='(multiple)'){
+    try{const {data}=await sb.from('supplier_profiles').select('id').eq('supplier_name',supplierName).maybeSingle();if(data)supplierId=data.id;}catch(e){}
+  }
+  const row={
+    contractor_id:store.account.uid, contractor_name:store.account.name, contractor_company:store.account.company,
+    company_id:store.account.companyId, supplier_id:supplierId, supplier_name:supplierName||'(multiple)',
+    project_id:_workspaceId, project_name:store.projectName||'Untitled project',
+    revision, supersedes,
+    items:lineSet, total:total, currency:store.currency, status:'pending_approval'
+  };
+  try{
+    const {error}=await sb.from('orders').insert(row);
+    if(error){alert('Could not submit: '+error.message);return;}
+    alert(revision>1?`✓ Revision ${revision} submitted for approval. New items are highlighted for your manager.`:'✓ Submitted for approval. Your manager will see it when they log in.');
+    store.myOrdersLoaded=false; loadMyOrders();
+  }catch(e){alert('Could not submit: '+e.message);}
+}
+
+// Copy a catalogue item into the contractor's own Price Book, in the best-fit section
+function useCatalogueItem(id){
+  const c=(store.catalogueAll||[]).find(x=>x.id===id);if(!c)return;
+  const sup=c.supplier_name||'Catalogue';
+  const k=(c.kind||'').toLowerCase();
+  // decide which price-book section by the data present, falling back to category text
+  if(c.width&&c.height){
+    store.priceBook.sheet.push({supplier:sup,code:c.code||'',thk:+c.thk||0,w:+c.width||0,h:+c.height||0,price:+c.price||0});
+  }else if(c.length||k.includes('stud')||k.includes('track')||k.includes('linear')||k.includes('channel')||k.includes('lip')){
+    store.priceBook.linear.push({supplier:sup,code:c.code||'',thk:+c.thk||0,len:+c.length||0,price:+c.price||0});
+  }else if(c.litres||k.includes('paint')||k.includes('primer')||k.includes('sealer')){
+    store.priceBook.paint.push({supplier:sup,code:c.code||'',price:+c.price||0});
+  }else{
+    if(!store.priceBook.ancillary)store.priceBook.ancillary=[];
+    store.priceBook.ancillary.push({supplier:sup,code:c.code||'',desc:c.description||c.kind||'',unit:c.unit||'each',price:+c.price||0});
+  }
+  store.tab='prices';
+  render();
+}
+function updateSyncBadge(){
+  const el=document.getElementById('syncBadge');
+  if(!el)return;
+  const s=store.syncState;
+  el.textContent = s==='saving'?'⟳ saving…' : s==='saved'?'✓ saved' : s==='error'?'⚠ offline' : '';
+  el.style.color = s==='error'?'var(--red)' : s==='saved'?'var(--green)' : 'var(--mut)';
+}
+
+const toMM=v=>store.unit==='mm'?v:v*MM_PER_IN;
+const u=()=>store.unit==='mm'?'mm':'in';
+const au=()=>store.unit==='mm'?'m²':'ft²';
+const vu=()=>store.unit==='mm'?'L':'gal';
+const fmt=v=>store.unit==='mm'?Math.round(v):+(v/MM_PER_IN).toFixed(2);
+const money=v=>store.currency+(v||0).toFixed(2);
+const zoneName=id=>{const z=store.zones.find(z=>z.id===id);return z?z.name:'—';};
+
+// ---- supplier-aware lookups: return {price, supplier, offers[], pinned, fellBack} ----
+const prefKey=(code,thk)=>(code||'')+'|'+(thk==null?'':thk);
+function pickOffer(matches, code, thk){
+  if(!matches.length) return {price:0, supplier:null, offers:[], pinned:false, fellBack:false};
+  const pinned=store.supplierPrefs[prefKey(code,thk)];
+  let chosen=null, fellBack=false;
+  if(pinned){
+    chosen=matches.find(m=>m.supplier===pinned);
+    if(!chosen) fellBack=true; // pinned supplier doesn't stock this size
+  }
+  if(!chosen) chosen=[...matches].sort((a,b)=>a.price-b.price)[0];
+  return {price:chosen?chosen.price:0, supplier:chosen?chosen.supplier:null, offers:matches, pinned:!!pinned, fellBack};
+}
+const offerLinear=(code,thk,len)=>pickOffer(store.priceBook.linear.filter(x=>x.code===code&&x.thk===thk&&x.len===len),code,thk);
+const offerSheet=(code,thk,w,h)=>pickOffer(store.priceBook.sheet.filter(x=>x.code===code&&x.thk===thk&&x.w===w&&x.h===h),code,thk);
+const offerPaint=code=>pickOffer(store.priceBook.paint.filter(x=>x.code===code),code,null);
+// back-compat: price-only helpers
+const priceLinear=(code,thk,len)=>offerLinear(code,thk,len).price;
+const priceSheet=(code,thk,w,h)=>offerSheet(code,thk,w,h).price;
+const pricePaint=code=>offerPaint(code).price;
+const allSuppliers=()=>{const s=new Set();['linear','sheet','paint'].forEach(k=>store.priceBook[k].forEach(e=>e.supplier&&s.add(e.supplier)));return [...s].sort();};
+// ---- offcut bank matching: same code AND thickness, big enough ----
+const matchBank=(code,thk,need)=>store.bankedDrops.find(d=>d.code===code && d.thk===thk && d.size>=need);
+
+// ---- ancillary offer lookup ----
+const offerAncillary=code=>pickOffer((store.priceBook.ancillary||[]).filter(x=>x.code===code),code,null);
+const ancMeta=code=>{const e=(store.priceBook.ancillary||[]).find(x=>x.code===code);return e?{desc:e.desc,unit:e.unit}:{desc:code,unit:'each'};};
+
+// ---- ASSEMBLY TEMPLATES ----
+// Each template takes user inputs and returns a list of {code, qty, desc, unit}.
+// Quantities are calculated using industry rules of thumb. All editable.
+const ASSEMBLIES = {
+  stud_wall: {
+    name: 'Stud Partition Wall',
+    inputs: [
+      {k:'L', label:'Length (m)', def:5},
+      {k:'H', label:'Height (m)', def:2.7},
+      {k:'spacing', label:'Stud spacing (mm)', def:600},
+      {k:'layers', label:'Board layers (e.g. 1+1, 2+2)', def:'1+1', type:'select', opts:['1+0','1+1','2+1','2+2']},
+      {k:'studCode', label:'Stud code', def:'STUD-92', type:'text'},
+      {k:'studThk', label:'Stud thk (mm)', def:92},
+      {k:'trackCode', label:'Track code', def:'TRK-92', type:'text'},
+      {k:'boardCode', label:'Board code', def:'GYP', type:'text'},
+      {k:'boardThk', label:'Board thk (mm)', def:12.5},
+      {k:'insulCode', label:'Insulation code', def:'INSUL-100MM', type:'text'},
+      {k:'externalCorners', label:'External corners', def:0},
+    ],
+    compute(p){
+      const L=+p.L, H=+p.H, spacing=+p.spacing/1000;
+      const layersArr=String(p.layers||'1+1').split('+').map(n=>+n);
+      const layersTotal=layersArr.reduce((a,b)=>a+b,0); // 1+1=2 layers, 2+2=4
+      const studs=Math.ceil(L/spacing)+1;
+      const studLen=Math.ceil(H*1000); // mm
+      const trackLen=L*1.05; // 5% wastage
+      const boardArea=L*H*layersTotal*1.1; // 10% cut wastage
+      const insulArea=L*H;
+      const perimeter=2*(L+H);
+      const screwsPerM2=25;
+      const scrimMPerM2=3;
+      const compKgPerM2=1.0;
+      const sealantPerimM=10; // m of sealant per tube
+      const bdScrews=boardArea*screwsPerM2;
+      const scrimM=boardArea*scrimMPerM2;
+      const compKg=boardArea*compKgPerM2;
+      const cornerLen=(+p.externalCorners||0)*H;
+      return [
+        {kind:'linear', code:p.trackCode, thk:+p.studThk, len:Math.max(3000,Math.ceil(L*1000)), qty:Math.ceil(trackLen*2/(Math.max(3,L*1.05))), desc:'Top + bottom track'},
+        {kind:'linear', code:p.studCode, thk:+p.studThk, len:studLen, qty:studs, desc:`Studs @ ${p.spacing}mm c/c`},
+        {kind:'sheet',  code:p.boardCode, thk:+p.boardThk, w:1220, h:2440, qty:Math.ceil(boardArea/(1.22*2.44)), desc:`Plasterboard (${p.layers} layers)`},
+        {kind:'anc', code:p.insulCode, qty:Math.ceil(insulArea), desc:'Insulation', unit:'m²'},
+        {kind:'anc', code:p.boardThk>=15?'DRYWALL-SCREW-38':'DRYWALL-SCREW-25', qty:Math.ceil(bdScrews/1000), desc:'Drywall screws', unit:'box'},
+        {kind:'anc', code:'SCRIM-TAPE-90M', qty:Math.ceil(scrimM/90), desc:'Scrim tape', unit:'roll'},
+        {kind:'anc', code:'JOINT-COMP-25KG', qty:Math.ceil(compKg/25), desc:'Joint compound', unit:'bag'},
+        {kind:'anc', code:'AC-SEALANT-TUBE', qty:Math.ceil(perimeter/sealantPerimM), desc:'Acoustic sealant', unit:'tube'},
+        ...(cornerLen>0?[{kind:'anc', code:'CORNER-BEAD-3M', qty:Math.ceil(cornerLen/3), desc:'Corner beads', unit:'length'}]:[]),
+      ];
+    }
+  },
+  ceiling: {
+    name: 'Suspended Ceiling (MF)',
+    inputs: [
+      {k:'A', label:'Area (m²)', def:30},
+      {k:'perim', label:'Perimeter (m)', def:22},
+      {k:'boardCode', label:'Board code', def:'GYP', type:'text'},
+      {k:'boardThk', label:'Board thk (mm)', def:12.5},
+    ],
+    compute(p){
+      const A=+p.A, perim=+p.perim;
+      const primaryM=A/1.2;  // primaries @1200 c/c -> total length = area/spacing
+      const secondaryM=A/0.4; // secondaries @400 c/c
+      const hangers=Math.ceil(primaryM/1.2); // every 1.2m along primaries
+      return [
+        {kind:'anc', code:'MF-PRIMARY-3.6M', qty:Math.ceil(primaryM/3.6), desc:'Primary channels', unit:'length'},
+        {kind:'anc', code:'MF-SECONDARY-3.6M', qty:Math.ceil(secondaryM/3.6), desc:'Secondary channels', unit:'length'},
+        {kind:'anc', code:'MF-HANGER', qty:hangers, desc:'Hangers / cleats', unit:'each'},
+        {kind:'anc', code:'PERIMETER-TRIM-3M', qty:Math.ceil(perim/3), desc:'Perimeter trim', unit:'length'},
+        {kind:'sheet', code:p.boardCode, thk:+p.boardThk, w:1220, h:2440, qty:Math.ceil(A*1.1/(1.22*2.44)), desc:'Ceiling board (10% waste)'},
+        {kind:'anc', code:'DRYWALL-SCREW-25', qty:Math.ceil(A*1.1*25/1000), desc:'Drywall screws', unit:'box'},
+      ];
+    }
+  },
+  floor_tile: {
+    name: 'Floor Tiling',
+    inputs: [
+      {k:'A', label:'Area (m²)', def:25},
+      {k:'tileW', label:'Tile W (mm)', def:600},
+      {k:'tileH', label:'Tile H (mm)', def:600},
+      {k:'tileCode', label:'Tile code', def:'TILE-PORC-600', type:'text'},
+      {k:'adhKg', label:'Adhesive kg/m²', def:5},
+    ],
+    compute(p){
+      const A=+p.A, tW=+p.tileW/1000, tH=+p.tileH/1000;
+      const tilePerM2=1/(tW*tH);
+      const tiles=Math.ceil(A*tilePerM2*1.1); // 10% wastage
+      const adh=A*(+p.adhKg);
+      const grout=A*0.5; // ~0.5 kg/m² rough for 600x600
+      return [
+        {kind:'anc', code:p.tileCode, qty:tiles, desc:`Tiles ${p.tileW}×${p.tileH}mm (10% waste)`, unit:'each'},
+        {kind:'anc', code:'TILE-ADHESIVE-20KG', qty:Math.ceil(adh/20), desc:'Tile adhesive', unit:'bag'},
+        {kind:'anc', code:'GROUT-5KG', qty:Math.ceil(grout/5), desc:'Grout', unit:'bag'},
+        {kind:'anc', code:'TILE-SPACER-PK', qty:Math.ceil(tiles/250), desc:'Spacers', unit:'pack'},
+      ];
+    }
+  },
+  joinery: {
+    name: 'General Joinery / Panel Install',
+    inputs: [
+      {k:'panelCount', label:'Panel count', def:6},
+      {k:'perimM', label:'Total perimeter (m)', def:24},
+      {k:'battenM', label:'Battens needed (m)', def:18},
+    ],
+    compute(p){
+      const panels=+p.panelCount, perim=+p.perimM, battenM=+p.battenM;
+      return [
+        {kind:'anc', code:'BATTEN-25X50-3M', qty:Math.ceil(battenM/3), desc:'Mounting battens', unit:'length'},
+        {kind:'anc', code:'WOOD-SCREW-50', qty:Math.ceil(panels*8/200), desc:'Wood screws', unit:'box'},
+        {kind:'anc', code:'WALL-PLUG-PK', qty:Math.ceil(panels*8/100), desc:'Wall plugs', unit:'pack'},
+        {kind:'anc', code:'CONSTR-ADH-TUBE', qty:Math.ceil(perim/8), desc:'Construction adhesive', unit:'tube'},
+      ];
+    }
+  },
+};
+
+// Cost an assembly row's BoM, returning [{line, supplier, cost}]
+function assemblyCost(row){
+  const tpl=ASSEMBLIES[row.type]; if(!tpl) return {items:[], total:0};
+  const items=tpl.compute(row.params).map(it=>{
+    let price=0, supplier='—';
+    if(it.kind==='linear'){const o=offerLinear(it.code,it.thk,it.len);price=o.price;supplier=o.supplier||'—';}
+    else if(it.kind==='sheet'){const o=offerSheet(it.code,it.thk,it.w,it.h);price=o.price;supplier=o.supplier||'—';}
+    else if(it.kind==='anc'){const o=offerAncillary(it.code);price=o.price;supplier=o.supplier||'—';if(!it.unit){it.unit=ancMeta(it.code).unit;}}
+    return {...it, price, supplier, cost:price*it.qty};
+  });
+  return {items, total:items.reduce((s,i)=>s+i.cost,0)};
+}
+
+// all known codes across the price book, for the custom-assembly picker
+function allKnownItems(){
+  const out=[];
+  (store.priceBook.ancillary||[]).forEach(e=>out.push({code:e.code,desc:e.desc,unit:e.unit,price:e.price,supplier:e.supplier}));
+  store.priceBook.linear.forEach(e=>out.push({code:e.code,desc:e.code+' '+e.thk+'mm @ '+e.len,unit:'length',price:e.price,supplier:e.supplier}));
+  store.priceBook.sheet.forEach(e=>out.push({code:e.code,desc:e.code+' '+e.thk+'mm '+e.w+'x'+e.h,unit:'sheet',price:e.price,supplier:e.supplier}));
+  store.priceBook.paint.forEach(e=>out.push({code:e.code,desc:e.code+' (paint)',unit:'L',price:e.price,supplier:e.supplier}));
+  // de-dup by code
+  const seen={};return out.filter(i=>{if(seen[i.code])return false;seen[i.code]=1;return true;});
+}
+// cost a custom assembly: each line is {name, code, qty, unit, price}
+// if a code matches the price book, pull its live price+supplier; else use the typed price
+function customCost(ca){
+  const items=(ca.lines||[]).map(ln=>{
+    let price=+ln.price||0, supplier=ln.supplier||'(manual)';
+    if(ln.code){const o=offerAncillary(ln.code);if(o.price>0){price=o.price;supplier=o.supplier||supplier;}
+      else{const k=allKnownItems().find(i=>i.code===ln.code);if(k){price=k.price;supplier=k.supplier||supplier;}}}
+    return {...ln, price, supplier, cost:price*(+ln.qty||0)};
+  });
+  return {items, total:items.reduce((s,i)=>s+i.cost,0)};
+}
+function optimiseLinear(stockLen,kerf,cuts){
+  const pieces=[];cuts.forEach(c=>{for(let i=0;i<c.qty;i++)pieces.push({len:c.len});});
+  pieces.sort((a,b)=>b.len-a.len);
+  const bars=[];let fresh=0;
+  pieces.forEach(p=>{let placed=false;
+    for(const bar of bars){const need=p.len+(bar.cuts.length?kerf:0);if(bar.remaining>=need){bar.cuts.push(p);bar.remaining-=need;placed=true;break;}}
+    if(!placed){bars.push({cuts:[p],remaining:stockLen-p.len,capacity:stockLen});fresh++;}});
+  const used=bars.filter(b=>b.cuts.length);
+  const totalStock=fresh*stockLen, totalUsed=pieces.reduce((s,p)=>s+p.len,0);
+  const kerfTotal=used.reduce((s,b)=>s+Math.max(0,b.cuts.length-1)*kerf,0);
+  const wastePct=totalStock>0?Math.max(0,totalStock-totalUsed-kerfTotal)/totalStock*100:0;
+  const newDrops=used.filter(b=>b.remaining>0).map(b=>Math.round(b.remaining));
+  return {bars:used,barCount:fresh,wastePct,newDrops};
+}
+
+// ---- guillotine sheet packer ----
+function packGuillotine(sheetW,sheetH,kerf,parts){
+  const sorted=[...parts].sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+  const sheets=[];
+  const newSheet=()=>({free:[{x:0,y:0,w:sheetW,h:sheetH}],placed:[]});
+  function tryPlace(sheet,p){
+    let best=-1,bestScore=Infinity;
+    for(let i=0;i<sheet.free.length;i++){const f=sheet.free[i];
+      if(p.w<=f.w&&p.h<=f.h){const sc=Math.min(f.w-p.w,f.h-p.h);if(sc<bestScore){bestScore=sc;best=i;}}}
+    if(best<0)return false;
+    const f=sheet.free[best];
+    sheet.placed.push({w:p.w,h:p.h,x:f.x,y:f.y});
+    const rW=f.w-p.w-kerf,bH=f.h-p.h-kerf;
+    sheet.free.splice(best,1);
+    if(rW>0)sheet.free.push({x:f.x+p.w+kerf,y:f.y,w:rW,h:p.h});
+    if(bH>0)sheet.free.push({x:f.x,y:f.y+p.h+kerf,w:f.w,h:bH});
+    return true;
+  }
+  sorted.forEach(p=>{let placed=false;for(const s of sheets){if(tryPlace(s,p)){placed=true;break;}}if(!placed){const s=newSheet();tryPlace(s,p);sheets.push(s);}});
+  const usedArea=sorted.reduce((s,p)=>s+p.w*p.h,0),total=sheets.length*sheetW*sheetH;
+  return {sheets:sheets.map(s=>({parts:s.placed})),sheetCount:sheets.length,wastePct:total>0?(total-usedArea)/total*100:0};
+}
+function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
+  const items=[];parts.forEach(p=>{for(let i=0;i<p.qty;i++)items.push({w:p.cw,h:p.ch});});
+  const orient=it=>grain==='across'?{w:it.h,h:it.w}:grain==='none'?(it.h>it.w?{w:it.h,h:it.w}:{w:it.w,h:it.h}):{w:it.w,h:it.h};
+  return packGuillotine(sheetW,sheetH,kerf,items.map(orient));
+}
+const sheetWaste=(w,h,k,g,p)=>optimiseSheets(w,h,k,g,p).wastePct;
+
+// ---- lipping: lip on an edge reduces the PERPENDICULAR dimension ----
+function cutSize(r){const t=r.lip||0,e=r.edge||'0';let dw=0,dh=0;
+  if(e==='1w')dh=t;else if(e==='2w')dh=2*t;else if(e==='1h')dw=t;else if(e==='2h')dw=2*t;else if(e==='all'){dw=2*t;dh=2*t;}
+  return {cw:Math.max(0,r.w-dw),ch:Math.max(0,r.h-dh)};}
+
+// ---- lipping length (mm) per panel based on lipped edges ----
+// A "width edge" runs along the W side (horizontal, top/bottom) so its length = W.
+// A "height edge" runs along the H side (vertical, left/right) so its length = H.
+function lipLenPerPanel(r){
+  const e=r.edge||'0';
+  if(e==='1w')return r.w;
+  if(e==='2w')return 2*r.w;
+  if(e==='1h')return r.h;
+  if(e==='2h')return 2*r.h;
+  if(e==='all')return 2*r.w+2*r.h;
+  return 0;
+}
+// Aggregate lipping demand across panel rows -> [{code, thk, stockLen, totalMM, withWasteMM, lengthsToBuy, supplier, unitPrice, cost}]
+function lipDemand(rows){
+  const buckets={};
+  rows.forEach(r=>{
+    if(!r.lipCode||!r.lip||!r.edge||r.edge==='0')return;
+    const stockLen=+r.lipLen||3600;
+    const k=r.lipCode+'|'+r.lip+'|'+stockLen;
+    if(!buckets[k])buckets[k]={code:r.lipCode,thk:r.lip,stockLen,totalMM:0};
+    buckets[k].totalMM+=lipLenPerPanel(r)*r.qty;
+  });
+  const wastePct=(+store.lipWaste||0)/100;
+  return Object.values(buckets).map(b=>{
+    const withWasteMM=b.totalMM*(1+wastePct);
+    const lengthsToBuy=Math.ceil(withWasteMM/b.stockLen);
+    const off=offerLinear(b.code,b.thk,b.stockLen);
+    return {...b, withWasteMM, lengthsToBuy, supplier:off.supplier||'—', unitPrice:off.price, cost:lengthsToBuy*off.price, fellBack:off.fellBack};
+  });
+}
+
+// ---- paint: litres + cost ----
+function paintCalc(r){
+  const area=r.area||0, coats=r.coats||1, spread=r.spread||10, waste=(r.waste||0)/100;
+  const litres=spread>0?(area*coats/spread)*(1+waste):0;
+  const o=offerPaint(r.code);
+  return {litres, cost:litres*o.price, supplier:o.supplier, pinned:o.pinned, fellBack:o.fellBack, offers:o.offers};
+}
+
+const PAL=['#FFB300','#3ddc84','#5db8ff','#ff8fb1','#c08bff','#ffd24d','#7ee8c0','#ffa94d'];
+
+// ============================ RENDER ============================
+function render(){persist();const root=document.getElementById('root');root.innerHTML=store.account?(store.account.accountType==='supplier'?supplierHTML():store.account.accountType==='manager'?managerHTML():appHTML()):authHTML();wire();}
+
+function authHTML(){
+  const m=store.authMode;
+  const tab=(k,t)=>`<button class="tab ${m===k?'on':''}" data-authmode="${k}" style="flex:1">${t}</button>`;
+  return `<div class="auth"><div class="authCard">
+  <div class="authHead"><div class="logo">▰▰</div><div class="authTitle">PITCH&nbsp;IQ</div><div class="authSub">CUT LIST · FIT-OUT ESTIMATOR</div></div>
+  <div class="authBody">
+    <div class="tabs" style="display:flex;gap:4px;margin-bottom:18px">${tab('signin','SIGN IN')}${tab('signup','CREATE ACCOUNT')}${tab('magic','MAGIC LINK')}</div>
+    ${!sb?`<div class="demoBanner" style="border-color:var(--red);color:var(--red)">⚠ Can't reach Supabase — check your internet connection and reload.</div>`:''}
+    ${m==='signup'?`
+      <div class="tabs" style="display:flex;gap:4px;margin-bottom:14px">
+        <button class="tab ${store.signupType==='contractor'?'on':''}" data-signuptype="contractor" style="flex:1;font-size:10px">CONTRACTOR</button>
+        <button class="tab ${store.signupType==='manager'?'on':''}" data-signuptype="manager" style="flex:1;font-size:10px">MANAGER</button>
+        <button class="tab ${store.signupType==='supplier'?'on':''}" data-signuptype="supplier" style="flex:1;font-size:10px">SUPPLIER</button>
+      </div>
+      ${store.signupType==='contractor'?`
+        <label class="lbl">COMPANY NAME</label><input class="inp" id="f_company" placeholder="Acme Fit-Out Ltd">
+        <label class="lbl">YOUR NAME</label><input class="inp" id="f_name" placeholder="Your full name">
+        <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
+        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+44 7700 900000">
+        <label class="lbl">LOCATION</label><input class="inp" id="f_location" placeholder="City, Country">
+        <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <div class="err" id="authErr">${store.authMsg}</div>
+        <button class="cta" id="doSignup" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE ACCOUNT — 30 DAY FREE TRIAL'}</button>
+        <div class="trial">✓ Free for 30 days · we'll set up billing before any charge</div>`
+      :store.signupType==='manager'?`
+        <div class="demoBanner" style="border-color:var(--amber);color:var(--amber)">Manager account: review and approve cutting lists and orders from your company's estimators before they go to suppliers.</div>
+        <label class="lbl">COMPANY NAME (must match your team's)</label><input class="inp" id="f_company" placeholder="Acme Fit-Out Ltd">
+        <label class="lbl">YOUR NAME</label><input class="inp" id="f_name" placeholder="Your full name">
+        <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
+        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+44 ...">
+        <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <div class="err" id="authErr">${store.authMsg}</div>
+        <button class="cta" id="doSignupManager" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE MANAGER ACCOUNT'}</button>
+        <div class="trial">Enter the exact company name your estimators use, so their work reaches you.</div>`
+      :`
+        <div class="demoBanner" style="border-color:var(--blue);color:var(--blue)">Supplier account: list your materials in the shared catalogue so contractors across PitchIQ can find and price them.</div>
+        <label class="lbl">SUPPLIER / BUSINESS NAME</label><input class="inp" id="f_company" placeholder="Gulf Gypsum Trading LLC">
+        <label class="lbl">CONTACT NAME</label><input class="inp" id="f_name" placeholder="Your full name">
+        <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="sales@business.com">
+        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+971 ...">
+        <label class="lbl">REGION SERVED</label><input class="inp" id="f_location" placeholder="UAE / Gulf">
+        <label class="lbl">WEBSITE (optional)</label><input class="inp" id="f_website" placeholder="https://...">
+        <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <div class="err" id="authErr">${store.authMsg}</div>
+        <button class="cta" id="doSignupSupplier" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE SUPPLIER ACCOUNT'}</button>
+        <div class="trial">Free to list during beta</div>`}`
+    :m==='magic'?`
+      <div class="demoBanner">Enter your email and we'll send a one-tap login link — no password needed.</div>
+      <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
+      <div class="err" id="authErr">${store.authMsg}</div>
+      <button class="cta" id="doMagic" ${store.authBusy?'disabled':''}>${store.authBusy?'SENDING…':'SEND MAGIC LINK'}</button>`
+    :`
+      <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
+      <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="Your password">
+      <div class="err" id="authErr">${store.authMsg}</div>
+      <button class="cta" id="doSignin" ${store.authBusy?'disabled':''}>${store.authBusy?'SIGNING IN…':'SIGN IN'}</button>`}
+  </div></div></div>`;}
+
+
+// ===================== MANAGER DASHBOARD =====================
+async function loadApprovals(){
+  if(!sb||!store.account)return;
+  try{const {data}=await sb.from('orders').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});store.approvals=data||[];}catch(e){store.approvals=[];}
+  store.apprLoaded=true;render();
+}
+async function setApproval(id,status){
+  if(!sb)return;
+  const note=status==='rejected'?(prompt('Reason for rejection (optional):')||''):'';
+  const approvedAt=new Date().toISOString();
+  // unique reference on approval, e.g. PIQ-20260531-7K3F
+  let ref=null;
+  if(status==='approved'){
+    const d=new Date();
+    const ymd=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    const rand=Math.random().toString(36).slice(2,6).toUpperCase();
+    ref=`PIQ-${ymd}-${rand}`;
+  }
+  try{await sb.from('orders').update({status,approver_id:store.account.uid,approver_name:store.account.name,approver_note:note,approved_at:approvedAt,approval_ref:ref}).eq('id',id);}catch(e){}
+  const o=store.approvals.find(x=>x.id===id);if(o){o.status=status;o.approver_note=note;o.approved_at=approvedAt;o.approval_ref=ref;o.approver_name=store.account.name;}
+  render();
+}
+function managerHTML(){
+  if(!store.apprLoaded){loadApprovals();}
+  const all=store.approvals||[];
+  const pending=all.filter(o=>o.status==='pending_approval');
+  const done=all.filter(o=>o.status!=='pending_approval'&&o.status!=='draft');
+  const card=o=>{
+    const items=o.items||[];
+    return `<div class="card" style="border-color:${o.status==='pending_approval'?'var(--amber)':o.status==='approved'?'var(--green)':o.status==='rejected'?'var(--red)':'var(--line)'}">
+      <div class="cardHead"><span>📋 ${o.project_name||'(unnamed project)'} ${(o.revision||1)>1?`<span style="color:var(--green)">· REV ${o.revision}</span>`:''} <small style="color:var(--mut)">· ${o.supplier_name||'order'} · ${o.contractor_company||''} by ${o.contractor_name||''}</small></span><span class="cost">${o.currency||'$'}${(o.total||0).toFixed(2)}</span></div>
+      <div style="padding:10px 16px">
+        <div style="font-size:11px;color:var(--mut);margin-bottom:8px">Status: <strong style="color:${o.status==='approved'?'var(--green)':o.status==='rejected'?'var(--red)':'var(--amber)'}">${(o.status||'').replace('_',' ').toUpperCase()}</strong>${o.approver_note?` · note: ${o.approver_note}`:''}</div>
+        <div class="scroll"><table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Cost</th></tr></thead><tbody>
+        ${items.map(it=>`<tr${it.isNew?' style="background:rgba(61,220,132,0.12)"':''}><td>${it.isNew?'<span style="color:var(--green);font-weight:700">＋NEW </span>':''}${it.item||it.name||''}</td><td class="r">${it.qty||''}</td><td class="r">${o.currency||'$'}${(it.cost||0).toFixed(2)}</td></tr>`).join('')}
+        </tbody></table></div>
+        ${o.status==='pending_approval'?`<div style="display:flex;gap:8px;margin-top:12px">
+          <button class="cta" style="flex:1;background:var(--green);color:#06210f" data-approve="${o.id}">✓ APPROVE</button>
+          <button class="cta" style="flex:1;background:var(--red);color:#2a0a0a" data-reject="${o.id}">✕ REJECT</button>
+        </div>`:o.status==='approved'?`<div style="margin-top:12px"><button class="zadd" data-cert="${o.id}" style="border-color:var(--green);color:var(--green);width:100%">⎙ VIEW APPROVAL CERTIFICATE · ${o.approval_ref||''}</button></div>`:''}
+      </div></div>`;};
+  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
+    <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+  <div class="body">
+    <div class="hint" style="padding-top:14px">Review cutting lists and orders your estimators submit. Approve to release them to suppliers, or reject with a reason. Only orders from <strong>${store.account.company}</strong> appear here.</div>
+    <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
+    ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
+    ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
+  </div>`;}
+
+// ===================== SUPPLIER DASHBOARD =====================
+async function loadMyCatalogue(){
+  if(!sb||!store.account)return;
+  try{const {data}=await sb.from('catalogue').select('*').eq('supplier_id',store.account.uid).order('created_at',{ascending:true});store.myCatalogue=data||[];}catch(e){store.myCatalogue=[];}
+  store.catLoaded=true;render();
+}
+async function catAdd(){
+  if(!sb)return;
+  const row={supplier_id:store.account.uid, supplier_name:store.account.company, kind:'', code:'NEW-ITEM', description:'', unit:'each', litres:0, container:'', price:0, currency:store.currency, region:store.account.location||''};
+  try{const {data}=await sb.from('catalogue').insert(row).select().single();if(data)store.myCatalogue.push(data);}catch(e){alert('Could not add: '+e.message);}
+  render();
+}
+async function catUpdate(id,patch){
+  if(!sb)return;
+  const r=store.myCatalogue.find(x=>x.id===id);if(r)Object.assign(r,patch);
+  try{await sb.from('catalogue').update({...patch,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}
+}
+async function catDelete(id){
+  if(!sb)return;
+  store.myCatalogue=store.myCatalogue.filter(x=>x.id!==id);render();
+  try{await sb.from('catalogue').delete().eq('id',id);}catch(e){}
+}
+function supplierHTML(){
+  if(!store.catLoaded){loadMyCatalogue();}
+  const rows=store.myCatalogue;
+  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · SUPPLIER</div><div class="bs">${store.account.company}</div></div></div>
+    <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+  <div class="body">
+    <div class="hint" style="padding-top:14px">List the materials you supply. Contractors using PitchIQ across the network will see these in their Catalogue and can price jobs with them. Keep codes and prices accurate — this is your shopfront.</div>
+    <div class="card"><div class="cardHead"><span>MY CATALOGUE — ${rows.length} item${rows.length===1?'':'s'}</span></div>
+      <div class="scroll"><table><thead><tr><th>Category / type</th><th>Code</th><th>Description</th><th class="r">Thk</th><th class="r">W</th><th class="r">H</th><th class="r">Length</th><th class="r">Litres</th><th>Container</th><th>Unit</th><th class="r">Price</th><th>Cur</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>`<tr>
+        <td><input class="cell" style="width:110px" value="${r.kind||''}" data-cat="${r.id}" data-k="kind" placeholder="e.g. hinges, paint, board"></td>
+        <td><input class="cell" style="width:120px" value="${r.code||''}" data-cat="${r.id}" data-k="code"></td>
+        <td><input class="cell" style="width:180px" value="${r.description||''}" data-cat="${r.id}" data-k="description"></td>
+        <td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-cat="${r.id}" data-k="thk"></td>
+        <td class="r"><input class="num numS" type="number" value="${r.width||0}" data-cat="${r.id}" data-k="width"></td>
+        <td class="r"><input class="num numS" type="number" value="${r.height||0}" data-cat="${r.id}" data-k="height"></td>
+        <td class="r"><input class="num numS" type="number" value="${r.length||0}" data-cat="${r.id}" data-k="length"></td>
+        <td class="r"><input class="num numS" type="number" value="${r.litres||0}" data-cat="${r.id}" data-k="litres"></td>
+        <td><input class="cell" style="width:80px" value="${r.container||''}" data-cat="${r.id}" data-k="container" placeholder="5L tin"></td>
+        <td><input class="cell" style="width:60px" value="${r.unit||''}" data-cat="${r.id}" data-k="unit"></td>
+        <td class="r"><input class="num numS" type="number" value="${r.price||0}" data-cat="${r.id}" data-k="price"></td>
+        <td><input class="cell" style="width:44px" value="${r.currency||'$'}" data-cat="${r.id}" data-k="currency"></td>
+        <td><button class="del" data-delcat="${r.id}">✕</button></td></tr>`).join('')}
+      </tbody></table></div>
+      <button class="add" id="catAdd">+ ADD MATERIAL</button>
+    </div>
+    <div class="hint">Tip: use clear codes (e.g. GYP-12.5-STD, STUD-92-3.6) and fill thickness/size where relevant — it helps contractors match your products to their cut lists.</div>
+  </div>`;}
+
+function appHTML(){
+  const daysLeft=Math.max(0,Math.ceil((new Date(store.account.trialEnds)-new Date())/864e5));
+  return `<div class="trialBar">✓ FREE TRIAL — ${daysLeft} day${daysLeft===1?'':'s'} left · ${store.account.company}</div>
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);font-size:12px">
+    <span style="color:var(--mut)">PROJECT:</span>
+    <strong style="color:var(--amber);letter-spacing:0.5px">${store.projectName||'Untitled'}</strong>
+    <button class="pbtn" id="projList" style="margin-left:auto">▤ MY PROJECTS</button>
+    <button class="pbtn" id="projNew">+ NEW PROJECT</button>
+  </div>
+  ${store.showProjects?`<div style="padding:12px 14px;background:#15181d;border-bottom:1px solid var(--line)">
+    <div style="font-size:11px;color:var(--mut);margin-bottom:8px">YOUR SAVED PROJECTS — tap to open</div>
+    ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px;cursor:pointer" data-openproj="${p.id}"><span>${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}</span><span style="font-size:10px;color:var(--mut)">${new Date(p.updated_at).toLocaleDateString()}</span></div>`).join('')||'<div class="empty">No projects yet.</div>'}
+  </div>`:''}
+  <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">PITCH&nbsp;IQ</div><div class="sub">CUT LIST · FIT-OUT ESTIMATOR</div></div></div>
+    <div class="headBtns">
+      <div class="unit"><button class="${store.unit==='mm'?'on':''}" data-unit="mm">mm</button><button class="${store.unit==='in'?'on':''}" data-unit="in">in</button></div>
+      <select class="sel" id="currencySel" title="Currency" style="padding:8px">${CURRENCIES.map(c=>`<option ${store.currency===c?'selected':''}>${c}</option>`).join('')}</select>
+      <button class="gbtn" id="export">↓ EXPORT</button>
+      <label class="gbtn">↑ IMPORT<input type="file" accept=".json" id="import" class="hide"></label>
+      <button class="gbtn" id="share">🔗 SHARE</button>
+      <span id="syncBadge" style="font-size:10px;letter-spacing:1px;align-self:center;min-width:60px">${store.syncState==='saved'?'✓ saved':store.syncState==='saving'?'⟳ saving…':''}</span>
+      <button class="pbtn" id="excel">⊞ EXCEL</button></div></header>
+  <div class="zoneBar"><span class="zlbl">ZONES</span>
+    <div class="chips" id="chips"><button class="chip ${store.zoneFilter==='all'?'on':''}" data-zone="all">All</button>
+      ${store.zones.map(z=>`<span><button class="chip ${+store.zoneFilter===z.id?'on':''}" data-zone="${z.id}">${z.name}</button>${store.zones.length>1?`<button class="chipX" data-delzone="${z.id}">✕</button>`:''}</span>`).join('')}</div>
+    <div><input class="zinp" id="newZone" placeholder="New zone name…" value="${store.newZone}"><button class="zadd" id="addZone">+ ADD</button></div></div>
+  <div class="controlBar"><div class="tabs">
+    <button class="tab ${store.tab==='assembly'?'on':''}" data-tab="assembly">◇ ASSEMBLIES</button>
+    <button class="tab ${store.tab==='linear'?'on':''}" data-tab="linear">LINEAR</button>
+    <button class="tab ${store.tab==='sheet'?'on':''}" data-tab="sheet">SHEET</button>
+    <button class="tab ${store.tab==='paint'?'on':''}" data-tab="paint">PAINT</button>
+    <button class="tab ${store.tab==='bank'?'on':''}" data-tab="bank">♻ OFFCUT BANK</button>
+    <button class="tab ${store.tab==='prices'?'on':''}" data-tab="prices">PRICE BOOK</button>
+    <button class="tab ${store.tab==='catalogue'?'on':''}" data-tab="catalogue" style="color:var(--blue)">⊕ CATALOGUE</button>
+    <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
+  </div></div>
+  <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,order:orderHTML}[store.tab])()}</div>
+  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>`;}
+
+function assemblyHTML(){
+  const rows=store.zoneFilter==='all'?store.assemblyRows:store.assemblyRows.filter(r=>r.zone===+store.zoneFilter);
+  let grand=0;
+  rows.forEach(r=>{grand+=assemblyCost(r).total;});
+  return `<div class="hint" style="padding-top:14px">Pick an assembly type, set the dimensions and the app generates the full bill of materials with costs, every line routed to its supplier. Quantities use industry rules of thumb — tweak them to match your job spec. Add to your job and it rolls into the Order Summary.</div>
+  <div class="settings">
+    <button class="zadd" data-newassy="stud_wall" style="padding:11px 14px">+ STUD WALL</button>
+    <button class="zadd" data-newassy="ceiling" style="padding:11px 14px">+ CEILING (MF)</button>
+    <button class="zadd" data-newassy="floor_tile" style="padding:11px 14px">+ FLOOR TILING</button>
+    <button class="zadd" data-newassy="joinery" style="padding:11px 14px">+ JOINERY</button>
+    <button class="zadd" id="newCustom" style="padding:11px 14px;background:#1f2937;border-color:var(--blue);color:var(--blue)">+ CUSTOM ASSEMBLY</button>
+  </div>
+  ${rows.length?rows.map(r=>{const tpl=ASSEMBLIES[r.type];const c=assemblyCost(r);return `
+    <div class="card"><div class="cardHead"><span>${tpl?tpl.name:r.type} · ${zoneName(r.zone)}</span><span class="cost">${money(c.total)}</span></div>
+      <div style="padding:14px 16px">
+        <div class="settings">${tpl?tpl.inputs.map(i=>i.type==='select'?`<label class="field"><span class="fl">${i.label}</span><select class="sel" data-assy="${r.id}" data-k="${i.k}">${i.opts.map(o=>`<option value="${o}" ${r.params[i.k]===o?'selected':''}>${o}</option>`).join('')}</select></label>`:`<label class="field"><span class="fl">${i.label}</span><input class="fi" ${i.type==='text'?'':'type="number"'} style="width:${i.type==='text'?'130px':'110px'}" value="${r.params[i.k]!=null?r.params[i.k]:i.def}" data-assy="${r.id}" data-k="${i.k}"></label>`).join(''):''}
+        <label class="field"><span class="fl">Zone</span>${zoneSel(r.zone,'assy',r.id)}</label>
+        <button class="del" data-delassy="${r.id}" style="align-self:center;font-size:16px">✕</button></div>
+        <div class="scroll" style="margin-top:14px"><table><thead><tr><th>Item</th><th class="r">Qty</th><th>Unit</th><th>Supplier</th><th class="r">Unit price</th><th class="r">Cost</th></tr></thead><tbody>
+        ${c.items.map(it=>`<tr><td>${it.desc}${it.code?` <span class="bankMeta" style="color:var(--mut);font-size:9px">[${it.code}]</span>`:''}</td><td class="r">${it.qty}</td><td>${it.unit||''}</td><td>${it.supplier}</td><td class="r">${it.price>0?money(it.price):'—'}</td><td class="r">${it.cost>0?money(it.cost):'⚠ no price'}</td></tr>`).join('')}
+        <tr style="border-top:2px solid var(--amber)"><td colspan="5" style="text-align:right;font-weight:700">ASSEMBLY TOTAL</td><td class="r"><span class="cost" style="font-size:14px">${money(c.total)}</span></td></tr>
+        </tbody></table></div>
+      </div></div>`;}).join(''):'<div class="empty" style="margin-top:20px">No assemblies yet. Use the buttons above to add one.</div>'}
+  ${rows.length?`<div class="stats"><div class="stat big"><div class="sv" style="color:var(--amber)">${rows.length}</div><div class="sl">ASSEMBLIES</div></div><div class="stat money"><div class="sv" style="color:var(--green)">${money(grand)}</div><div class="sl">ASSEMBLY TOTAL</div></div></div>`:''}
+  <div class="hint" style="margin-top:14px">⚠ Quantities are industry rules of thumb (e.g. 25 screws/m², 3m scrim/m², 1kg compound/m²). Check against your project spec — branded systems (British Gypsum, Knauf, etc.) may differ. Edit any input above to recalculate live.</div>
+  ${(()=>{const customs=store.zoneFilter==='all'?store.customAssemblies:store.customAssemblies.filter(c=>c.zone===+store.zoneFilter);
+    const known=allKnownItems();
+    const dl=`<datalist id="knownItems">${known.map(k=>`<option value="${k.code}">${k.desc} — ${money(k.price)}</option>`).join('')}</datalist>`;
+    if(!customs.length)return dl;
+    return dl+customs.map(ca=>{const c=customCost(ca);return `
+    <div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>◇ <input class="cell" style="width:200px;color:var(--blue);font-weight:700" value="${ca.name}" data-caname="${ca.id}"></span><span class="cost">${money(c.total)}</span></div>
+      <div style="padding:8px 16px">
+        <div class="settings" style="margin-bottom:8px"><label class="field"><span class="fl">Zone</span>${zoneSel(ca.zone,'ca',ca.id)}</label><button class="del" data-delca="${ca.id}" style="align-self:center;font-size:16px">✕ delete</button></div>
+        <div class="scroll"><table><thead><tr><th>Item (pick or type)</th><th class="r">Qty</th><th>Unit</th><th class="r">Unit price</th><th>Supplier</th><th class="r">Cost</th><th></th></tr></thead><tbody>
+        ${(ca.lines||[]).map((ln,i)=>{const ci=customCost(ca).items[i];return `<tr>
+          <td><input class="cell" list="knownItems" style="width:180px" value="${ln.code||ln.name||''}" data-caline="${ca.id}" data-li="${i}" data-k="code" placeholder="e.g. cabinet hinge"></td>
+          <td class="r"><input class="num numS" type="number" value="${ln.qty||1}" data-caline="${ca.id}" data-li="${i}" data-k="qty"></td>
+          <td><input class="cell" style="width:60px" value="${ln.unit||''}" data-caline="${ca.id}" data-li="${i}" data-k="unit"></td>
+          <td class="r"><input class="num numS" type="number" value="${ln.price||0}" data-caline="${ca.id}" data-li="${i}" data-k="price"></td>
+          <td style="font-size:11px;color:var(--mut)">${ci.supplier}</td>
+          <td class="r"><span class="cost">${money(ci.cost)}</span></td>
+          <td><button class="del" data-delcaline="${ca.id}" data-li="${i}">✕</button></td></tr>`;}).join('')}
+        <tr style="border-top:2px solid var(--blue)"><td colspan="5" style="text-align:right;font-weight:700">TOTAL</td><td class="r"><span class="cost" style="font-size:14px">${money(c.total)}</span></td><td></td></tr>
+        </tbody></table></div>
+        <button class="add" data-addcaline="${ca.id}">+ ADD ITEM</button>
+      </div></div>`;}).join('');})()}`;}
+
+function linearHTML(){
+  const rows=store.zoneFilter==='all'?store.linRows:store.linRows.filter(r=>r.zone===+store.zoneFilter);
+  const res=optimiseLinear(store.stockLen,store.linKerf,rows.filter(r=>r.len>0&&r.qty>0));
+  const off=offerLinear(store.linCode,store.linThk,store.stockLen); const unitCost=off.price, totalCost=res.barCount*unitCost;
+  // bank matches: any row whose code+thickness+length is satisfied by a banked offcut
+  const matches=rows.filter(r=>r.len>0&&r.qty>0&&matchBank(r.code,r.thk,r.len));
+  return `<div class="settings">
+    <label class="field"><span class="fl">STOCK CODE</span><input class="fi" id="linCode" value="${store.linCode}" style="width:130px"></label>
+    <label class="field"><span class="fl">THICKNESS (mm)</span><input class="fi" type="number" id="linThk" value="${store.linThk}" style="width:100px"></label>
+    <label class="field"><span class="fl">STOCK LENGTH (${u()})</span><input class="fi" type="number" id="stockLen" value="${fmt(store.stockLen)}"></label>
+    <label class="field"><span class="fl">BLADE KERF (${u()})</span><input class="fi" type="number" id="linKerf" value="${fmt(store.linKerf)}"></label>
+    <button class="toggle ${store.reuse?'on':''}" id="reuse">${store.reuse?'♻ DROP REUSE ON':'○ DROP REUSE OFF'}</button></div>
+  ${matches.length?`<div class="card" style="border-color:var(--green)"><div class="cardHead" style="color:var(--green)">♻ OFFCUT BANK MATCHES — you may already have these</div><div style="padding:10px 16px;font-size:11px;color:var(--green)">${matches.map(r=>{const m=matchBank(r.code,r.thk,r.len);return `${r.code} ${r.thk}mm · ${fmt(r.len)}${u()} → banked ${fmt(m.size)}${u()} from ${m.zone}`;}).join('<br>')}</div></div>`:''}
+  <div class="card"><div class="cardHead"><span>REQUIRED CUTS ${store.zoneFilter!=='all'?'· '+zoneName(+store.zoneFilter):''}</span></div>
+    <div class="scroll"><table><thead><tr><th>Zone</th><th>Code</th><th class="r">Thk</th><th>Label</th><th class="r">Length</th><th class="r">Qty</th><th></th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td>${zoneSel(r.zone,'lin',r.id)}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-lin="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-lin="${r.id}" data-k="thk"></td><td><input class="cell" value="${r.label}" data-lin="${r.id}" data-k="label"></td>
+      <td class="r"><input class="num" type="number" value="${fmt(r.len)}" data-lin="${r.id}" data-k="len"></td>
+      <td class="r"><input class="num numS" type="number" value="${r.qty}" data-lin="${r.id}" data-k="qty"></td>
+      <td><button class="del" data-dellin="${r.id}">✕</button></td></tr>`).join('')}</tbody></table></div>
+    <button class="add" id="addLin">+ ADD CUT</button></div>
+  <div class="stats">
+    <div class="stat big"><div class="sv" style="color:var(--amber)">${res.barCount}</div><div class="sl">BARS @ ${fmt(store.stockLen)}${u()}</div></div>
+    <div class="stat"><div class="sv" style="color:${res.wastePct>15?'var(--red)':'#fff'}">${res.wastePct.toFixed(1)}%</div><div class="sl">WASTE</div></div>
+    <div class="stat money"><div class="sv" style="color:var(--green)">${money(totalCost)}</div><div class="sl">${off.supplier?off.supplier.toUpperCase():'EST. COST'}</div></div></div>
+  ${off.fellBack?`<div class="hint" style="color:var(--red)">⚠ ${store.linCode} ${store.linThk}mm @ ${fmt(store.stockLen)}${u()} not stocked by your pinned supplier — falling back to ${off.supplier} at ${money(off.price)}.</div>`:''}
+  ${off.offers.length>1?`<div class="hint" style="color:var(--green)">✓ ${off.offers.length} suppliers stock this: ${off.offers.sort((a,b)=>a.price-b.price).map(o=>o.supplier+' '+money(o.price)).join(' · ')} (${off.pinned&&!off.fellBack?'pinned to '+off.supplier:'cheapest selected'})</div>`:''}
+  ${unitCost===0?`<div class="hint" style="color:var(--amber)">⚠ ${store.linCode} ${store.linThk}mm @ ${fmt(store.stockLen)}${u()} — not stocked by any supplier in your catalogue. Add it in the Price Book.</div>`:''}
+  <div class="card"><div class="cardHead">CUTTING DIAGRAM</div><div style="padding:14px 16px">
+    ${res.bars.length?res.bars.map((b,i)=>{const segs=b.cuts.map((c,j)=>`<div class="seg" style="width:${c.len/b.capacity*100}%;background:${PAL[j%PAL.length]}"><span class="segT">${fmt(c.len)}</span></div>`).join('');const drop=b.remaining>0?`<div class="dropSeg" style="width:${b.remaining/b.capacity*100}%"><span class="dropT">${fmt(b.remaining)}</span></div>`:'';return `<div class="barRow"><div class="barIdx">#${i+1}</div><div class="bar" style="width:100%">${segs}${drop}</div></div>`;}).join(''):'<div class="empty">No cuts in this zone yet.</div>'}
+    ${store.reuse&&res.newDrops.length?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:11px"><span style="color:var(--green);font-weight:700">♻ DROPS THIS JOB (${store.linCode} ${store.linThk}mm):</span> ${res.newDrops.sort((a,b)=>b-a).map(d=>fmt(d)+u()).join(', ')} <button class="zadd" id="bankDrops" style="margin-left:8px">→ ADD TO OFFCUT BANK</button></div>`:''}</div></div>`;}
+
+function sheetHTML(){
+  const rows=store.zoneFilter==='all'?store.sheetRows:store.sheetRows.filter(r=>r.zone===+store.zoneFilter);
+  const calc=rows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)}));
+  const res=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,calc);
+  const cmp={along:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'along',calc),across:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'across',calc),none:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'none',calc)};
+  const best=Object.entries(cmp).sort((a,b)=>a[1]-b[1])[0][0];
+  const off=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH); const unitCost=off.price, totalCost=res.sheetCount*unitCost;
+  const gMeta=[{k:'along',t:'ALONG GRAIN',d:'runs with length'},{k:'across',t:'ACROSS GRAIN',d:'runs across width'},{k:'none',t:'NO GRAIN',d:'free rotate'}];
+  return `<div class="settings">
+    <label class="field"><span class="fl">SHEET CODE</span><input class="fi" id="sheetCode" value="${store.sheetCode}" style="width:130px"></label>
+    <label class="field"><span class="fl">THICKNESS (mm)</span><input class="fi" type="number" id="sheetThk" value="${store.sheetThk}" style="width:100px"></label>
+    <label class="field"><span class="fl">SHEET W (${u()})</span><input class="fi" type="number" id="sheetW" value="${fmt(store.sheetW)}"></label>
+    <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span><input class="fi" type="number" id="sheetH" value="${fmt(store.sheetH)}"></label>
+    <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label></div>
+  <div class="grainCard"><div class="grainLbl">GRAIN DIRECTION — runs along the sheet length · pick lowest waste</div>
+    <div class="grainRow">${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}"><div class="gT">${g.t}</div><div class="gD">${g.d}</div><div class="gP" style="color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag">★ BEST</div>':''}</button>`).join('')}</div></div>
+  <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
+    <div class="scroll"><table><thead><tr><th>Zone</th><th>Code</th><th class="r">Thk</th><th>Label</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th class="r">Lip len (${u()})</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
+    ${rows.map(r=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td><td><input class="cell" value="${r.label}" data-sheet="${r.id}" data-k="label"></td>
+      <td class="r"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
+      <td class="r"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
+      <td class="r">${lipSel(r.lip,r.id)}</td><td>${edgeSel(r.edge,r.id)}</td>
+      <td><input class="cell" style="width:90px" value="${r.lipCode||''}" data-sheet="${r.id}" data-k="lipCode" placeholder="e.g. LIP-OAK"></td>
+      <td class="r"><input class="num numS" type="number" value="${fmt(r.lipLen||3600)}" data-sheet="${r.id}" data-k="lipLen"></td>
+      <td class="r"><span class="cutSize">${fmt(cs.cw)}×${fmt(cs.ch)}</span></td>
+      <td class="r"><input class="num numS" type="number" value="${r.qty}" data-sheet="${r.id}" data-k="qty"></td>
+      <td><button class="del" data-delsheet="${r.id}">✕</button></td></tr>`;}).join('')}</tbody></table></div>
+    <button class="add" id="addSheet">+ ADD PANEL</button></div>
+  <div class="stats">
+    <div class="stat big"><div class="sv" style="color:var(--amber)">${res.sheetCount}</div><div class="sl">SHEETS @ ${fmt(store.sheetW)}×${fmt(store.sheetH)}</div></div>
+    <div class="stat"><div class="sv" style="color:${res.wastePct>25?'var(--red)':'#fff'}">${res.wastePct.toFixed(1)}%</div><div class="sl">WASTE</div></div>
+    <div class="stat money"><div class="sv" style="color:var(--green)">${money(totalCost)}</div><div class="sl">${off.supplier?off.supplier.toUpperCase():'EST. COST'}</div></div></div>
+  ${off.fellBack?`<div class="hint" style="color:var(--red)">⚠ ${store.sheetCode} ${store.sheetThk}mm not stocked by your pinned supplier — falling back to ${off.supplier} at ${money(off.price)}.</div>`:''}
+  ${off.offers.length>1?`<div class="hint" style="color:var(--green)">✓ ${off.offers.length} suppliers stock this: ${off.offers.sort((a,b)=>a.price-b.price).map(o=>o.supplier+' '+money(o.price)).join(' · ')} (${off.pinned&&!off.fellBack?'pinned to '+off.supplier:'cheapest selected'})</div>`:''}
+  ${unitCost===0?`<div class="hint" style="color:var(--amber)">⚠ ${store.sheetCode} ${store.sheetThk}mm @ ${fmt(store.sheetW)}×${fmt(store.sheetH)} — not stocked by any supplier in your catalogue. Add it in the Price Book.</div>`:''}
+  ${(()=>{const lipRows=lipDemand(rows);if(!lipRows.length)return '';let totLip=0,totCost=0;lipRows.forEach(l=>{totLip+=l.totalMM;totCost+=l.cost;});return `<div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>LIPPING REQUIRED</span><label class="field" style="flex-direction:row;align-items:center;gap:6px"><span class="fl" style="margin:0">WASTAGE %</span><input class="num numS" type="number" id="lipWaste" value="${store.lipWaste}" style="width:54px"></label></div>
+  <div class="scroll"><table><thead><tr><th>Lip code</th><th class="r">Thk (mm)</th><th class="r">Stock len</th><th class="r">Total LM</th><th class="r">+${store.lipWaste}% LM</th><th class="r">Lengths to buy</th><th>Supplier</th><th class="r">Cost</th></tr></thead><tbody>
+    ${lipRows.map(l=>`<tr><td><strong style="color:var(--blue)">${l.code}</strong></td><td class="r">${l.thk}</td><td class="r">${fmt(l.stockLen)}${u()}</td><td class="r">${(l.totalMM/1000).toFixed(2)}</td><td class="r">${(l.withWasteMM/1000).toFixed(2)}</td><td class="r">${l.lengthsToBuy}</td><td>${l.supplier}${l.fellBack?' <small style="color:var(--red)">(fallback)</small>':''}</td><td class="r"><span class="cost">${l.unitPrice>0?money(l.cost):'⚠ no price'}</span></td></tr>`).join('')}
+    <tr style="border-top:2px solid var(--blue)"><td colspan="3" style="text-align:right;font-weight:700">TOTAL LIPPING</td><td class="r"><strong>${(totLip/1000).toFixed(2)} LM</strong></td><td class="r"></td><td class="r"></td><td></td><td class="r"><span class="cost" style="font-size:14px">${money(totCost)}</span></td></tr>
+    </tbody></table></div></div>`;})()}
+  <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
+    ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>`<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;background:${PAL[ci++%PAL.length]}">${fmt(p.w)}×${fmt(p.h)}</div>`).join('');return `<div class="sheetWrap"><div class="sheetIdx">SHEET #${i+1}</div><div class="sheet" style="width:${store.sheetW*scale}px;height:${store.sheetH*scale}px">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
+
+function paintHTML(){
+  const rows=store.zoneFilter==='all'?store.paintRows:store.paintRows.filter(r=>r.zone===+store.zoneFilter);
+  let totL=0,totC=0;rows.forEach(r=>{const p=paintCalc(r);totL+=p.litres;totC+=p.cost;});
+  const inGal=store.unit!=='mm';
+  // breakdown by stage
+  const byStage={};rows.forEach(r=>{const p=paintCalc(r);const k=r.stage||'Other';if(!byStage[k])byStage[k]={litres:0,cost:0};byStage[k].litres+=p.litres;byStage[k].cost+=p.cost;});
+  const stages=['Primer','Undercoat','Topcoat','Sealer','Other'];
+  const stageSel=(val,id)=>`<select class="sel" data-paint="${id}" data-k="stage">${stages.map(s=>`<option value="${s}" ${s===(val||'Other')?'selected':''}>${s}</option>`).join('')}</select>`;
+  return `<div class="hint" style="padding-top:14px">Add a separate row for each coat type — primer, undercoat, topcoat etc. — over the same area. Each carries its own code and price from the Price Book, so totals are accurate per product.</div>
+  <div class="card"><div class="cardHead">PAINT — by stage, area to litres & cost</div>
+    <div class="scroll"><table><thead><tr><th>Zone</th><th>Stage</th><th>Code</th><th>Label</th><th class="r">Area (${au()})</th><th class="r">Coats</th><th class="r">Spread (${au()}/${vu()})</th><th class="r">Waste %</th><th class="r">${vu()} needed</th><th class="r">Cost</th><th></th></tr></thead><tbody>
+    ${rows.map(r=>{const p=paintCalc(r);const dispL=inGal?p.litres/3.785:p.litres;return `<tr><td>${zoneSel(r.zone,'paint',r.id)}</td><td>${stageSel(r.stage,r.id)}</td><td><input class="cell" style="width:110px" value="${r.code||''}" data-paint="${r.id}" data-k="code"></td><td><input class="cell" value="${r.label}" data-paint="${r.id}" data-k="label"></td>
+      <td class="r"><input class="num" type="number" value="${r.area}" data-paint="${r.id}" data-k="area"></td>
+      <td class="r"><input class="num numS" type="number" value="${r.coats}" data-paint="${r.id}" data-k="coats"></td>
+      <td class="r"><input class="num numS" type="number" value="${r.spread}" data-paint="${r.id}" data-k="spread"></td>
+      <td class="r"><input class="num numS" type="number" value="${r.waste}" data-paint="${r.id}" data-k="waste"></td>
+      <td class="r"><span class="cutSize">${dispL.toFixed(1)}</span></td><td class="r"><span class="cost">${money(p.cost)}</span></td>
+      <td><button class="del" data-delpaint="${r.id}">✕</button></td></tr>`;}).join('')}</tbody></table></div>
+    <button class="add" id="addPaint">+ ADD COAT</button></div>
+  ${Object.keys(byStage).length?`<div class="card"><div class="cardHead">BREAKDOWN BY STAGE</div><div class="scroll"><table><thead><tr><th>Stage</th><th class="r">${vu()} needed</th><th class="r">Cost</th></tr></thead><tbody>
+    ${stages.filter(s=>byStage[s]).map(s=>`<tr><td><strong style="color:var(--amber)">${s}</strong></td><td class="r">${(inGal?byStage[s].litres/3.785:byStage[s].litres).toFixed(1)}</td><td class="r"><span class="cost">${money(byStage[s].cost)}</span></td></tr>`).join('')}
+    </tbody></table></div></div>`:''}
+  <div class="stats">
+    <div class="stat big"><div class="sv" style="color:var(--amber)">${(inGal?totL/3.785:totL).toFixed(1)}</div><div class="sl">TOTAL ${vu().toUpperCase()}</div></div>
+    <div class="stat money"><div class="sv" style="color:var(--green)">${money(totC)}</div><div class="sl">TOTAL PAINT COST</div></div></div>
+  ${store.priceBook.paint.length===0?`<div class="hint">⚠ Add paint codes & prices in the Price Book.</div>`:''}`;}
+
+function bankHTML(){
+  return `<div class="hint" style="padding-top:14px">Your yard inventory of usable offcuts. Each carries its material code — on any job, a cut with a matching code that fits a banked offcut gets flagged on the Linear tab so you use stock before buying. Drops carry between jobs.</div>
+  <div class="card"><div class="cardHead"><span>♻ OFFCUT BANK — ${store.bankedDrops.length} item(s)</span></div>
+    <div class="scroll"><table><thead><tr><th>Code</th><th class="r">Thk</th><th>Material</th><th class="r">Size (${u()})</th><th>Source zone</th><th>Date</th><th></th></tr></thead><tbody>
+    ${store.bankedDrops.length?store.bankedDrops.map(d=>`<tr><td><span class="cost">${d.code||'—'}</span></td><td class="r">${d.thk||0}mm</td><td>${d.material}</td><td class="r">${fmt(d.size)}</td><td>${d.zone}</td><td>${d.date}</td><td><button class="del" data-delbank="${d.id}">✕</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="empty">No banked offcuts yet. Add drops from the Linear tab, or add manually below.</div></td></tr>'}</tbody></table></div></div>
+  <div class="settings"><label class="field"><span class="fl">CODE</span><input class="fi" id="bc" value="STUD-92" style="width:120px"></label>
+    <label class="field"><span class="fl">THK (mm)</span><input class="fi" id="bt" type="number" value="92" style="width:90px"></label>
+    <label class="field"><span class="fl">MATERIAL</span><input class="fi" id="bm" value="Stud" style="width:120px"></label>
+    <label class="field"><span class="fl">SIZE (${u()})</span><input class="fi" id="bs" type="number" value="800"></label>
+    <button class="zadd" id="addBank" style="padding:12px 16px">+ ADD OFFCUT</button></div>`;}
+
+function catalogueHTML(){
+  if(!store.catAllLoaded){loadCatalogueAll();}
+  const q=(store.catSearch||'').toLowerCase();
+  const all=store.catalogueAll||[];
+  const rows=q?all.filter(r=>(`${r.kind} ${r.code} ${r.description} ${r.supplier_name}`).toLowerCase().includes(q)):all;
+  const suppliers=[...new Set(all.map(r=>r.supplier_name).filter(Boolean))];
+  return `<div class="hint" style="padding-top:14px">Materials listed by suppliers across PitchIQ. Browse, search, and pull any item straight into your Price Book — then it's available when you build cut lists and estimates. Catalogue prices are a starting point; your own Price Book prices always take priority.</div>
+  <div class="settings">
+    <label class="field" style="flex:1"><span class="fl">SEARCH</span><input class="fi" style="width:100%" id="catSearch" placeholder="e.g. gypsum, hinge, paint, supplier name" value="${store.catSearch||''}"></label>
+    <div class="stat" style="align-self:flex-end"><div class="sv" style="color:var(--blue);font-size:18px">${all.length}</div><div class="sl">ITEMS · ${suppliers.length} SUPPLIER${suppliers.length===1?'':'S'}</div></div>
+  </div>
+  ${!all.length?`<div class="empty" style="margin-top:20px">The catalogue is empty so far. As suppliers list their materials, they'll appear here for you to use.</div>`:`
+  <div class="card"><div class="scroll"><table><thead><tr><th>Supplier</th><th>Category</th><th>Code</th><th>Description</th><th class="r">Spec</th><th class="r">Price</th><th></th></tr></thead><tbody>
+  ${rows.map(r=>{
+    const spec=[r.thk?`${r.thk}mm`:'',r.width&&r.height?`${r.width}×${r.height}`:'',r.length?`L${r.length}`:'',r.litres?`${r.litres}L`:'',r.container||''].filter(Boolean).join(' · ');
+    return `<tr>
+      <td style="color:var(--blue)">${r.supplier_name||'—'}</td>
+      <td>${r.kind||''}</td>
+      <td><strong>${r.code||''}</strong></td>
+      <td style="font-size:11px">${r.description||''}</td>
+      <td class="r" style="font-size:11px;color:var(--mut)">${spec||'—'}</td>
+      <td class="r"><span class="cost">${r.currency||'$'}${(r.price||0).toFixed(2)}</span><br><span style="font-size:10px;color:var(--mut)">/${r.unit||'unit'}</span></td>
+      <td><button class="zadd" data-usecat="${r.id}" style="padding:7px 10px;font-size:11px">+ USE</button></td></tr>`;}).join('')}
+  </tbody></table></div></div>
+  <div class="hint">Tip: "+ USE" copies the item into your Price Book under the right section. You can then edit the price to match what you actually pay — your version always overrides the catalogue.</div>`}`;}
+
+function priceHTML(){
+  const sups=allSuppliers();
+  // unique materials = {code, thk, kind, suppliers[]}
+  const matsMap={};
+  store.priceBook.linear.forEach(e=>{const k=e.code+'|'+e.thk;if(!matsMap[k])matsMap[k]={kind:'linear',code:e.code,thk:e.thk,sups:new Set()};matsMap[k].sups.add(e.supplier);});
+  store.priceBook.sheet.forEach(e=>{const k=e.code+'|'+e.thk;if(!matsMap[k])matsMap[k]={kind:'sheet',code:e.code,thk:e.thk,sups:new Set()};matsMap[k].sups.add(e.supplier);});
+  store.priceBook.paint.forEach(e=>{const k=e.code+'|';if(!matsMap[k])matsMap[k]={kind:'paint',code:e.code,thk:null,sups:new Set()};matsMap[k].sups.add(e.supplier);});
+  const mats=Object.values(matsMap).map(m=>({...m,sups:[...m.sups].filter(Boolean)})).filter(m=>m.sups.length>0);
+  return `<div class="hint" style="padding-top:14px">Your supplier catalogue. By default the app picks the cheapest available supplier for each material. Pin a specific supplier per material below if you want to lock to a preferred merchant — anything left as "Cheapest" still floats to the best price.</div>
+  <div class="card"><div class="cardHead"><span>SUPPLIER PREFERENCES — per material</span></div>
+    <div class="scroll"><table><thead><tr><th>Code</th><th class="r">Thk</th><th>Kind</th><th>Supplier</th><th class="r"># offers</th></tr></thead><tbody>
+    ${mats.length?mats.map(m=>{const key=prefKey(m.code,m.thk);const pinned=store.supplierPrefs[key]||'';return `<tr><td><strong style="color:var(--amber)">${m.code}</strong></td><td class="r">${m.thk!=null?m.thk:'—'}</td><td><span class="cutSize">${m.kind}</span></td><td><select class="sel" data-pref="${key}"><option value="">Cheapest</option>${m.sups.map(s=>`<option value="${s}" ${pinned===s?'selected':''}>${s}</option>`).join('')}</select></td><td class="r">${m.sups.length}</td></tr>`;}).join(''):'<tr><td colspan="5"><div class="empty">No materials in the Price Book yet.</div></td></tr>'}
+    </tbody></table></div></div>
+  <div class="card"><div class="cardHead"><span>IMPORT SUPPLIER PRICE LIST</span></div><div style="padding:14px 16px">
+    <div class="hint" style="padding:0 0 10px">CSV or pasted rows. Columns: <b>type,supplier,code,thk,len_or_w,h,price</b> — for linear use type=linear and put length in the 5th column (leave h blank); for sheet use type=sheet with w,h; for paint type=paint (leave thk,len,h blank). First row may be headers.</div>
+    <textarea id="importBox" style="width:100%;height:90px;background:var(--steel);color:#fff;border:1px solid var(--line);border-radius:3px;font-family:var(--mono);font-size:12px;padding:10px" placeholder="sheet,MetroMerchants,GYP,12.5,1220,2440,13.20&#10;linear,BuildCo,STUD-70,70,3600,,9.10"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="zadd" id="doImport">⊞ IMPORT ROWS</button><label class="gbtn" style="padding:9px 12px">↑ UPLOAD CSV<input type="file" accept=".csv,.txt" id="csvFile" class="hide"></label><span id="importMsg" style="font-size:11px;color:var(--green);align-self:center"></span></div>
+  </div></div>
+  <div class="card"><div class="cardHead"><span>LINEAR STOCK — per bar</span></div>
+    <div class="scroll"><table><thead><tr><th>Supplier</th><th>Code</th><th class="r">Thk</th><th class="r">Length (${u()})</th><th class="r">Price</th><th></th></tr></thead><tbody>
+    ${store.priceBook.linear.map((e,i)=>`<tr><td><input class="cell" style="width:120px" value="${e.supplier||''}" data-pl="${i}" data-k="supplier"></td><td><input class="cell" style="width:100px" value="${e.code||''}" data-pl="${i}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${e.thk||0}" data-pl="${i}" data-k="thk"></td><td class="r"><input class="num" type="number" value="${fmt(e.len)}" data-pl="${i}" data-k="len"></td><td class="r"><input class="num" type="number" value="${e.price}" data-pl="${i}" data-k="price"></td><td><button class="del" data-delpl="${i}">✕</button></td></tr>`).join('')}</tbody></table></div>
+    <button class="add" id="addPL">+ ADD LINEAR PRICE</button></div>
+  <div class="card"><div class="cardHead"><span>SHEET BOARD — per sheet</span></div>
+    <div class="scroll"><table><thead><tr><th>Supplier</th><th>Code</th><th class="r">Thk</th><th class="r">W (${u()})</th><th class="r">H (${u()})</th><th class="r">Price</th><th></th></tr></thead><tbody>
+    ${store.priceBook.sheet.map((e,i)=>`<tr><td><input class="cell" style="width:120px" value="${e.supplier||''}" data-ps="${i}" data-k="supplier"></td><td><input class="cell" style="width:100px" value="${e.code||''}" data-ps="${i}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${e.thk||0}" data-ps="${i}" data-k="thk"></td><td class="r"><input class="num" type="number" value="${fmt(e.w)}" data-ps="${i}" data-k="w"></td><td class="r"><input class="num" type="number" value="${fmt(e.h)}" data-ps="${i}" data-k="h"></td><td class="r"><input class="num" type="number" value="${e.price}" data-ps="${i}" data-k="price"></td><td><button class="del" data-delps="${i}">✕</button></td></tr>`).join('')}</tbody></table></div>
+    <button class="add" id="addPS">+ ADD SHEET PRICE</button></div>
+  <div class="card"><div class="cardHead"><span>PAINT — per litre</span></div>
+    <div class="scroll"><table><thead><tr><th>Supplier</th><th>Code</th><th class="r">Price</th><th></th></tr></thead><tbody>
+    ${store.priceBook.paint.map((e,i)=>`<tr><td><input class="cell" style="width:120px" value="${e.supplier||''}" data-pp="${i}" data-k="supplier"></td><td><input class="cell" style="width:140px" value="${e.code||''}" data-pp="${i}" data-k="code"></td><td class="r"><input class="num" type="number" value="${e.price}" data-pp="${i}" data-k="price"></td><td><button class="del" data-delpp="${i}">✕</button></td></tr>`).join('')}</tbody></table></div>
+    <button class="add" id="addPP">+ ADD PAINT PRICE</button></div>
+  <div class="card"><div class="cardHead"><span>ANCILLARIES — fixings, sealants, insulation, etc.</span></div>
+    <div class="scroll"><table><thead><tr><th>Supplier</th><th>Code</th><th>Description</th><th>Unit</th><th class="r">Price</th><th></th></tr></thead><tbody>
+    ${(store.priceBook.ancillary||[]).map((e,i)=>`<tr><td><input class="cell" style="width:120px" value="${e.supplier||''}" data-pa="${i}" data-k="supplier"></td><td><input class="cell" style="width:140px" value="${e.code||''}" data-pa="${i}" data-k="code"></td><td><input class="cell" style="width:220px" value="${e.desc||''}" data-pa="${i}" data-k="desc"></td><td><input class="cell" style="width:70px" value="${e.unit||''}" data-pa="${i}" data-k="unit"></td><td class="r"><input class="num" type="number" value="${e.price}" data-pa="${i}" data-k="price"></td><td><button class="del" data-delpa="${i}">✕</button></td></tr>`).join('')}</tbody></table></div>
+    <button class="add" id="addPA">+ ADD ANCILLARY</button></div>`;}
+
+function orderHTML(){
+  const lin=optimiseLinear(store.stockLen,store.linKerf,store.linRows.filter(r=>r.len>0&&r.qty>0));
+  const sh=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,store.sheetRows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)})));
+  let paintL=0,paintC=0;store.paintRows.forEach(r=>{const p=paintCalc(r);paintL+=p.litres;paintC+=p.cost;});
+  const linOff=offerLinear(store.linCode,store.linThk,store.stockLen), shOff=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH);
+  const linC=lin.barCount*linOff.price, shC=sh.sheetCount*shOff.price;
+  // assembly totals
+  let assyTotal=0; const assyResults=store.assemblyRows.map(r=>({row:r,res:assemblyCost(r)}));
+  assyResults.forEach(a=>assyTotal+=a.res.total);
+  // custom assemblies
+  let customTotal=0; const customResults=store.customAssemblies.map(ca=>({ca,res:customCost(ca)}));
+  customResults.forEach(a=>customTotal+=a.res.total);
+  // lipping totals across ALL panels
+  const lipAll=lipDemand(store.sheetRows.filter(r=>r.w>0&&r.h>0&&r.qty>0));
+  let lipTotalLM=0, lipCost=0;
+  lipAll.forEach(l=>{lipTotalLM+=l.totalMM/1000;lipCost+=l.cost;});
+  const grand=linC+shC+paintC+assyTotal+lipCost+customTotal;
+  // per-supplier split — every line attributed to its chosen supplier
+  const bySup={};
+  const add=(s,line,cost)=>{const k=s||'(no supplier set)';if(!bySup[k])bySup[k]={lines:[],total:0};bySup[k].lines.push(line);bySup[k].total+=cost;};
+  if(lin.barCount>0) add(linOff.supplier, {item:`Linear ${store.linCode} ${store.linThk}mm @ ${fmt(store.stockLen)}${u()}`, qty:lin.barCount+' bars', cost:linC}, linC);
+  if(sh.sheetCount>0) add(shOff.supplier, {item:`Sheet ${store.sheetCode} ${store.sheetThk}mm @ ${fmt(store.sheetW)}×${fmt(store.sheetH)}`, qty:sh.sheetCount+' sheets', cost:shC}, shC);
+  lipAll.forEach(l=>{if(l.cost>0)add(l.supplier,{item:`Lipping ${l.code} ${l.thk}mm @ ${fmt(l.stockLen)}${u()}`,qty:l.lengthsToBuy+' lengths ('+(l.totalMM/1000).toFixed(1)+' LM net)',cost:l.cost},l.cost);});
+  store.paintRows.forEach(r=>{const p=paintCalc(r);if(p.cost>0)add(p.supplier, {item:`Paint ${r.stage||''} ${r.code} (${zoneName(r.zone)})`, qty:p.litres.toFixed(1)+' L', cost:p.cost}, p.cost);});
+  assyResults.forEach(a=>{const tpl=ASSEMBLIES[a.row.type];a.res.items.forEach(it=>{if(it.cost>0)add(it.supplier,{item:`${tpl?tpl.name:a.row.type} · ${it.desc}${it.code?' ['+it.code+']':''} (${zoneName(a.row.zone)})`,qty:it.qty+' '+(it.unit||''),cost:it.cost},it.cost);});});
+  customResults.forEach(a=>{a.res.items.forEach(it=>{if(it.cost>0)add(it.supplier,{item:`${a.ca.name} · ${it.name||it.code} (${zoneName(a.ca.zone)})`,qty:it.qty+' '+(it.unit||''),cost:it.cost},it.cost);});});
+  const supEntries=Object.entries(bySup).sort((a,b)=>b[1].total-a[1].total);
+  store._supEntries=supEntries;
+  if(!store.myOrdersLoaded){loadMyOrders();}
+  const projOrders=(store.myOrders||[]).filter(o=>o.project_id===_workspaceId);
+  const statusColor=s=>s==='approved'?'var(--green)':s==='rejected'?'var(--red)':s==='pending_approval'?'var(--amber)':'var(--mut)';
+  const statusLabel=s=>(s||'').replace('_',' ').toUpperCase();
+  const myOrdersPanel=(projOrders.length)?`<div class="orderCard" style="margin-bottom:14px"><div class="orderHead">◆ SUBMITTED ORDERS · ${store.projectName||''} — APPROVAL STATUS</div><div class="orderBody"><div class="scroll"><table><thead><tr><th>Submitted</th><th>Rev</th><th>Supplier</th><th class="r">Total</th><th>Status</th><th>Manager note</th><th></th></tr></thead><tbody>${projOrders.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(o=>`<tr><td style="font-size:11px">${new Date(o.created_at).toLocaleDateString()}</td><td style="font-size:11px">R${o.revision||1}</td><td>${o.supplier_name||'—'}</td><td class="r">${o.currency||'$'}${(o.total||0).toFixed(2)}</td><td><strong style="color:${statusColor(o.status)}">${statusLabel(o.status)}</strong></td><td style="font-size:11px;color:var(--mut)">${o.approver_note||''}</td><td>${o.status==='approved'?`<button class="zadd" data-cert="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button>`:''}</td></tr>`).join('')}</tbody></table></div><div class="orderSub" style="margin-top:8px">Showing orders for this project only. Each revision is the full updated order; newly-added items are flagged for your manager. Approved orders have a downloadable certificate with a reference number.</div></div></div>`:'';
+  return myOrdersPanel + `<div class="orderCard"><div class="orderHead">◆ MATERIAL ORDER & COST — COMBINED VIEW</div><div class="orderBody">
+    <div class="orderLine"><span>Linear stock @ ${fmt(store.stockLen)}${u()} <small style="color:var(--mut)">${linOff.supplier||'—'}${linOff.fellBack?' (fallback)':''}</small></span><span class="orderQty">${lin.barCount} <small>bars · ${money(linC)}</small></span></div>
+    <div class="orderSub">~${lin.wastePct.toFixed(1)}% waste · drops to keep: ${lin.newDrops.length?lin.newDrops.sort((a,b)=>b-a).map(d=>fmt(d)+u()).join(', '):'none'}</div>
+    <div class="orderLine"><span>Sheet board @ ${fmt(store.sheetW)}×${fmt(store.sheetH)} <small style="color:var(--mut)">${shOff.supplier||'—'}${shOff.fellBack?' (fallback)':''}</small></span><span class="orderQty">${sh.sheetCount} <small>sheets · ${money(shC)}</small></span></div>
+    <div class="orderSub">~${sh.wastePct.toFixed(1)}% waste · grain: ${store.grain}</div>
+    <div class="orderLine"><span>Lipping (${lipAll.length} type${lipAll.length===1?'':'s'})</span><span class="orderQty">${lipTotalLM.toFixed(1)} <small>LM · ${money(lipCost)}</small></span></div>
+    <div class="orderSub">${lipAll.length?lipAll.map(l=>`${l.code} ${l.thk}mm: ${(l.totalMM/1000).toFixed(1)} LM`).join(' · '):'no lipping in this job'} · ${store.lipWaste}% wastage applied</div>
+    <div class="orderLine"><span>Paint (${store.paintRows.length} coat row${store.paintRows.length===1?'':'s'})</span><span class="orderQty">${paintL.toFixed(1)} <small>L · ${money(paintC)}</small></span></div>
+    <div class="orderLine"><span>Assemblies (${store.assemblyRows.length})</span><span class="orderQty">${money(assyTotal)}</span></div>
+    <div class="orderSub">Stud walls, ceilings, tiling, joinery — fixings & ancillaries included</div>
+    <div class="orderLine"><span>Custom assemblies (${store.customAssemblies.length})</span><span class="orderQty">${money(customTotal)}</span></div>
+    <div class="orderLine" style="font-size:13px"><span>Subtotal</span><span>${money(grand)}</span></div>
+    <div class="orderLine" style="font-size:13px"><span>Tax / VAT <input class="num numS" type="number" id="taxPct" value="${store.taxPct}" style="width:48px;margin-left:6px"> %</span><span>${money(grand*(store.taxPct||0)/100)}</span></div>
+    <div class="orderTotal"><span>TOTAL INC. TAX</span><span>${money(grand*(1+(store.taxPct||0)/100))}</span></div>
+    <div class="orderSub" style="margin-top:8px">Supplier policy: ${Object.keys(store.supplierPrefs).filter(k=>store.supplierPrefs[k]).length||'no'} material(s) pinned · rest = cheapest available</div>
+  </div></div>
+  <div class="card"><div class="cardHead"><span>◆ PURCHASE ORDERS BY SUPPLIER</span></div>
+    ${supEntries.length?supEntries.map(([sup,d],si)=>{
+      const priorO=(store.myOrders||[]).filter(o=>o.supplier_name===sup && o.project_id===_workspaceId).sort((a,b)=>(b.revision||1)-(a.revision||1))[0];
+      const pending=priorO&&priorO.status==='pending_approval';
+      return `
+      <div style="padding:12px 16px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><strong style="color:var(--amber);font-size:13px;letter-spacing:1px">${sup}</strong><span class="cost" style="font-size:16px">${money(d.total)}</span></div>
+        <div style="font-size:11px;color:var(--mut)">${d.lines.map(l=>`<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${l.item}</span><span>${l.qty} · ${money(l.cost)}</span></div>`).join('')}</div>
+        ${pending
+          ? `<div style="margin-top:10px;padding:9px;border:1px solid var(--amber);color:var(--amber);text-align:center;font-size:11px;letter-spacing:1px;border-radius:4px">⏳ REVISION ${priorO.revision||1} PENDING APPROVAL — wait for your manager</div>`
+          : `<button class="zadd" data-submitsupplier="${si}" style="margin-top:10px;border-color:var(--amber);color:var(--amber);width:100%">▲ ${priorO?`SUBMIT REVISION ${(priorO.revision||1)+1}`:'SUBMIT THIS ORDER FOR APPROVAL'}</button>`}
+      </div>`;}).join(''):'<div class="empty">No supplier-attributed items yet — set prices in the Price Book.</div>'}
+    ${supEntries.length?`<div style="padding:14px 16px"><button class="cta" id="submitAll" style="width:100%">▲ SUBMIT WHOLE ORDER FOR APPROVAL</button><div class="trial" style="margin-top:6px">Goes to your company's manager(s) to approve before reaching suppliers. Already-submitted suppliers are skipped automatically.</div></div>`:''}
+  </div>
+  <div class="card"><div class="cardHead">BREAKDOWN BY ZONE</div><div class="scroll"><table><thead><tr><th>Zone</th><th class="r">Lin pieces</th><th class="r">Lin m</th><th class="r">Panels</th><th class="r">Panel m²</th><th class="r">Paint ${vu()}</th></tr></thead><tbody>
+    ${store.zones.map(z=>{const lp=store.linRows.filter(r=>r.zone===z.id),sp=store.sheetRows.filter(r=>r.zone===z.id),pp=store.paintRows.filter(r=>r.zone===z.id);const pl=pp.reduce((s,r)=>s+paintCalc(r).litres,0);return `<tr><td>${z.name}</td><td class="r">${lp.reduce((s,r)=>s+r.qty,0)}</td><td class="r">${(lp.reduce((s,r)=>s+r.len*r.qty,0)/1000).toFixed(1)}</td><td class="r">${sp.reduce((s,r)=>s+r.qty,0)}</td><td class="r">${(sp.reduce((s,r)=>s+r.w*r.h*r.qty,0)/1e6).toFixed(2)}</td><td class="r">${pl.toFixed(1)}</td></tr>`;}).join('')}</tbody></table></div></div>
+  <button class="bigPrint" id="printOrder">⊞ EXPORT FULL ESTIMATE TO EXCEL</button>`;}
+
+function zoneSel(val,kind,id){return `<select class="sel" data-${kind}="${id}" data-k="zone">${store.zones.map(z=>`<option value="${z.id}" ${z.id===val?'selected':''}>${z.name}</option>`).join('')}</select>`;}
+function lipSel(val,id){return `<select class="sel" data-sheet="${id}" data-k="lip">${LIP_PRESETS.map(mm=>`<option value="${mm}" ${mm===val?'selected':''}>${store.unit==='mm'?mm:(mm/MM_PER_IN).toFixed(2)}</option>`).join('')}</select>`;}
+function edgeSel(val,id){return `<select class="sel" data-sheet="${id}" data-k="edge">${EDGE_OPTS.map(o=>`<option value="${o.v}" ${o.v===(val||'0')?'selected':''}>${o.t}</option>`).join('')}</select>`;}
+
+// ============================ WIRING ============================
+function wire(){
+  if(!store.account){
+    document.querySelectorAll('[data-authmode]').forEach(b=>b.onclick=()=>{store.authMode=b.dataset.authmode;store.authMsg='';render();});
+    document.querySelectorAll('[data-signuptype]').forEach(b=>b.onclick=()=>{store.signupType=b.dataset.signuptype;store.authMsg='';render();});
+    const sErr=t=>{store.authBusy=false;store.authMsg=t;render();};
+    const su=document.getElementById('doSignup');
+    if(su)su.onclick=async()=>{
+      const c=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),l=val('f_location'),pw=document.getElementById('f_pass').value;
+      if(!c||!n||!e||!pw){return sErr('Please fill company, name, email and password.');}
+      if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
+      if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(!sb){return sErr('No connection to Supabase.');}
+      store.authBusy=true;store.authMsg='';render();
+      try{
+        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        if(error)return sErr(error.message);
+        const uid=data.user?.id;
+        // create company, then profile link
+        let companyId=null;
+        const {data:co,error:cErr}=await sb.from('companies').insert({name:c}).select().single();
+        if(!cErr&&co)companyId=co.id;
+        await sb.from('profiles').update({full_name:n,phone:p,location:l,company_id:companyId,role:'owner'}).eq('id',uid);
+        await loadSession();
+      }catch(ex){sErr(ex.message||'Sign-up failed.');}
+    };
+    const mgr=document.getElementById('doSignupManager');
+    if(mgr)mgr.onclick=async()=>{
+      const co=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),pw=document.getElementById('f_pass').value;
+      if(!co||!n||!e||!pw){return sErr('Please fill company, name, email and password.');}
+      if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
+      if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(!sb){return sErr('No connection to Supabase.');}
+      store.authBusy=true;store.authMsg='';render();
+      try{
+        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        if(error)return sErr(error.message);
+        const uid=data.user?.id;
+        // find existing company by name, else create it
+        let companyId=null;
+        try{const {data:found}=await sb.from('companies').select('id').eq('name',co).maybeSingle();if(found)companyId=found.id;}catch(ex){}
+        if(!companyId){const {data:co2}=await sb.from('companies').insert({name:co}).select().single();if(co2)companyId=co2.id;}
+        await sb.from('profiles').update({full_name:n,phone:p,company_id:companyId,account_type:'manager',role:'manager'}).eq('id',uid);
+        await loadSession();
+      }catch(ex){sErr(ex.message||'Sign-up failed.');}
+    };
+    const sup=document.getElementById('doSignupSupplier');
+    if(sup)sup.onclick=async()=>{
+      const biz=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),reg=val('f_location'),web=val('f_website'),pw=document.getElementById('f_pass').value;
+      if(!biz||!n||!e||!pw){return sErr('Please fill business name, contact, email and password.');}
+      if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
+      if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(!sb){return sErr('No connection to Supabase.');}
+      store.authBusy=true;store.authMsg='';render();
+      try{
+        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        if(error)return sErr(error.message);
+        const uid=data.user?.id;
+        await sb.from('profiles').update({full_name:n,phone:p,location:reg,account_type:'supplier'}).eq('id',uid);
+        await sb.from('supplier_profiles').insert({id:uid,supplier_name:biz,region:reg,contact_email:e,contact_phone:p,website:web});
+        await loadSession();
+      }catch(ex){sErr(ex.message||'Sign-up failed.');}
+    };
+    const si=document.getElementById('doSignin');
+    if(si)si.onclick=async()=>{
+      const e=val('f_email'),pw=document.getElementById('f_pass').value;
+      if(!e||!pw)return sErr('Enter your email and password.');
+      if(!sb)return sErr('No connection to Supabase.');
+      store.authBusy=true;store.authMsg='';render();
+      const {error}=await sb.auth.signInWithPassword({email:e,password:pw});
+      if(error)return sErr(error.message);
+      await loadSession();
+    };
+    const mg=document.getElementById('doMagic');
+    if(mg)mg.onclick=async()=>{
+      const e=val('f_email');
+      if(!e)return sErr('Enter your email.');
+      if(!sb)return sErr('No connection to Supabase.');
+      store.authBusy=true;store.authMsg='';render();
+      const {error}=await sb.auth.signInWithOtp({email:e,options:{emailRedirectTo:location.href}});
+      if(error)return sErr(error.message);
+      sErr('✓ Check your email for the login link.');
+    };
+    return;}
+  // ---- manager dashboard wiring ----
+  if(store.account.accountType==='manager'){
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.apprLoaded=false;store.approvals=[];render();}};
+    document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
+    document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
+    document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
+    return;}
+  // ---- supplier dashboard wiring ----
+  if(store.account.accountType==='supplier'){
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];render();}};
+    const ca=document.getElementById('catAdd');if(ca)ca.onclick=catAdd;
+    document.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>catDelete(b.dataset.delcat));
+    document.querySelectorAll('[data-cat]').forEach(el=>el.onchange=()=>{const id=el.dataset.cat,k=el.dataset.k;const num=['thk','width','height','length','litres','price'].includes(k);catUpdate(id,{[k]:num?(+el.value||0):el.value});});
+    return;}
+  document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{store.unit=b.dataset.unit;render();});
+  const cs=document.getElementById('currencySel');if(cs)cs.onchange=()=>{store.currency=cs.value;render();};
+  document.getElementById('excel').onclick=exportExcel;
+  const po=document.getElementById('printOrder');if(po)po.onclick=exportExcel;
+  document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const e=se[+b.dataset.submitsupplier];if(!e)return;const [sup,d]=e;submitOrderForApproval(d.lines,d.total,sup);});
+  document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
+  const sa=document.getElementById('submitAll');if(sa)sa.onclick=()=>{
+    const pend=(store.myOrders||[]).find(o=>o.supplier_name==='(multiple)' && o.project_id===_workspaceId && o.status==='pending_approval');
+    if(pend){alert(`This project's whole-order submission (Revision ${pend.revision||1}) is pending approval. Wait for your manager to act before sending a revision.`);return;}
+    const se=store._supEntries||[];if(!se.length)return;const allLines=[];let tot=0;se.forEach(([sup,d])=>{d.lines.forEach(l=>allLines.push({...l,supplier:sup}));tot+=d.total;});submitOrderForApproval(allLines,tot,'(multiple)');};
+  const tx=document.getElementById('taxPct');if(tx)tx.onchange=()=>{store.taxPct=Math.max(0,+tx.value||0);render();};
+  document.getElementById('export').onclick=exportJob;
+  document.getElementById('import').onchange=importJob;
+  document.getElementById('share').onclick=shareLink;
+  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;render();}};
+  const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
+  const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
+  document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
+  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{store.tab=b.dataset.tab;render();});
+  document.querySelectorAll('[data-zone]').forEach(b=>b.onclick=()=>{store.zoneFilter=b.dataset.zone;render();});
+  document.querySelectorAll('[data-delzone]').forEach(b=>b.onclick=()=>{const id=+b.dataset.delzone;if(store.zones.length<=1)return;store.zones=store.zones.filter(z=>z.id!==id);store.linRows=store.linRows.filter(r=>r.zone!==id);store.sheetRows=store.sheetRows.filter(r=>r.zone!==id);store.paintRows=store.paintRows.filter(r=>r.zone!==id);store.assemblyRows=store.assemblyRows.filter(r=>r.zone!==id);if(+store.zoneFilter===id)store.zoneFilter='all';render();});
+  const nz=document.getElementById('newZone');if(nz){nz.oninput=e=>store.newZone=e.target.value;nz.onkeydown=e=>{if(e.key==='Enter')addZone();};}
+  const az=document.getElementById('addZone');if(az)az.onclick=addZone;
+  bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');
+  const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
+  const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
+  const lt=document.getElementById('linThk');if(lt)lt.onchange=()=>{store.linThk=+lt.value||0;render();};
+  const sc=document.getElementById('sheetCode');if(sc)sc.onchange=()=>{store.sheetCode=sc.value;render();};
+  const st=document.getElementById('sheetThk');if(st)st.onchange=()=>{store.sheetThk=+st.value||0;render();};
+  const rb=document.getElementById('reuse');if(rb)rb.onclick=()=>{store.reuse=!store.reuse;render();};
+  document.querySelectorAll('[data-grain]').forEach(b=>b.onclick=()=>{store.grain=b.dataset.grain;render();});
+  document.querySelectorAll('[data-lin]').forEach(el=>bindRow(el,'lin','linRows'));
+  document.querySelectorAll('[data-sheet]').forEach(el=>bindRow(el,'sheet','sheetRows'));
+  document.querySelectorAll('[data-paint]').forEach(el=>bindRow(el,'paint','paintRows'));
+  // assembly wiring
+  document.querySelectorAll('[data-newassy]').forEach(b=>b.onclick=()=>{const t=b.dataset.newassy;const tpl=ASSEMBLIES[t];if(!tpl)return;const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;const params={};tpl.inputs.forEach(i=>params[i.k]=i.def);store.assemblyRows.push({id:Date.now(),zone:z,type:t,params});render();});
+  document.querySelectorAll('[data-assy]').forEach(el=>{el.onchange=()=>{const id=+el.dataset.assy,k=el.dataset.k;const r=store.assemblyRows.find(x=>x.id===id);if(!r)return;if(k==='zone'){r.zone=+el.value;}else{const tpl=ASSEMBLIES[r.type];const inp=tpl?tpl.inputs.find(i=>i.k===k):null;if(inp&&(inp.type==='text'||inp.type==='select'))r.params[k]=el.value;else r.params[k]=+el.value||0;}render();};});
+  document.querySelectorAll('[data-delassy]').forEach(b=>b.onclick=()=>{store.assemblyRows=store.assemblyRows.filter(r=>r.id!==+b.dataset.delassy);render();});
+  // custom assemblies
+  const nc=document.getElementById('newCustom');if(nc)nc.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.customAssemblies.push({id:Date.now(),zone:z,name:'New assembly',lines:[{code:'',name:'',qty:1,unit:'each',price:0}]});render();};
+  document.querySelectorAll('[data-caname]').forEach(el=>el.onchange=()=>{const c=store.customAssemblies.find(x=>x.id===+el.dataset.caname);if(c){c.name=el.value;render();}});
+  document.querySelectorAll('[data-delca]').forEach(b=>b.onclick=()=>{store.customAssemblies=store.customAssemblies.filter(c=>c.id!==+b.dataset.delca);render();});
+  document.querySelectorAll('[data-ca]').forEach(el=>el.onchange=()=>{const c=store.customAssemblies.find(x=>x.id===+el.dataset.ca);if(c){c.zone=+el.value;render();}});
+  document.querySelectorAll('[data-addcaline]').forEach(b=>b.onclick=()=>{const c=store.customAssemblies.find(x=>x.id===+b.dataset.addcaline);if(c){c.lines.push({code:'',name:'',qty:1,unit:'each',price:0});render();}});
+  document.querySelectorAll('[data-delcaline]').forEach(b=>b.onclick=()=>{const c=store.customAssemblies.find(x=>x.id===+b.dataset.delcaline);if(c){c.lines.splice(+b.dataset.li,1);render();}});
+  document.querySelectorAll('[data-caline]').forEach(el=>el.onchange=()=>{const c=store.customAssemblies.find(x=>x.id===+el.dataset.caline);if(!c)return;const ln=c.lines[+el.dataset.li];if(!ln)return;const k=el.dataset.k;
+    if(k==='qty'||k==='price'){ln[k]=Math.max(0,+el.value||0);}else if(k==='code'){ln.code=el.value;ln.name=el.value;}else{ln[k]=el.value;}render();});
+  document.querySelectorAll('[data-dellin]').forEach(b=>b.onclick=()=>{store.linRows=store.linRows.filter(r=>r.id!==+b.dataset.dellin);render();});
+  document.querySelectorAll('[data-delsheet]').forEach(b=>b.onclick=()=>{store.sheetRows=store.sheetRows.filter(r=>r.id!==+b.dataset.delsheet);render();});
+  document.querySelectorAll('[data-delpaint]').forEach(b=>b.onclick=()=>{store.paintRows=store.paintRows.filter(r=>r.id!==+b.dataset.delpaint);render();});
+  const al=document.getElementById('addLin');if(al)al.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.linRows.push({id:Date.now(),zone:z,label:'New cut',code:store.linCode,thk:store.linThk,len:2400,qty:1});render();};
+  const as=document.getElementById('addSheet');if(as)as.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.sheetRows.push({id:Date.now(),zone:z,label:'New panel',code:store.sheetCode,thk:store.sheetThk,w:1220,h:600,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:1});render();};
+  const ap=document.getElementById('addPaint');if(ap)ap.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.paintRows.push({id:Date.now(),zone:z,label:'Walls',stage:'Topcoat',code:'',area:30,coats:2,spread:11,waste:10});render();};
+  // bank
+  const bd=document.getElementById('bankDrops');if(bd)bd.onclick=()=>{const res=optimiseLinear(store.stockLen,store.linKerf,store.linRows.filter(r=>r.len>0&&r.qty>0));const zn=store.zoneFilter!=='all'?zoneName(+store.zoneFilter):'All';res.newDrops.forEach(d=>store.bankedDrops.push({id:Date.now()+Math.random(),code:store.linCode,thk:store.linThk,material:store.linCode+' '+store.linThk+'mm',size:d,zone:zn,date:new Date().toLocaleDateString()}));store.tab='bank';render();};
+  const abk=document.getElementById('addBank');if(abk)abk.onclick=()=>{const code=document.getElementById('bc').value||'';const thk=+document.getElementById('bt').value||0;const m=document.getElementById('bm').value||'Offcut';const s=Math.max(0,Math.round(toMM(+document.getElementById('bs').value||0)));if(s>0){store.bankedDrops.push({id:Date.now(),code,thk,material:m,size:s,zone:'Manual',date:new Date().toLocaleDateString()});render();}};
+  document.querySelectorAll('[data-delbank]').forEach(b=>b.onclick=()=>{store.bankedDrops=store.bankedDrops.filter(d=>String(d.id)!==b.dataset.delbank);render();});
+  // supplier mode
+  document.querySelectorAll('[data-pref]').forEach(el=>el.onchange=()=>{const k=el.dataset.pref;if(el.value)store.supplierPrefs[k]=el.value;else delete store.supplierPrefs[k];render();});
+  // import
+  const di=document.getElementById('doImport');if(di)di.onclick=()=>importRows(document.getElementById('importBox').value);
+  const cf=document.getElementById('csvFile');if(cf)cf.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{importRows(r.result);};r.readAsText(f);e.target.value='';};
+  // price book
+  document.querySelectorAll('[data-pl]').forEach(el=>el.onchange=()=>{const i=+el.dataset.pl,k=el.dataset.k;store.priceBook.linear[i][k]=(k==='code'||k==='supplier')?el.value:k==='len'?Math.round(toMM(+el.value||0)):(+el.value||0);render();});
+  document.querySelectorAll('[data-ps]').forEach(el=>el.onchange=()=>{const i=+el.dataset.ps,k=el.dataset.k;store.priceBook.sheet[i][k]=(k==='code'||k==='supplier')?el.value:(k==='price'||k==='thk')?(+el.value||0):Math.round(toMM(+el.value||0));render();});
+  document.querySelectorAll('[data-pp]').forEach(el=>el.onchange=()=>{const i=+el.dataset.pp,k=el.dataset.k;store.priceBook.paint[i][k]=(k==='code'||k==='supplier')?el.value:(+el.value||0);render();});
+  document.querySelectorAll('[data-pa]').forEach(el=>el.onchange=()=>{const i=+el.dataset.pa,k=el.dataset.k;if(!store.priceBook.ancillary)store.priceBook.ancillary=[];store.priceBook.ancillary[i][k]=(k==='price')?(+el.value||0):el.value;render();});
+  document.querySelectorAll('[data-delpl]').forEach(b=>b.onclick=()=>{store.priceBook.linear.splice(+b.dataset.delpl,1);render();});
+  document.querySelectorAll('[data-delps]').forEach(b=>b.onclick=()=>{store.priceBook.sheet.splice(+b.dataset.delps,1);render();});
+  document.querySelectorAll('[data-delpp]').forEach(b=>b.onclick=()=>{store.priceBook.paint.splice(+b.dataset.delpp,1);render();});
+  document.querySelectorAll('[data-delpa]').forEach(b=>b.onclick=()=>{store.priceBook.ancillary.splice(+b.dataset.delpa,1);render();});
+  const apl=document.getElementById('addPL');if(apl)apl.onclick=()=>{store.priceBook.linear.push({supplier:'',code:'',thk:0,len:3600,price:0});render();};
+  const aps=document.getElementById('addPS');if(aps)aps.onclick=()=>{store.priceBook.sheet.push({supplier:'',code:'',thk:0,w:1220,h:2440,price:0});render();};
+  const app=document.getElementById('addPP');if(app)app.onclick=()=>{store.priceBook.paint.push({supplier:'',code:'',price:0});render();};
+  const apa=document.getElementById('addPA');if(apa)apa.onclick=()=>{if(!store.priceBook.ancillary)store.priceBook.ancillary=[];store.priceBook.ancillary.push({supplier:'',code:'',desc:'',unit:'each',price:0});render();};
+  const cse=document.getElementById('catSearch');if(cse){cse.oninput=()=>{store.catSearch=cse.value;render();const f=document.getElementById('catSearch');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}};}
+  document.querySelectorAll('[data-usecat]').forEach(b=>b.onclick=()=>useCatalogueItem(b.dataset.usecat));
+}
+function addZone(){const n=store.newZone.trim();if(!n)return;store.zones.push({id:Date.now(),name:n});store.newZone='';render();}
+// parse pasted/CSV rows: type,supplier,code,thk,len_or_w,h,price
+function importRows(text){
+  if(!text||!text.trim()){return;}
+  const lines=text.trim().split(/\r?\n/).map(l=>l.split(/[,\t]/).map(c=>c.trim()));
+  let added=0;
+  lines.forEach(c=>{
+    if(c.length<4)return;
+    const type=(c[0]||'').toLowerCase();
+    if(!['linear','sheet','paint'].includes(type))return; // skips header row
+    const supplier=c[1]||'', code=c[2]||'';
+    if(type==='linear'){const thk=+c[3]||0,len=Math.round(toMM(+c[4]||0)),price=+c[6]||+c[5]||0;if(code&&len){store.priceBook.linear.push({supplier,code,thk,len,price});added++;}}
+    else if(type==='sheet'){const thk=+c[3]||0,w=Math.round(toMM(+c[4]||0)),h=Math.round(toMM(+c[5]||0)),price=+c[6]||0;if(code&&w&&h){store.priceBook.sheet.push({supplier,code,thk,w,h,price});added++;}}
+    else if(type==='paint'){const price=+c[6]||+c[3]||0;if(code){store.priceBook.paint.push({supplier,code,price});added++;}}
+  });
+  render();
+  const msg=document.getElementById('importMsg');if(msg)msg.textContent=added?`✓ Imported ${added} row(s)`:'No valid rows found — check the column order.';
+}
+const val=id=>document.getElementById(id).value.trim();
+function bindNum(id,key){const el=document.getElementById(id);if(!el)return;el.onchange=()=>{store[key]=Math.max(0,Math.round(toMM(+el.value||0)));render();};}
+function bindRow(el,kind,arr){const id=+el.dataset[kind],k=el.dataset.k;el.onchange=()=>{const row=store[arr].find(r=>r.id===id);if(!row)return;const v=el.value;
+  if(k==='label'||k==='code'||k==='stage'||k==='lipCode'){row[k]=v;}else if(k==='zone'){row[k]=+v;}else if(k==='edge'){row[k]=v;}else if(k==='lip'){row[k]=+v;}
+  else if(k==='thk'){row[k]=Math.max(0,+v||0);}
+  else if(k==='qty'||k==='coats'){row[k]=Math.max(0,Math.round(+v||0));}
+  else if(k==='area'||k==='spread'||k==='waste'){row[k]=Math.max(0,+v||0);}
+  else{row[k]=Math.max(0,Math.round(toMM(+v||0)));}render();};}
+
+function exportExcel(){
+  if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  const wb=XLSX.utils.book_new(),unit=u();
+  const edgeLabel=v=>({'0':'None','1w':'1W','2w':'2W','1h':'1H','2h':'2H','all':'All 4'})[v||'0'];
+  const p1=[['Zone','Code','Thk (mm)','Label',`Final W (${unit})`,`Final H (${unit})`,`Lip thk (${unit})`,'Lip edge','Lip code',`Lip len (${unit})`,'Lip LM',`Cut size (${unit})`,'Qty']];
+  store.sheetRows.forEach(r=>{const cs=cutSize(r);const lipM=(lipLenPerPanel(r)*r.qty/1000).toFixed(2);p1.push([zoneName(r.zone),r.code||'',r.thk||0,r.label,fmt(r.w),fmt(r.h),fmt(r.lip),edgeLabel(r.edge),r.lipCode||'',fmt(r.lipLen||0),lipM,`${fmt(cs.cw)}×${fmt(cs.ch)}`,r.qty]);});
+  const w1=XLSX.utils.aoa_to_sheet(p1);w1['!cols']=[{wch:16},{wch:12},{wch:9},{wch:18},{wch:11},{wch:11},{wch:11},{wch:9},{wch:11},{wch:11},{wch:9},{wch:15},{wch:7}];XLSX.utils.book_append_sheet(wb,w1,'Panel Cut List');
+  const p2=[['Zone','Code','Thk (mm)','Label',`Length (${unit})`,'Qty']];store.linRows.forEach(r=>p2.push([zoneName(r.zone),r.code||'',r.thk||0,r.label,fmt(r.len),r.qty]));
+  const w2=XLSX.utils.aoa_to_sheet(p2);w2['!cols']=[{wch:16},{wch:12},{wch:9},{wch:18},{wch:12},{wch:7}];XLSX.utils.book_append_sheet(wb,w2,'Linear Cut List');
+  const p3=[['Zone','Stage','Code','Label',`Area (${au()})`,'Coats',`${vu()} needed`,'Cost']];store.paintRows.forEach(r=>{const pc=paintCalc(r);p3.push([zoneName(r.zone),r.stage||'Other',r.code||'',r.label,r.area,r.coats,pc.litres.toFixed(2),money(pc.cost)]);});
+  const w3=XLSX.utils.aoa_to_sheet(p3);w3['!cols']=[{wch:16},{wch:11},{wch:14},{wch:16},{wch:12},{wch:8},{wch:12},{wch:12}];XLSX.utils.book_append_sheet(wb,w3,'Paint');
+  const lin=optimiseLinear(store.stockLen,store.linKerf,store.linRows.filter(r=>r.len>0&&r.qty>0));
+  const sh=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,store.sheetRows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)})));
+  let paintC=0;store.paintRows.forEach(r=>paintC+=paintCalc(r).cost);
+  let assyTotal=0;store.assemblyRows.forEach(r=>assyTotal+=assemblyCost(r).total);
+  let customTotal=0;store.customAssemblies.forEach(ca=>customTotal+=customCost(ca).total);
+  const lipAllX=lipDemand(store.sheetRows.filter(r=>r.w>0&&r.h>0&&r.qty>0));
+  let lipTotalLM=0,lipCost=0;lipAllX.forEach(l=>{lipTotalLM+=l.totalMM/1000;lipCost+=l.cost;});
+  const linOff=offerLinear(store.linCode,store.linThk,store.stockLen),shOff=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH);
+  const linC=lin.barCount*linOff.price,shC=sh.sheetCount*shOff.price;
+  const sum=[['PITCH IQ CUT LIST — ESTIMATE'],['Company',store.account.company],['Date',new Date().toLocaleDateString()],['Supplier policy','Per-material — '+(Object.keys(store.supplierPrefs).filter(k=>store.supplierPrefs[k]).length||'0')+' pinned, rest cheapest'],[],
+    ['Item','Qty','Spec','Supplier','Cost','Waste %'],
+    ['Linear stock',lin.barCount,`${fmt(store.stockLen)}${unit} bars`,linOff.supplier||'—',money(linC),lin.wastePct.toFixed(1)+'%'],
+    ['Sheet board',sh.sheetCount,`${fmt(store.sheetW)}×${fmt(store.sheetH)}${unit}, grain ${store.grain}`,shOff.supplier||'—',money(shC),sh.wastePct.toFixed(1)+'%'],
+    ['Lipping',lipAllX.reduce((s,l)=>s+l.lengthsToBuy,0)+' lengths',`${lipTotalLM.toFixed(1)} LM net · +${store.lipWaste}% waste · ${lipAllX.length} type(s)`,'mixed',money(lipCost),''],
+    ['Paint','',`${(store.paintRows.reduce((s,r)=>s+paintCalc(r).litres,0)).toFixed(1)} L`,offerPaint(store.paintRows[0]?store.paintRows[0].code:'').supplier||'—',money(paintC),''],
+    ['Assemblies',store.assemblyRows.length,'stud walls / ceilings / tiling / joinery (incl. fixings)','—',money(assyTotal),''],
+    ['Custom assemblies',store.customAssemblies.length,'user-built item lists','mixed',money(customTotal),''],
+    [],['MATERIAL TOTAL','','','',money(linC+shC+paintC+assyTotal+lipCost+customTotal),''],
+    [],['Offcut bank items',store.bankedDrops.length],[],['BREAKDOWN BY ZONE'],['Zone','Lin pieces','Lin m','Panels','Panel m²']];
+  store.zones.forEach(z=>{const lp=store.linRows.filter(r=>r.zone===z.id),sp=store.sheetRows.filter(r=>r.zone===z.id);sum.push([z.name,lp.reduce((s,r)=>s+r.qty,0),(lp.reduce((s,r)=>s+r.len*r.qty,0)/1000).toFixed(1),sp.reduce((s,r)=>s+r.qty,0),(sp.reduce((s,r)=>s+r.w*r.h*r.qty,0)/1e6).toFixed(2)]);});
+  const w4=XLSX.utils.aoa_to_sheet(sum);w4['!cols']=[{wch:18},{wch:12},{wch:30},{wch:16},{wch:12},{wch:10}];XLSX.utils.book_append_sheet(wb,w4,'Estimate Summary');
+  // Lipping sheet
+  if(lipAllX.length){
+    const lx=[['Lip code','Thk (mm)',`Stock len (${unit})`,'Total LM',`+${store.lipWaste}% LM`,'Lengths to buy','Supplier','Unit price','Cost']];
+    lipAllX.forEach(l=>lx.push([l.code,l.thk,fmt(l.stockLen),(l.totalMM/1000).toFixed(2),(l.withWasteMM/1000).toFixed(2),l.lengthsToBuy,l.supplier,l.unitPrice>0?money(l.unitPrice):'—',l.unitPrice>0?money(l.cost):'⚠ no price']));
+    const wL=XLSX.utils.aoa_to_sheet(lx);wL['!cols']=[{wch:14},{wch:9},{wch:14},{wch:10},{wch:12},{wch:14},{wch:16},{wch:11},{wch:11}];XLSX.utils.book_append_sheet(wb,wL,'Lipping');
+  }
+  if(store.bankedDrops.length){const b=[['Code','Thk (mm)','Material',`Size (${unit})`,'Source zone','Date']];store.bankedDrops.forEach(d=>b.push([d.code||'',d.thk||0,d.material,fmt(d.size),d.zone,d.date]));const w5=XLSX.utils.aoa_to_sheet(b);w5['!cols']=[{wch:14},{wch:9},{wch:18},{wch:12},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,w5,'Offcut Bank');}
+  // Assemblies sheet
+  if(store.assemblyRows.length||store.customAssemblies.length){
+    const ax=[['Zone','Assembly','Item','Code','Qty','Unit','Supplier','Unit price','Cost']];
+    store.assemblyRows.forEach(r=>{const tpl=ASSEMBLIES[r.type];const c=assemblyCost(r);c.items.forEach(it=>ax.push([zoneName(r.zone),tpl?tpl.name:r.type,it.desc,it.code||'',it.qty,it.unit||'',it.supplier,it.price>0?money(it.price):'—',it.cost>0?money(it.cost):'—']));});
+    store.customAssemblies.forEach(ca=>{const c=customCost(ca);c.items.forEach(it=>ax.push([zoneName(ca.zone),ca.name,it.name||it.code,it.code||'',it.qty,it.unit||'',it.supplier,it.price>0?money(it.price):'—',it.cost>0?money(it.cost):'—']));});
+    const wA=XLSX.utils.aoa_to_sheet(ax);wA['!cols']=[{wch:16},{wch:22},{wch:30},{wch:18},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];XLSX.utils.book_append_sheet(wb,wA,'Assemblies');
+  }
+  // per-supplier PO sheet
+  const bySupX={};
+  const addX=(s,item,qty,c)=>{const k=s||'(no supplier)';if(!bySupX[k])bySupX[k]={rows:[],total:0};bySupX[k].rows.push([item,qty,money(c)]);bySupX[k].total+=c;};
+  if(lin.barCount>0) addX(linOff.supplier,`Linear ${store.linCode} ${store.linThk}mm @ ${fmt(store.stockLen)}${unit}`,lin.barCount+' bars',linC);
+  if(sh.sheetCount>0) addX(shOff.supplier,`Sheet ${store.sheetCode} ${store.sheetThk}mm @ ${fmt(store.sheetW)}×${fmt(store.sheetH)}`,sh.sheetCount+' sheets',shC);
+  store.paintRows.forEach(r=>{const p=paintCalc(r);if(p.cost>0)addX(p.supplier,`Paint ${r.stage||''} ${r.code} (${zoneName(r.zone)})`,p.litres.toFixed(1)+' L',p.cost);});
+  lipAllX.forEach(l=>{if(l.cost>0)addX(l.supplier,`Lipping ${l.code} ${l.thk}mm @ ${fmt(l.stockLen)}${unit}`,l.lengthsToBuy+' lengths',l.cost);});
+  store.assemblyRows.forEach(r=>{const tpl=ASSEMBLIES[r.type];const c=assemblyCost(r);c.items.forEach(it=>{if(it.cost>0)addX(it.supplier,`${tpl?tpl.name:r.type} · ${it.desc}${it.code?' ['+it.code+']':''} (${zoneName(r.zone)})`,it.qty+' '+(it.unit||''),it.cost);});});
+  store.customAssemblies.forEach(ca=>{const c=customCost(ca);c.items.forEach(it=>{if(it.cost>0)addX(it.supplier,`${ca.name} · ${it.name||it.code} (${zoneName(ca.zone)})`,it.qty+' '+(it.unit||''),it.cost);});});
+  const po=[['PURCHASE ORDERS BY SUPPLIER'],[]];
+  Object.entries(bySupX).sort((a,b)=>b[1].total-a[1].total).forEach(([sup,d])=>{po.push([sup.toUpperCase()]);po.push(['Item','Qty','Cost']);d.rows.forEach(r=>po.push(r));po.push(['','SUBTOTAL',money(d.total)]);po.push([]);});
+  const w6=XLSX.utils.aoa_to_sheet(po);w6['!cols']=[{wch:42},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,w6,'POs by Supplier');
+  XLSX.writeFile(wb,`PitchIQ-Estimate-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+function exportJob(){const job={...store};delete job.account;const blob=new Blob([JSON.stringify(job,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pitchiq-'+new Date().toISOString().slice(0,10)+'.json';a.click();}
+function importJob(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);const a=store.account;Object.assign(store,j);store.account=a;render();}catch{alert('Could not read that file.');}};r.readAsText(f);e.target.value='';}
+function shareLink(){const job={...store};delete job.account;const data=encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(job)))));const url=location.origin+location.pathname+'#job='+data;navigator.clipboard?navigator.clipboard.writeText(url).then(()=>alert('Share link copied!\n\nOnce hosted, anyone who opens it loads this exact job.'),()=>prompt('Copy link:',url)):prompt('Copy link:',url);}
+(function(){if(location.hash.startsWith('#job=')){try{const j=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(location.hash.slice(5))))));const a=store.account;Object.assign(store,j);store.account=a;}catch(e){}}})();
+
+// ---- session: read the logged-in user + profile from Supabase ----
+async function loadSession(){
+  if(!sb){render();return;}
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){store.account=null;store.authBusy=false;render();return;}
+  const uid=session.user.id;
+  let prof=null;
+  // Read the profile; retry once after a short wait if it's not ready yet
+  // (right after login the row/policies can lag, which previously defaulted
+  // everyone to 'contractor' and sent managers to the wrong screen).
+  for(let attempt=0;attempt<2 && !prof;attempt++){
+    try{const {data}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();prof=data;}catch(e){}
+    if(!prof&&attempt===0){await new Promise(r=>setTimeout(r,600));}
+  }
+  let companyName='';
+  if(prof&&prof.company_id){try{const {data:co}=await sb.from('companies').select('name').eq('id',prof.company_id).maybeSingle();companyName=co?co.name:'';}catch(e){}}
+  // Determine account type robustly: trust profiles.account_type, but if a
+  // supplier_profiles row exists for this user, they are a supplier regardless.
+  let acctType=prof?(prof.account_type||'contractor'):'contractor';
+  let supplierName='';
+  try{
+    const {data:sp}=await sb.from('supplier_profiles').select('supplier_name').eq('id',uid).maybeSingle();
+    if(sp){ acctType='supplier'; supplierName=sp.supplier_name||''; }
+  }catch(e){}
+  store.account={
+    uid, email:session.user.email, accountType:acctType,
+    company:acctType==='supplier'?(supplierName||'(supplier)'):(companyName||'(no company)'), companyId:prof?prof.company_id:null,
+    name:prof?prof.full_name:'', phone:prof?prof.phone:'', location:prof?prof.location:'',
+    role:prof?prof.role:'member', plan:prof?prof.plan:'trial',
+    trialEnds:prof?prof.trial_ends:new Date(Date.now()+30*864e5).toISOString(),
+  };
+  store.authBusy=false;store.authMsg='';
+  if(acctType!=='supplier'){ await cloudLoad(); }
+  render();
+}
+// react to auth changes (magic-link return, token refresh)
+if(sb){ sb.auth.onAuthStateChange((_e,_s)=>{ loadSession(); }); }
+loadSession();
+</script>
+</body>
+</html>
