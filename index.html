@@ -190,6 +190,7 @@ const store={
   myCatalogue:[], catalogueAll:[], catLoaded:false, catAllLoaded:false, catSearch:'',
   approvals:[], apprLoaded:false, approvingId:null,
   threadOrderId:null, threadMsgs:[], threadLoaded:false,
+  incoming:[], incomingLoaded:false,
   myOrders:[], myOrdersLoaded:false,
   projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
 };
@@ -444,6 +445,32 @@ async function submitOrderForApproval(lines, total, supplierName){
     alert(revision>1?`✓ Revision ${revision} submitted for approval. New items are highlighted for your manager.`:'✓ Submitted for approval. Your manager will see it when they log in.');
     store.myOrdersLoaded=false; loadMyOrders();
   }catch(e){alert('Could not submit: '+e.message);}
+}
+
+// Contractor sends an APPROVED order to the supplier's inbox
+async function sendToSupplier(orderId){
+  if(!sb)return;
+  const o=(store.myOrders||[]).find(x=>x.id===orderId);
+  if(!o){alert('Order not found.');return;}
+  if(o.status!=='approved'){alert('Only approved orders can be sent to the supplier.');return;}
+  let supplierId=o.supplier_id;
+  if(!supplierId && o.supplier_name && o.supplier_name!=='(multiple)'){
+    try{const {data}=await sb.from('supplier_profiles').select('id').eq('supplier_name',o.supplier_name).maybeSingle();if(data)supplierId=data.id;}catch(e){}
+  }
+  if(o.supplier_name==='(multiple)'){
+    alert('This is a whole-order submission covering multiple suppliers. Send the per-supplier orders individually so each supplier gets their own part.');
+    return;
+  }
+  if(!supplierId){
+    alert(`Can't send: "${o.supplier_name}" isn't a PitchIQ supplier account, so there's no inbox to send to. This works for suppliers on PitchIQ (items pulled from the Catalogue carry their account).`);
+    return;
+  }
+  try{
+    const {error}=await sb.from('orders').update({status:'sent',supplier_id:supplierId}).eq('id',orderId);
+    if(error){alert('Could not send: '+error.message);return;}
+    alert(`✓ Sent to ${o.supplier_name}. They'll see it in their PitchIQ inbox.`);
+    store.myOrdersLoaded=false; loadMyOrders();
+  }catch(e){alert('Could not send: '+e.message);}
 }
 
 // Copy a catalogue item into the contractor's own Price Book, in the best-fit section
@@ -905,10 +932,29 @@ async function catDelete(id){
 }
 function supplierHTML(){
   if(!store.catLoaded){loadMyCatalogue();}
+  if(!store.incomingLoaded){loadIncoming();}
   const rows=store.myCatalogue;
+  const inc=store.incoming||[];
+  const incCard=o=>{
+    const items=Array.isArray(o.items)?o.items:[];
+    return `<div class="card" style="border-color:${o.status==='sent'?'var(--amber)':'var(--line)'}">
+      <div class="cardHead"><span>📋 ${o.project_name||'Order'} <small style="color:var(--mut)">· from ${o.contractor_name||''}${o.contractor_company?' · '+o.contractor_company:''}</small></span><span class="cost">${o.currency||'$'}${(o.total||0).toFixed(2)}</span></div>
+      <div style="padding:10px 16px">
+        ${o.status==='sent'?'<div style="font-size:10px;color:var(--amber);letter-spacing:1px;margin-bottom:8px">● NEW — JUST RECEIVED</div>':''}
+        <div class="scroll"><table><thead><tr><th>Item</th><th class="r">Qty</th></tr></thead><tbody>
+        ${items.map(it=>`<tr><td>${it.item||it.name||''}</td><td class="r">${it.qty||''}</td></tr>`).join('')}
+        </tbody></table></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          ${o.status==='sent'?`<button class="cta" data-ackorder="${o.id}" style="flex:1;background:var(--green);color:#06210f">✓ ACKNOWLEDGE</button>`:`<span style="flex:1;color:var(--green);font-size:11px;align-self:center">✓ Acknowledged</span>`}
+          <button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue)">💬 MESSAGE CONTRACTOR</button>
+        </div>
+        ${threadPanel(o)}
+      </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · SUPPLIER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="body">
+    <div class="card" style="margin-top:14px"><div class="cardHead" style="color:var(--amber)"><span>📥 INCOMING ORDERS — ${inc.length}</span></div></div>
+    ${inc.length?inc.map(incCard).join(''):'<div class="empty">No orders received yet. When a contractor sends you an approved order, it appears here.</div>'}
     <div class="hint" style="padding-top:14px">List the materials you supply. Contractors using PitchIQ across the network will see these in their Catalogue and can price jobs with them. Keep codes and prices accurate — this is your shopfront.</div>
     <div class="card"><div class="cardHead"><span>MY CATALOGUE — ${rows.length} item${rows.length===1?'':'s'}</span></div>
       <div class="scroll"><table><thead><tr><th>Category / type</th><th>Code</th><th>Description</th><th class="r">Thk</th><th class="r">W</th><th class="r">H</th><th class="r">Length</th><th class="r">Litres</th><th>Container</th><th>Unit</th><th class="r">Price</th><th>Cur</th><th></th></tr></thead><tbody>
@@ -931,6 +977,19 @@ function supplierHTML(){
     </div>
     <div class="hint">Tip: use clear codes (e.g. GYP-12.5-STD, STUD-92-3.6) and fill thickness/size where relevant — it helps contractors match your products to their cut lists.</div>
   </div>`;}
+
+// Supplier: load orders sent to them
+async function loadIncoming(){
+  if(!sb||!store.account)return;
+  try{const {data}=await sb.from('orders').select('*').eq('supplier_id',store.account.uid).in('status',['sent','actioned']).order('created_at',{ascending:false});store.incoming=data||[];}catch(e){store.incoming=[];}
+  store.incomingLoaded=true;render();
+}
+async function acknowledgeOrder(id){
+  if(!sb)return;
+  try{await sb.from('orders').update({status:'actioned'}).eq('id',id);}catch(e){}
+  const o=(store.incoming||[]).find(x=>x.id===id);if(o)o.status='actioned';
+  render();
+}
 
 function appHTML(){
   const daysLeft=Math.max(0,Math.ceil((new Date(store.account.trialEnds)-new Date())/864e5));
@@ -1221,9 +1280,9 @@ function orderHTML(){
   store._supEntries=supEntries;
   if(!store.myOrdersLoaded){loadMyOrders();}
   const projOrders=(store.myOrders||[]).filter(o=>o.project_id===_workspaceId);
-  const statusColor=s=>s==='approved'?'var(--green)':s==='rejected'?'var(--red)':s==='pending_approval'?'var(--amber)':'var(--mut)';
+  const statusColor=s=>s==='approved'?'var(--green)':s==='sent'?'var(--blue)':s==='rejected'?'var(--red)':s==='pending_approval'?'var(--amber)':'var(--mut)';
   const statusLabel=s=>(s||'').replace('_',' ').toUpperCase();
-  const myOrdersPanel=(projOrders.length)?`<div class="orderCard" style="margin-bottom:14px"><div class="orderHead">◆ SUBMITTED ORDERS · ${store.projectName||''} — APPROVAL STATUS</div><div class="orderBody"><div class="scroll"><table><thead><tr><th>Submitted</th><th>Rev</th><th>Supplier</th><th class="r">Total</th><th>Status</th><th>Manager note</th><th></th></tr></thead><tbody>${projOrders.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(o=>`<tr><td style="font-size:11px">${new Date(o.created_at).toLocaleDateString()}</td><td style="font-size:11px">R${o.revision||1}</td><td>${o.supplier_name||'—'}</td><td class="r">${o.currency||'$'}${(o.total||0).toFixed(2)}</td><td><strong style="color:${statusColor(o.status)}">${statusLabel(o.status)}</strong></td><td style="font-size:11px;color:var(--mut)">${o.approver_note||''}</td><td style="white-space:nowrap"><button class="zadd" data-thread="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--blue);color:var(--blue)">💬</button>${o.status==='approved'?` <button class="zadd" data-cert="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--green);color:var(--green)">⎙</button>`:''}</td></tr>`).join('')}</tbody></table></div>${projOrders.map(o=>threadPanel(o)).join('')}<div class="orderSub" style="margin-top:8px">💬 message your manager about an order · ⎙ certificate for approved orders. Each revision is the full updated order; new items are flagged for your manager.</div></div></div>`:'';
+  const myOrdersPanel=(projOrders.length)?`<div class="orderCard" style="margin-bottom:14px"><div class="orderHead">◆ SUBMITTED ORDERS · ${store.projectName||''} — APPROVAL STATUS</div><div class="orderBody"><div class="scroll"><table><thead><tr><th>Submitted</th><th>Rev</th><th>Supplier</th><th class="r">Total</th><th>Status</th><th>Manager note</th><th></th></tr></thead><tbody>${projOrders.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(o=>`<tr><td style="font-size:11px">${new Date(o.created_at).toLocaleDateString()}</td><td style="font-size:11px">R${o.revision||1}</td><td>${o.supplier_name||'—'}</td><td class="r">${o.currency||'$'}${(o.total||0).toFixed(2)}</td><td><strong style="color:${statusColor(o.status)}">${statusLabel(o.status)}</strong></td><td style="font-size:11px;color:var(--mut)">${o.approver_note||''}</td><td style="white-space:nowrap"><button class="zadd" data-thread="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--blue);color:var(--blue)">💬</button>${o.status==='approved'?` <button class="zadd" data-cert="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--green);color:var(--green)">⎙</button> <button class="zadd" data-sendsup="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--amber);color:var(--amber)">▶ SEND</button>`:''}${o.status==='sent'?` <button class="zadd" data-cert="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--green);color:var(--green)">⎙</button> <span style="font-size:9px;color:var(--green)">✓ SENT</span>`:''}</td></tr>`).join('')}</tbody></table></div>${projOrders.map(o=>threadPanel(o)).join('')}<div class="orderSub" style="margin-top:8px">💬 message your manager about an order · ⎙ certificate for approved orders. Each revision is the full updated order; new items are flagged for your manager.</div></div></div>`:'';
   return myOrdersPanel + `<div class="orderCard"><div class="orderHead">◆ MATERIAL ORDER & COST — COMBINED VIEW</div><div class="orderBody">
     <div class="orderLine"><span>Linear stock @ ${fmt(store.stockLen)}${u()} <small style="color:var(--mut)">${linOff.supplier||'—'}${linOff.fellBack?' (fallback)':''}</small></span><span class="orderQty">${lin.barCount} <small>bars · ${money(linC)}</small></span></div>
     <div class="orderSub">~${lin.wastePct.toFixed(1)}% waste · drops to keep: ${lin.newDrops.length?lin.newDrops.sort((a,b)=>b-a).map(d=>fmt(d)+u()).join(', '):'none'}</div>
@@ -1352,7 +1411,6 @@ function wire(){
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
-    document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
     document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
     document.querySelectorAll('[data-closethread]').forEach(b=>b.onclick=()=>closeThread());
     document.querySelectorAll('[data-sendmsg]').forEach(b=>b.onclick=()=>sendMessage(b.dataset.sendmsg));
@@ -1366,10 +1424,15 @@ function wire(){
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];store.incomingLoaded=false;store.incoming=[];store.threadOrderId=null;render();}};
     const ca=document.getElementById('catAdd');if(ca)ca.onclick=catAdd;
     document.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>catDelete(b.dataset.delcat));
     document.querySelectorAll('[data-cat]').forEach(el=>el.onchange=()=>{const id=el.dataset.cat,k=el.dataset.k;const num=['thk','width','height','length','litres','price'].includes(k);catUpdate(id,{[k]:num?(+el.value||0):el.value});});
+    document.querySelectorAll('[data-ackorder]').forEach(b=>b.onclick=()=>acknowledgeOrder(b.dataset.ackorder));
+    document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
+    document.querySelectorAll('[data-closethread]').forEach(b=>b.onclick=()=>closeThread());
+    document.querySelectorAll('[data-sendmsg]').forEach(b=>b.onclick=()=>sendMessage(b.dataset.sendmsg));
+    {const mi=document.getElementById('msgInput');if(mi)mi.onkeydown=(e)=>{if(e.key==='Enter'){e.preventDefault();const sm=document.querySelector('[data-sendmsg]');if(sm)sendMessage(sm.dataset.sendmsg);}};}
     return;}
   document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{store.unit=b.dataset.unit;render();});
   const cs=document.getElementById('currencySel');if(cs)cs.onchange=()=>{store.currency=cs.value;render();};
@@ -1377,6 +1440,7 @@ function wire(){
   const po=document.getElementById('printOrder');if(po)po.onclick=exportExcel;
   document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const e=se[+b.dataset.submitsupplier];if(!e)return;const [sup,d]=e;submitOrderForApproval(d.lines,d.total,sup);});
   document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
+  document.querySelectorAll('[data-sendsup]').forEach(b=>b.onclick=()=>{if(confirm('Send this approved order to the supplier'+"'"+'s PitchIQ inbox?'))sendToSupplier(b.dataset.sendsup);});
   document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
   document.querySelectorAll('[data-closethread]').forEach(b=>b.onclick=()=>closeThread());
   document.querySelectorAll('[data-sendmsg]').forEach(b=>b.onclick=()=>sendMessage(b.dataset.sendmsg));
