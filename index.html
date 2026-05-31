@@ -188,7 +188,7 @@ const store={
   bankedDrops:[], newZone:'', selPlan:'s_mo', account:null,
   authMode:'signin', authBusy:false, authMsg:'', syncState:'', signupType:'contractor',
   myCatalogue:[], catalogueAll:[], catLoaded:false, catAllLoaded:false, catSearch:'',
-  approvals:[], apprLoaded:false,
+  approvals:[], apprLoaded:false, approvingId:null,
   myOrders:[], myOrdersLoaded:false,
   projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
 };
@@ -309,7 +309,7 @@ function viewCertificate(orderId){
   <table><thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Cost</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="total">TOTAL: ${o.currency||'$'}${(o.total||0).toFixed(2)}</div>
   <div class="stamp"><div class="big">✓ APPROVED</div>
-    <div style="font-size:13px;margin-top:6px">Approved by <b>${o.approver_name||'Manager'}</b> on <b>${when.toLocaleDateString()} at ${when.toLocaleTimeString()}</b></div>
+    <div style="font-size:13px;margin-top:6px">Approved by <b>${o.approver_name||'Approver'}</b>${o.approver_title?` <span style="color:#555">(${o.approver_title})</span>`:''} on <b>${when.toLocaleDateString()} at ${when.toLocaleTimeString()}</b></div>
     ${o.approver_note?`<div style="font-size:12px;margin-top:4px;color:#555">Note: ${o.approver_note}</div>`:''}
     <div style="font-size:11px;margin-top:8px;color:#666">Reference ${o.approval_ref||'—'} · This certificate confirms the above order was reviewed and approved within PITCH IQ.</div></div>
   <div class="foot">Generated ${new Date().toLocaleString()} · PITCH IQ · This is a system-generated approval record. Verify the reference number against the company's PITCH IQ account.</div>
@@ -746,18 +746,30 @@ async function loadApprovals(){
 }
 async function setApproval(id,status){
   if(!sb)return;
-  const note=status==='rejected'?(prompt('Reason for rejection (optional):')||''):'';
-  const approvedAt=new Date().toISOString();
-  // unique reference on approval, e.g. PIQ-20260531-7K3F
-  let ref=null;
   if(status==='approved'){
-    const d=new Date();
-    const ymd=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-    const rand=Math.random().toString(36).slice(2,6).toUpperCase();
-    ref=`PIQ-${ymd}-${rand}`;
+    // open the title picker; actual approval happens after they choose a title
+    store.approvingId=id;
+    render();
+    return;
   }
-  try{await sb.from('orders').update({status,approver_id:store.account.uid,approver_name:store.account.name,approver_note:note,approved_at:approvedAt,approval_ref:ref}).eq('id',id);}catch(e){}
-  const o=store.approvals.find(x=>x.id===id);if(o){o.status=status;o.approver_note=note;o.approved_at=approvedAt;o.approval_ref=ref;o.approver_name=store.account.name;}
+  // rejection path
+  const note=(prompt('Reason for rejection (optional):')||'');
+  const approvedAt=new Date().toISOString();
+  try{await sb.from('orders').update({status,approver_id:store.account.uid,approver_name:store.account.name,approver_note:note,approved_at:approvedAt}).eq('id',id);}catch(e){}
+  const o=store.approvals.find(x=>x.id===id);if(o){o.status=status;o.approver_note=note;o.approved_at=approvedAt;o.approver_name=store.account.name;}
+  render();
+}
+// complete an approval once the approver has chosen their title
+async function confirmApproval(id,title){
+  if(!sb)return;
+  const approvedAt=new Date().toISOString();
+  const d=new Date();
+  const ymd=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const rand=Math.random().toString(36).slice(2,6).toUpperCase();
+  const ref=`PIQ-${ymd}-${rand}`;
+  try{await sb.from('orders').update({status:'approved',approver_id:store.account.uid,approver_name:store.account.name,approver_title:title,approver_note:'',approved_at:approvedAt,approval_ref:ref}).eq('id',id);}catch(e){}
+  const o=store.approvals.find(x=>x.id===id);if(o){o.status='approved';o.approver_title=title;o.approved_at=approvedAt;o.approval_ref=ref;o.approver_name=store.account.name;}
+  store.approvingId=null;
   render();
 }
 function managerHTML(){
@@ -786,7 +798,14 @@ function managerHTML(){
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`;}
+  </div>
+  ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px" id="titleOverlay">
+    <div style="background:var(--panel);border:1px solid var(--amber);border-radius:10px;max-width:380px;width:100%;padding:20px">
+      <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Select the role you're approving this order under. It will appear on the approval certificate.</div>
+      ${['Manager','QS','Purchasing','Project Lead','Director','Other'].map(t=>`<button class="cta" data-approvetitle="${t}" style="width:100%;margin-bottom:8px;background:var(--steel);color:var(--ink);border:1px solid var(--line);text-align:left">${t}</button>`).join('')}
+      <button class="pbtn" id="cancelApprove" style="width:100%;margin-top:4px">CANCEL</button>
+    </div></div>`:''}`;}
 
 // ===================== SUPPLIER DASHBOARD =====================
 async function loadMyCatalogue(){
@@ -1259,6 +1278,12 @@ function wire(){
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
+    document.querySelectorAll('[data-approvetitle]').forEach(b=>b.onclick=()=>{
+      let t=b.dataset.approvetitle;
+      if(t==='Other'){t=(prompt('Enter the approving role/title:','')||'').trim();if(!t)return;}
+      confirmApproval(store.approvingId,t);
+    });
+    const ca=document.getElementById('cancelApprove');if(ca)ca.onclick=()=>{store.approvingId=null;render();};
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
