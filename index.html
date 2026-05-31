@@ -189,6 +189,7 @@ const store={
   authMode:'signin', authBusy:false, authMsg:'', syncState:'', signupType:'contractor',
   myCatalogue:[], catalogueAll:[], catLoaded:false, catAllLoaded:false, catSearch:'',
   approvals:[], apprLoaded:false, approvingId:null,
+  threadOrderId:null, threadMsgs:[], threadLoaded:false,
   myOrders:[], myOrdersLoaded:false,
   projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
 };
@@ -324,6 +325,77 @@ async function loadMyOrders(){
   if(!sb||!store.account)return;
   try{const {data}=await sb.from('orders').select('*').eq('contractor_id',store.account.uid).order('created_at',{ascending:false});store.myOrders=data||[];}catch(e){store.myOrders=[];}
   store.myOrdersLoaded=true;render();
+}
+
+// ===================== MESSAGING =====================
+// Open a message thread for an order (works for contractor, manager, supplier)
+async function openThread(orderId){
+  store.threadOrderId=orderId;
+  store.threadMsgs=[];
+  store.threadLoaded=false;
+  render();
+  await loadThread(orderId);
+}
+async function loadThread(orderId){
+  if(!sb)return;
+  try{const {data}=await sb.from('messages').select('*').eq('order_id',orderId).order('created_at',{ascending:true});store.threadMsgs=data||[];}catch(e){store.threadMsgs=[];}
+  store.threadLoaded=true;
+  // mark messages addressed to me as read
+  try{await sb.from('messages').update({read:true}).eq('order_id',orderId).eq('recipient_id',store.account.uid).eq('read',false);}catch(e){}
+  render();
+}
+function closeThread(){ store.threadOrderId=null; store.threadMsgs=[]; store.threadLoaded=false; render(); }
+// figure out who the recipient is for a message, given the order and who I am
+function threadRecipient(order){
+  const me=store.account.uid;
+  // contractor <-> manager (approver) <-> supplier; send to the "other parties"
+  // simplest: if I'm the contractor, send to approver (manager) if known, else supplier
+  if(order.contractor_id===me){ return order.approver_id||order.supplier_id||null; }
+  // if I'm the manager/approver, send to the contractor
+  if(order.approver_id===me){ return order.contractor_id; }
+  // if I'm the supplier, send to the contractor
+  if(order.supplier_id===me){ return order.contractor_id; }
+  // fallback: contractor
+  return order.contractor_id;
+}
+async function sendMessage(orderId){
+  const input=document.getElementById('msgInput');
+  if(!input)return;
+  const body=input.value.trim();
+  if(!body)return;
+  const order=(store.myOrders||[]).find(o=>o.id===orderId)||(store.approvals||[]).find(o=>o.id===orderId)||(store.incoming||[]).find(o=>o.id===orderId);
+  if(!order){alert('Order not found.');return;}
+  const recipient=threadRecipient(order);
+  const row={ order_id:orderId, sender_id:store.account.uid, sender_name:store.account.name||store.account.email, recipient_id:recipient||store.account.uid, body, read:false };
+  try{
+    const {error}=await sb.from('messages').insert(row);
+    if(error){alert('Could not send: '+error.message);return;}
+    input.value='';
+    await loadThread(orderId);
+  }catch(e){alert('Could not send: '+e.message);}
+}
+// renders a thread panel for an order
+function threadPanel(order){
+  if(store.threadOrderId!==order.id)return '';
+  const msgs=store.threadMsgs||[];
+  const me=store.account.uid;
+  return `<div style="border:1px solid var(--blue);border-radius:8px;margin-top:10px;background:#12151a">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)">
+      <span style="font-size:11px;letter-spacing:1px;color:var(--blue)">💬 MESSAGES · ${order.project_name||'order'}</span>
+      <button class="pbtn" data-closethread="1" style="font-size:10px">CLOSE</button></div>
+    <div style="max-height:240px;overflow-y:auto;padding:10px 12px">
+      ${!store.threadLoaded?'<div style="color:var(--mut);font-size:12px">Loading…</div>':msgs.length?msgs.map(m=>{
+        const mine=m.sender_id===me;
+        return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:8px">
+          <div style="max-width:78%;padding:7px 10px;border-radius:8px;background:${mine?'var(--amber)':'var(--steel)'};color:${mine?'#1a1a1a':'var(--ink)'}">
+            <div style="font-size:9px;opacity:0.7;margin-bottom:2px">${mine?'You':(m.sender_name||'Them')} · ${new Date(m.created_at).toLocaleString()}</div>
+            <div style="font-size:13px;white-space:pre-wrap">${(m.body||'').replace(/</g,'&lt;')}</div>
+          </div></div>`;}).join(''):'<div style="color:var(--mut);font-size:12px">No messages yet. Start the conversation about this order.</div>'}
+    </div>
+    <div style="display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--line)">
+      <input id="msgInput" class="inp" style="flex:1;margin:0" placeholder="Type a message…">
+      <button class="cta" data-sendmsg="${order.id}" style="width:auto;padding:8px 16px;margin:0">SEND</button>
+    </div></div>`;
 }
 
 // Contractor submits an order (one supplier or all) for manager approval
@@ -790,6 +862,8 @@ function managerHTML(){
           <button class="cta" style="flex:1;background:var(--green);color:#06210f" data-approve="${o.id}">✓ APPROVE</button>
           <button class="cta" style="flex:1;background:var(--red);color:#2a0a0a" data-reject="${o.id}">✕ REJECT</button>
         </div>`:o.status==='approved'?`<div style="margin-top:12px"><button class="zadd" data-cert="${o.id}" style="border-color:var(--green);color:var(--green);width:100%">⎙ VIEW APPROVAL CERTIFICATE · ${o.approval_ref||''}</button></div>`:''}
+        <div style="margin-top:8px"><button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue);width:100%">💬 MESSAGES</button></div>
+        ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
@@ -1149,7 +1223,7 @@ function orderHTML(){
   const projOrders=(store.myOrders||[]).filter(o=>o.project_id===_workspaceId);
   const statusColor=s=>s==='approved'?'var(--green)':s==='rejected'?'var(--red)':s==='pending_approval'?'var(--amber)':'var(--mut)';
   const statusLabel=s=>(s||'').replace('_',' ').toUpperCase();
-  const myOrdersPanel=(projOrders.length)?`<div class="orderCard" style="margin-bottom:14px"><div class="orderHead">◆ SUBMITTED ORDERS · ${store.projectName||''} — APPROVAL STATUS</div><div class="orderBody"><div class="scroll"><table><thead><tr><th>Submitted</th><th>Rev</th><th>Supplier</th><th class="r">Total</th><th>Status</th><th>Manager note</th><th></th></tr></thead><tbody>${projOrders.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(o=>`<tr><td style="font-size:11px">${new Date(o.created_at).toLocaleDateString()}</td><td style="font-size:11px">R${o.revision||1}</td><td>${o.supplier_name||'—'}</td><td class="r">${o.currency||'$'}${(o.total||0).toFixed(2)}</td><td><strong style="color:${statusColor(o.status)}">${statusLabel(o.status)}</strong></td><td style="font-size:11px;color:var(--mut)">${o.approver_note||''}</td><td>${o.status==='approved'?`<button class="zadd" data-cert="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button>`:''}</td></tr>`).join('')}</tbody></table></div><div class="orderSub" style="margin-top:8px">Showing orders for this project only. Each revision is the full updated order; newly-added items are flagged for your manager. Approved orders have a downloadable certificate with a reference number.</div></div></div>`:'';
+  const myOrdersPanel=(projOrders.length)?`<div class="orderCard" style="margin-bottom:14px"><div class="orderHead">◆ SUBMITTED ORDERS · ${store.projectName||''} — APPROVAL STATUS</div><div class="orderBody"><div class="scroll"><table><thead><tr><th>Submitted</th><th>Rev</th><th>Supplier</th><th class="r">Total</th><th>Status</th><th>Manager note</th><th></th></tr></thead><tbody>${projOrders.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(o=>`<tr><td style="font-size:11px">${new Date(o.created_at).toLocaleDateString()}</td><td style="font-size:11px">R${o.revision||1}</td><td>${o.supplier_name||'—'}</td><td class="r">${o.currency||'$'}${(o.total||0).toFixed(2)}</td><td><strong style="color:${statusColor(o.status)}">${statusLabel(o.status)}</strong></td><td style="font-size:11px;color:var(--mut)">${o.approver_note||''}</td><td style="white-space:nowrap"><button class="zadd" data-thread="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--blue);color:var(--blue)">💬</button>${o.status==='approved'?` <button class="zadd" data-cert="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--green);color:var(--green)">⎙</button>`:''}</td></tr>`).join('')}</tbody></table></div>${projOrders.map(o=>threadPanel(o)).join('')}<div class="orderSub" style="margin-top:8px">💬 message your manager about an order · ⎙ certificate for approved orders. Each revision is the full updated order; new items are flagged for your manager.</div></div></div>`:'';
   return myOrdersPanel + `<div class="orderCard"><div class="orderHead">◆ MATERIAL ORDER & COST — COMBINED VIEW</div><div class="orderBody">
     <div class="orderLine"><span>Linear stock @ ${fmt(store.stockLen)}${u()} <small style="color:var(--mut)">${linOff.supplier||'—'}${linOff.fellBack?' (fallback)':''}</small></span><span class="orderQty">${lin.barCount} <small>bars · ${money(linC)}</small></span></div>
     <div class="orderSub">~${lin.wastePct.toFixed(1)}% waste · drops to keep: ${lin.newDrops.length?lin.newDrops.sort((a,b)=>b-a).map(d=>fmt(d)+u()).join(', '):'none'}</div>
@@ -1278,6 +1352,11 @@ function wire(){
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
+    document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
+    document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
+    document.querySelectorAll('[data-closethread]').forEach(b=>b.onclick=()=>closeThread());
+    document.querySelectorAll('[data-sendmsg]').forEach(b=>b.onclick=()=>sendMessage(b.dataset.sendmsg));
+    {const mi=document.getElementById('msgInput');if(mi)mi.onkeydown=(e)=>{if(e.key==='Enter'){e.preventDefault();const sm=document.querySelector('[data-sendmsg]');if(sm)sendMessage(sm.dataset.sendmsg);}};}
     document.querySelectorAll('[data-approvetitle]').forEach(b=>b.onclick=()=>{
       let t=b.dataset.approvetitle;
       if(t==='Other'){t=(prompt('Enter the approving role/title:','')||'').trim();if(!t)return;}
@@ -1298,6 +1377,10 @@ function wire(){
   const po=document.getElementById('printOrder');if(po)po.onclick=exportExcel;
   document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const e=se[+b.dataset.submitsupplier];if(!e)return;const [sup,d]=e;submitOrderForApproval(d.lines,d.total,sup);});
   document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
+  document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
+  document.querySelectorAll('[data-closethread]').forEach(b=>b.onclick=()=>closeThread());
+  document.querySelectorAll('[data-sendmsg]').forEach(b=>b.onclick=()=>sendMessage(b.dataset.sendmsg));
+  {const mi=document.getElementById('msgInput');if(mi)mi.onkeydown=(e)=>{if(e.key==='Enter'){e.preventDefault();const sm=document.querySelector('[data-sendmsg]');if(sm)sendMessage(sm.dataset.sendmsg);}};}
   const sa=document.getElementById('submitAll');if(sa)sa.onclick=()=>{
     const pend=(store.myOrders||[]).find(o=>o.supplier_name==='(multiple)' && o.project_id===_workspaceId && o.status==='pending_approval');
     if(pend){alert(`This project's whole-order submission (Revision ${pend.revision||1}) is pending approval. Wait for your manager to act before sending a revision.`);return;}
