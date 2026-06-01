@@ -191,6 +191,7 @@ const store={
   myCatalogue:[], catalogueAll:[], catLoaded:false, catAllLoaded:false, catSearch:'',
   approvals:[], apprLoaded:false, approvingId:null,
   threadOrderId:null, threadMsgs:[], threadLoaded:false,
+  unreadByOrder:{}, unreadLoaded:false,
   incoming:[], incomingLoaded:false,
   myOrders:[], myOrdersLoaded:false,
   projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
@@ -329,6 +330,23 @@ async function loadMyOrders(){
   store.myOrdersLoaded=true;render();
 }
 
+// Count unread messages addressed to me, grouped by order, for the 💬 badge
+async function loadUnread(){
+  if(!sb||!store.account)return;
+  try{
+    const {data}=await sb.from('messages').select('order_id').eq('recipient_id',store.account.uid).eq('read',false);
+    const map={};
+    (data||[]).forEach(m=>{ if(m.order_id){ map[m.order_id]=(map[m.order_id]||0)+1; } });
+    store.unreadByOrder=map;
+  }catch(e){store.unreadByOrder={};}
+  store.unreadLoaded=true;render();
+}
+// little red badge showing unread count for an order's thread
+function unreadBadge(orderId){
+  const n=(store.unreadByOrder||{})[orderId]||0;
+  if(!n)return '';
+  return `<span style="background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 6px;margin-left:4px">${n}</span>`;
+}
 // ===================== MESSAGING =====================
 // Open a message thread for an order (works for contractor, manager, supplier)
 let _msgChannel=null;
@@ -353,6 +371,13 @@ function subscribeOrders(){
       if(acct==='contractor'){ store.myOrdersLoaded=false; loadMyOrders(); }
       else if(acct==='manager'){ store.apprLoaded=false; loadApprovals(); }
       else if(acct==='supplier'){ store.incomingLoaded=false; loadIncoming(); }
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'recipient_id=eq.'+store.account.uid},(payload)=>{
+      const m=payload.new; if(!m||!m.order_id)return;
+      // if this order's thread is open, it'll be marked read; otherwise bump the badge
+      if(store.threadOrderId===m.order_id)return;
+      store.unreadByOrder={...store.unreadByOrder,[m.order_id]:(store.unreadByOrder[m.order_id]||0)+1};
+      render();
     })
     .subscribe();
 }
@@ -391,15 +416,21 @@ async function loadThread(orderId){
   store.threadLoaded=true;
   // mark messages addressed to me as read
   try{await sb.from('messages').update({read:true}).eq('order_id',orderId).eq('recipient_id',store.account.uid).eq('read',false);}catch(e){}
+  // refresh unread badges
+  store.unreadByOrder={...store.unreadByOrder,[orderId]:0};
   render();
 }
 function closeThread(){ unsubscribeThread(); store.threadOrderId=null; store.threadMsgs=[]; store.threadLoaded=false; render(); }
 // figure out who the recipient is for a message, given the order and who I am
 function threadRecipient(order){
   const me=store.account.uid;
-  // contractor <-> manager (approver) <-> supplier; send to the "other parties"
-  // simplest: if I'm the contractor, send to approver (manager) if known, else supplier
-  if(order.contractor_id===me){ return order.approver_id||order.supplier_id||null; }
+  // If I'm the contractor: route by where the order is in its life.
+  // Once it's been sent to a supplier, I'm talking to the supplier.
+  // Before that (during approval), I'm talking to the manager/approver.
+  if(order.contractor_id===me){
+    if((order.status==='sent'||order.status==='actioned') && order.supplier_id) return order.supplier_id;
+    return order.approver_id||order.supplier_id||null;
+  }
   // if I'm the manager/approver, send to the contractor
   if(order.approver_id===me){ return order.contractor_id; }
   // if I'm the supplier, send to the contractor
@@ -940,7 +971,7 @@ function managerHTML(){
           <button class="cta" style="flex:1;background:var(--green);color:#06210f" data-approve="${o.id}">✓ APPROVE</button>
           <button class="cta" style="flex:1;background:var(--red);color:#2a0a0a" data-reject="${o.id}">✕ REJECT</button>
         </div>`:o.status==='approved'?`<div style="margin-top:12px"><button class="zadd" data-cert="${o.id}" style="border-color:var(--green);color:var(--green);width:100%">⎙ VIEW APPROVAL CERTIFICATE · ${o.approval_ref||''}</button></div>`:''}
-        <div style="margin-top:8px"><button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue);width:100%">💬 MESSAGES</button></div>
+        <div style="margin-top:8px"><button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue);width:100%">💬 MESSAGES${unreadBadge(o.id)}</button></div>
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
@@ -997,7 +1028,7 @@ function supplierHTML(){
         </tbody></table></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           ${o.status==='sent'?`<button class="cta" data-ackorder="${o.id}" style="flex:1;background:var(--green);color:#06210f">✓ ACKNOWLEDGE</button>`:`<span style="flex:1;color:var(--green);font-size:11px;align-self:center">✓ Acknowledged</span>`}
-          <button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue)">💬 MESSAGE CONTRACTOR</button>
+          <button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue)">💬 MESSAGE CONTRACTOR${unreadBadge(o.id)}</button>
         </div>
         ${threadPanel(o)}
       </div></div>`;};
@@ -1368,7 +1399,7 @@ function orderHTML(){
         <strong style="color:${col}">${statusLabel(status)}</strong> · Rev ${priorO.revision||1}${priorO.approver_name?` · by ${priorO.approver_name}${priorO.approver_title?' ('+priorO.approver_title+')':''}`:''}${priorO.approved_at?` · ${new Date(priorO.approved_at).toLocaleDateString()}`:''}
         ${priorO.approver_note?`<div style="color:var(--mut);margin-top:3px">Note: ${priorO.approver_note}</div>`:''}
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-          <button class="zadd" data-thread="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--blue);color:var(--blue)">💬 MESSAGES</button>
+          <button class="zadd" data-thread="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--blue);color:var(--blue)">💬 MESSAGES${unreadBadge(priorO.id)}</button>
           ${status==='approved'?`<button class="zadd" data-cert="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button> <button class="zadd" data-sendsup="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--amber);color:var(--amber)">▶ SEND TO SUPPLIER</button>`:''}
           ${status==='sent'?`<button class="zadd" data-cert="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button> <span style="font-size:10px;color:var(--blue);align-self:center">✓ SENT TO SUPPLIER</span>`:''}
         </div>
@@ -1800,6 +1831,7 @@ async function loadSession(){
   }
   if(acctType!=='supplier'){ await cloudLoad(); }
   subscribeOrders();
+  loadUnread();
   render();
 }
 // react to auth changes (magic-link return, token refresh)
