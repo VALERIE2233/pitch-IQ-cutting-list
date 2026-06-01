@@ -330,12 +330,59 @@ async function loadMyOrders(){
 
 // ===================== MESSAGING =====================
 // Open a message thread for an order (works for contractor, manager, supplier)
+let _msgChannel=null;
+let _ordersChannel=null;
+function unsubscribeOrders(){
+  if(_ordersChannel&&sb){try{sb.removeChannel(_ordersChannel);}catch(e){}_ordersChannel=null;}
+}
+function subscribeOrders(){
+  unsubscribeOrders();
+  if(!sb||!store.account)return;
+  const acct=store.account.accountType;
+  _ordersChannel=sb.channel('orders-'+store.account.uid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'orders'},(payload)=>{
+      const row=payload.new||payload.old;
+      if(!row)return;
+      // only react to orders relevant to me, then refresh the right list
+      let relevant=false;
+      if(acct==='contractor' && row.contractor_id===store.account.uid) relevant=true;
+      if(acct==='manager' && row.company_id===store.account.companyId) relevant=true;
+      if(acct==='supplier' && row.supplier_id===store.account.uid) relevant=true;
+      if(!relevant)return;
+      if(acct==='contractor'){ store.myOrdersLoaded=false; loadMyOrders(); }
+      else if(acct==='manager'){ store.apprLoaded=false; loadApprovals(); }
+      else if(acct==='supplier'){ store.incomingLoaded=false; loadIncoming(); }
+    })
+    .subscribe();
+}
+function unsubscribeThread(){
+  if(_msgChannel&&sb){try{sb.removeChannel(_msgChannel);}catch(e){}_msgChannel=null;}
+}
+function subscribeThread(orderId){
+  unsubscribeThread();
+  if(!sb)return;
+  _msgChannel=sb.channel('msgs-'+orderId)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'order_id=eq.'+orderId},(payload)=>{
+      const m=payload.new;
+      if(!m)return;
+      // only if this thread is still the open one
+      if(store.threadOrderId!==orderId)return;
+      // avoid duplicates (my own just-sent message may already be in the list)
+      if((store.threadMsgs||[]).some(x=>x.id===m.id))return;
+      store.threadMsgs=[...(store.threadMsgs||[]),m];
+      // if it's addressed to me, mark read
+      if(m.recipient_id===store.account.uid){try{sb.from('messages').update({read:true}).eq('id',m.id);}catch(e){}}
+      render();
+    })
+    .subscribe();
+}
 async function openThread(orderId){
   store.threadOrderId=orderId;
   store.threadMsgs=[];
   store.threadLoaded=false;
   render();
   await loadThread(orderId);
+  subscribeThread(orderId);
 }
 async function loadThread(orderId){
   if(!sb)return;
@@ -345,7 +392,7 @@ async function loadThread(orderId){
   try{await sb.from('messages').update({read:true}).eq('order_id',orderId).eq('recipient_id',store.account.uid).eq('read',false);}catch(e){}
   render();
 }
-function closeThread(){ store.threadOrderId=null; store.threadMsgs=[]; store.threadLoaded=false; render(); }
+function closeThread(){ unsubscribeThread(); store.threadOrderId=null; store.threadMsgs=[]; store.threadLoaded=false; render(); }
 // figure out who the recipient is for a message, given the order and who I am
 function threadRecipient(order){
   const me=store.account.uid;
@@ -1449,7 +1496,7 @@ function wire(){
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.apprLoaded=false;store.approvals=[];render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.apprLoaded=false;store.approvals=[];render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
@@ -1466,7 +1513,7 @@ function wire(){
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];store.incomingLoaded=false;store.incoming=[];store.threadOrderId=null;render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];store.incomingLoaded=false;store.incoming=[];store.threadOrderId=null;render();}};
     const ca=document.getElementById('catAdd');if(ca)ca.onclick=catAdd;
     document.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>catDelete(b.dataset.delcat));
     document.querySelectorAll('[data-cat]').forEach(el=>el.onchange=()=>{const id=el.dataset.cat,k=el.dataset.k;const num=['thk','width','height','length','litres','price'].includes(k);catUpdate(id,{[k]:num?(+el.value||0):el.value});});
@@ -1497,7 +1544,7 @@ function wire(){
   document.getElementById('export').onclick=exportJob;
   document.getElementById('import').onchange=importJob;
   document.getElementById('share').onclick=shareLink;
-  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;render();}};
+  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;render();}};
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
   const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
   document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
@@ -1686,6 +1733,7 @@ async function loadSession(){
   };
   store.authBusy=false;store.authMsg='';
   if(acctType!=='supplier'){ await cloudLoad(); }
+  subscribeOrders();
   render();
 }
 // react to auth changes (magic-link return, token refresh)
