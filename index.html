@@ -1425,14 +1425,18 @@ function wire(){
       if(!sb){return sErr('No connection to Supabase.');}
       store.authBusy=true;store.authMsg='';render();
       try{
+        await sb.auth.signOut();  // clear any lingering session so we create a fresh account
         const {data,error}=await sb.auth.signUp({email:e,password:pw});
         if(error)return sErr(error.message);
+        // detect "already registered": signUp returns a user with empty identities
+        if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
+          return sErr('That email is already registered. Please sign in instead, or use a different email.');
+        }
         const uid=data.user?.id;
-        // create company, then profile link
         let companyId=null;
         const {data:co,error:cErr}=await sb.from('companies').insert({name:c}).select().single();
         if(!cErr&&co)companyId=co.id;
-        await sb.from('profiles').update({full_name:n,phone:p,location:l,company_id:companyId,role:'owner'}).eq('id',uid);
+        await sb.from('profiles').update({full_name:n,phone:p,location:l,company_id:companyId,role:'owner',account_type:'contractor'}).eq('id',uid);
         await loadSession();
       }catch(ex){sErr(ex.message||'Sign-up failed.');}
     };
@@ -1445,8 +1449,12 @@ function wire(){
       if(!sb){return sErr('No connection to Supabase.');}
       store.authBusy=true;store.authMsg='';render();
       try{
+        await sb.auth.signOut();
         const {data,error}=await sb.auth.signUp({email:e,password:pw});
         if(error)return sErr(error.message);
+        if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
+          return sErr('That email is already registered. Please sign in instead, or use a different email.');
+        }
         const uid=data.user?.id;
         // find existing company by name, else create it
         let companyId=null;
@@ -1465,8 +1473,12 @@ function wire(){
       if(!sb){return sErr('No connection to Supabase.');}
       store.authBusy=true;store.authMsg='';render();
       try{
+        await sb.auth.signOut();
         const {data,error}=await sb.auth.signUp({email:e,password:pw});
         if(error)return sErr(error.message);
+        if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
+          return sErr('That email is already registered. Please sign in instead, or use a different email.');
+        }
         const uid=data.user?.id;
         await sb.from('profiles').update({full_name:n,phone:p,location:reg,account_type:'supplier'}).eq('id',uid);
         await sb.from('supplier_profiles').insert({id:uid,supplier_name:biz,region:reg,contact_email:e,contact_phone:p,website:web});
