@@ -146,7 +146,7 @@ const EDGE_OPTS=[{v:'0',t:'None'},{v:'1w',t:'1W = 1 width lip'},{v:'2w',t:'2W = 
 const MM_PER_IN=25.4;
 
 const store={
-  unit:'mm', currency:'$', taxPct:0,
+  unit:'mm', currency:'$', taxPct:0, textScale:100,
   zones:[{id:1,name:'Reception'},{id:2,name:'Meeting Rooms'}],
   zoneFilter:'all', tab:'linear', reuse:true,
   stockLen:3600, linKerf:3, linCode:'STUD-92', linThk:92,
@@ -776,7 +776,7 @@ function paintCalc(r){
 const PAL=['#FFB300','#3ddc84','#5db8ff','#ff8fb1','#c08bff','#ffd24d','#7ee8c0','#ffa94d'];
 
 // ============================ RENDER ============================
-function render(){persist();const root=document.getElementById('root');root.innerHTML=store.account?(store.account.accountType==='supplier'?supplierHTML():store.account.accountType==='manager'?managerHTML():appHTML()):authHTML();wire();}
+function render(){persist();const root=document.getElementById('root');root.style.fontSize=((store.textScale||100)/100)+'em';root.innerHTML=store.account?(store.account.accountType==='supplier'?supplierHTML():store.account.accountType==='manager'?managerHTML():appHTML()):authHTML();wire();}
 
 function authHTML(){
   const m=store.authMode;
@@ -1012,7 +1012,12 @@ function appHTML(){
       <label class="gbtn">↑ IMPORT<input type="file" accept=".json" id="import" class="hide"></label>
       <button class="gbtn" id="share">🔗 SHARE</button>
       <span id="syncBadge" style="font-size:10px;letter-spacing:1px;align-self:center;min-width:60px">${store.syncState==='saved'?'✓ saved':store.syncState==='saving'?'⟳ saving…':''}</span>
-      <button class="pbtn" id="excel">⊞ EXCEL</button></div></header>
+      <button class="pbtn" id="excel">⊞ EXCEL</button>
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--mut)" title="Text size">
+        <span style="font-size:10px">A</span>
+        <input type="range" id="textZoom" min="80" max="160" step="10" value="${store.textScale||100}" style="width:80px">
+        <span style="font-size:15px">A</span>
+      </div></div></header>
   <div class="zoneBar"><span class="zlbl">ZONES</span>
     <div class="chips" id="chips"><button class="chip ${store.zoneFilter==='all'?'on':''}" data-zone="all">All</button>
       ${store.zones.map(z=>`<span><button class="chip ${+store.zoneFilter===z.id?'on':''}" data-zone="${z.id}">${z.name}</button>${store.zones.length>1?`<button class="chipX" data-delzone="${z.id}">✕</button>`:''}</span>`).join('')}</div>
@@ -1279,43 +1284,80 @@ function orderHTML(){
   const supEntries=Object.entries(bySup).sort((a,b)=>b[1].total-a[1].total);
   store._supEntries=supEntries;
   if(!store.myOrdersLoaded){loadMyOrders();}
+  if(!store.catAllLoaded){loadCatalogueAll();}
   const projOrders=(store.myOrders||[]).filter(o=>o.project_id===_workspaceId);
   const statusColor=s=>s==='approved'?'var(--green)':s==='sent'?'var(--blue)':s==='rejected'?'var(--red)':s==='pending_approval'?'var(--amber)':'var(--mut)';
   const statusLabel=s=>(s||'').replace('_',' ').toUpperCase();
-  const myOrdersPanel=(projOrders.length)?`<div class="orderCard" style="margin-bottom:14px"><div class="orderHead">◆ SUBMITTED ORDERS · ${store.projectName||''} — APPROVAL STATUS</div><div class="orderBody"><div class="scroll"><table><thead><tr><th>Submitted</th><th>Rev</th><th>Supplier</th><th class="r">Total</th><th>Status</th><th>Manager note</th><th></th></tr></thead><tbody>${projOrders.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(o=>`<tr><td style="font-size:11px">${new Date(o.created_at).toLocaleDateString()}</td><td style="font-size:11px">R${o.revision||1}</td><td>${o.supplier_name||'—'}</td><td class="r">${o.currency||'$'}${(o.total||0).toFixed(2)}</td><td><strong style="color:${statusColor(o.status)}">${statusLabel(o.status)}</strong></td><td style="font-size:11px;color:var(--mut)">${o.approver_note||''}</td><td style="white-space:nowrap"><button class="zadd" data-thread="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--blue);color:var(--blue)">💬</button>${o.status==='approved'?` <button class="zadd" data-cert="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--green);color:var(--green)">⎙</button> <button class="zadd" data-sendsup="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--amber);color:var(--amber)">▶ SEND</button>`:''}${o.status==='sent'?` <button class="zadd" data-cert="${o.id}" style="padding:5px 9px;font-size:10px;border-color:var(--green);color:var(--green)">⎙</button> <span style="font-size:9px;color:var(--green)">✓ SENT</span>`:''}</td></tr>`).join('')}</tbody></table></div>${projOrders.map(o=>threadPanel(o)).join('')}<div class="orderSub" style="margin-top:8px">💬 message your manager about an order · ⎙ certificate for approved orders. Each revision is the full updated order; new items are flagged for your manager.</div></div></div>`:'';
-  return myOrdersPanel + `<div class="orderCard"><div class="orderHead">◆ MATERIAL ORDER & COST — COMBINED VIEW</div><div class="orderBody">
+  // list of selectable suppliers: my pinned/known + all PitchIQ suppliers
+  const knownSuppliers=Array.from(new Set([
+    ...supEntries.map(([s])=>s),
+    ...((store.catalogueAll||[]).map(c=>c.supplier_name).filter(Boolean))
+  ])).filter(s=>s&&s!=='(no supplier set)').sort();
+
+  // ---- self-contained per-supplier order card ----
+  const supplierCard=([sup,d],si)=>{
+    const priorO=(store.myOrders||[]).filter(o=>o.supplier_name===sup && o.project_id===_workspaceId).sort((a,b)=>(b.revision||1)-(a.revision||1))[0];
+    const status=priorO?priorO.status:null;
+    const pending=status==='pending_approval';
+    let actionRow='';
+    if(pending){
+      actionRow=`<div style="margin-top:10px;padding:9px;border:1px solid var(--amber);color:var(--amber);text-align:center;font-size:11px;letter-spacing:1px;border-radius:4px">⏳ REVISION ${priorO.revision||1} — PENDING MANAGER APPROVAL</div>`;
+    }else{
+      actionRow=`<button class="zadd" data-submitsupplier="${si}" style="margin-top:10px;border-color:var(--amber);color:var(--amber);width:100%">▲ ${priorO?`SUBMIT REVISION ${(priorO.revision||1)+1}`:'SUBMIT THIS ORDER FOR APPROVAL'}</button>`;
+    }
+    // status / green approve line shown inline on the same card
+    let statusLine='';
+    if(priorO){
+      const col=statusColor(status);
+      statusLine=`<div style="margin-top:10px;padding:8px 10px;border-left:4px solid ${col};background:rgba(255,255,255,0.03);font-size:11px">
+        <strong style="color:${col}">${statusLabel(status)}</strong> · Rev ${priorO.revision||1}${priorO.approver_name?` · by ${priorO.approver_name}${priorO.approver_title?' ('+priorO.approver_title+')':''}`:''}${priorO.approved_at?` · ${new Date(priorO.approved_at).toLocaleDateString()}`:''}
+        ${priorO.approver_note?`<div style="color:var(--mut);margin-top:3px">Note: ${priorO.approver_note}</div>`:''}
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="zadd" data-thread="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--blue);color:var(--blue)">💬 MESSAGES</button>
+          ${status==='approved'?`<button class="zadd" data-cert="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button> <button class="zadd" data-sendsup="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--amber);color:var(--amber)">▶ SEND TO SUPPLIER</button>`:''}
+          ${status==='sent'?`<button class="zadd" data-cert="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button> <span style="font-size:10px;color:var(--blue);align-self:center">✓ SENT TO SUPPLIER</span>`:''}
+        </div>
+        ${threadPanel(priorO)}
+      </div>`;
+    }
+    return `<div class="orderCard" style="margin-bottom:14px"><div class="orderHead" style="display:flex;justify-content:space-between;align-items:center"><span>◆ ORDER · ${sup}</span><span class="cost">${money(d.total)}</span></div><div class="orderBody">
+      <div style="font-size:12px">${d.lines.map(l=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>${l.item}</span><span style="color:var(--mut)">${l.qty} · ${money(l.cost)}</span></div>`).join('')}</div>
+      <div style="margin-top:10px;font-size:11px;color:var(--mut)">Send this order to:
+        <select class="sel" data-reassign="${si}" style="margin-left:6px;padding:6px">
+          <option value="">${sup}${knownSuppliers.includes(sup)?'':' (current)'}</option>
+          ${knownSuppliers.filter(s=>s!==sup).map(s=>`<option value="${s}">${s}</option>`).join('')}
+        </select></div>
+      ${actionRow}
+      ${statusLine}
+    </div></div>`;
+  };
+
+  const supplierCards = supEntries.length
+    ? supEntries.map(supplierCard).join('')
+    : '<div class="empty">No supplier-attributed items yet — set prices and suppliers in the Price Book, or pull items from the Catalogue.</div>';
+
+  const wholeOrderCard = supEntries.length ? `<div class="orderCard" style="margin-bottom:14px"><div class="orderHead">◆ SEND WHOLE ORDER TO ONE SUPPLIER</div><div class="orderBody">
+    <div class="orderSub">Submit the entire project order (all items above) as a single submission for approval — use this when one supplier provides everything.</div>
+    <button class="cta" id="submitAll" style="width:100%;margin-top:10px">▲ SUBMIT WHOLE ORDER FOR APPROVAL</button>
+  </div></div>` : '';
+
+  const costSummary = `<div class="orderCard"><div class="orderHead">◆ MATERIAL ORDER & COST — SUMMARY (glance)</div><div class="orderBody">
     <div class="orderLine"><span>Linear stock @ ${fmt(store.stockLen)}${u()} <small style="color:var(--mut)">${linOff.supplier||'—'}${linOff.fellBack?' (fallback)':''}</small></span><span class="orderQty">${lin.barCount} <small>bars · ${money(linC)}</small></span></div>
-    <div class="orderSub">~${lin.wastePct.toFixed(1)}% waste · drops to keep: ${lin.newDrops.length?lin.newDrops.sort((a,b)=>b-a).map(d=>fmt(d)+u()).join(', '):'none'}</div>
     <div class="orderLine"><span>Sheet board @ ${fmt(store.sheetW)}×${fmt(store.sheetH)} <small style="color:var(--mut)">${shOff.supplier||'—'}${shOff.fellBack?' (fallback)':''}</small></span><span class="orderQty">${sh.sheetCount} <small>sheets · ${money(shC)}</small></span></div>
-    <div class="orderSub">~${sh.wastePct.toFixed(1)}% waste · grain: ${store.grain}</div>
     <div class="orderLine"><span>Lipping (${lipAll.length} type${lipAll.length===1?'':'s'})</span><span class="orderQty">${lipTotalLM.toFixed(1)} <small>LM · ${money(lipCost)}</small></span></div>
-    <div class="orderSub">${lipAll.length?lipAll.map(l=>`${l.code} ${l.thk}mm: ${(l.totalMM/1000).toFixed(1)} LM`).join(' · '):'no lipping in this job'} · ${store.lipWaste}% wastage applied</div>
     <div class="orderLine"><span>Paint (${store.paintRows.length} coat row${store.paintRows.length===1?'':'s'})</span><span class="orderQty">${paintL.toFixed(1)} <small>L · ${money(paintC)}</small></span></div>
     <div class="orderLine"><span>Assemblies (${store.assemblyRows.length})</span><span class="orderQty">${money(assyTotal)}</span></div>
-    <div class="orderSub">Stud walls, ceilings, tiling, joinery — fixings & ancillaries included</div>
     <div class="orderLine"><span>Custom assemblies (${store.customAssemblies.length})</span><span class="orderQty">${money(customTotal)}</span></div>
     <div class="orderLine" style="font-size:13px"><span>Subtotal</span><span>${money(grand)}</span></div>
     <div class="orderLine" style="font-size:13px"><span>Tax / VAT <input class="num numS" type="number" id="taxPct" value="${store.taxPct}" style="width:48px;margin-left:6px"> %</span><span>${money(grand*(store.taxPct||0)/100)}</span></div>
     <div class="orderTotal"><span>TOTAL INC. TAX</span><span>${money(grand*(1+(store.taxPct||0)/100))}</span></div>
-    <div class="orderSub" style="margin-top:8px">Supplier policy: ${Object.keys(store.supplierPrefs).filter(k=>store.supplierPrefs[k]).length||'no'} material(s) pinned · rest = cheapest available</div>
-  </div></div>
-  <div class="card"><div class="cardHead"><span>◆ PURCHASE ORDERS BY SUPPLIER</span></div>
-    ${supEntries.length?supEntries.map(([sup,d],si)=>{
-      const priorO=(store.myOrders||[]).filter(o=>o.supplier_name===sup && o.project_id===_workspaceId).sort((a,b)=>(b.revision||1)-(a.revision||1))[0];
-      const pending=priorO&&priorO.status==='pending_approval';
-      return `
-      <div style="padding:12px 16px;border-bottom:1px solid var(--line)">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><strong style="color:var(--amber);font-size:13px;letter-spacing:1px">${sup}</strong><span class="cost" style="font-size:16px">${money(d.total)}</span></div>
-        <div style="font-size:11px;color:var(--mut)">${d.lines.map(l=>`<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${l.item}</span><span>${l.qty} · ${money(l.cost)}</span></div>`).join('')}</div>
-        ${pending
-          ? `<div style="margin-top:10px;padding:9px;border:1px solid var(--amber);color:var(--amber);text-align:center;font-size:11px;letter-spacing:1px;border-radius:4px">⏳ REVISION ${priorO.revision||1} PENDING APPROVAL — wait for your manager</div>`
-          : `<button class="zadd" data-submitsupplier="${si}" style="margin-top:10px;border-color:var(--amber);color:var(--amber);width:100%">▲ ${priorO?`SUBMIT REVISION ${(priorO.revision||1)+1}`:'SUBMIT THIS ORDER FOR APPROVAL'}</button>`}
-      </div>`;}).join(''):'<div class="empty">No supplier-attributed items yet — set prices in the Price Book.</div>'}
-    ${supEntries.length?`<div style="padding:14px 16px"><button class="cta" id="submitAll" style="width:100%">▲ SUBMIT WHOLE ORDER FOR APPROVAL</button><div class="trial" style="margin-top:6px">Goes to your company's manager(s) to approve before reaching suppliers. Already-submitted suppliers are skipped automatically.</div></div>`:''}
-  </div>
-  <div class="card"><div class="cardHead">BREAKDOWN BY ZONE</div><div class="scroll"><table><thead><tr><th>Zone</th><th class="r">Lin pieces</th><th class="r">Lin m</th><th class="r">Panels</th><th class="r">Panel m²</th><th class="r">Paint ${vu()}</th></tr></thead><tbody>
-    ${store.zones.map(z=>{const lp=store.linRows.filter(r=>r.zone===z.id),sp=store.sheetRows.filter(r=>r.zone===z.id),pp=store.paintRows.filter(r=>r.zone===z.id);const pl=pp.reduce((s,r)=>s+paintCalc(r).litres,0);return `<tr><td>${z.name}</td><td class="r">${lp.reduce((s,r)=>s+r.qty,0)}</td><td class="r">${(lp.reduce((s,r)=>s+r.len*r.qty,0)/1000).toFixed(1)}</td><td class="r">${sp.reduce((s,r)=>s+r.qty,0)}</td><td class="r">${(sp.reduce((s,r)=>s+r.w*r.h*r.qty,0)/1e6).toFixed(2)}</td><td class="r">${pl.toFixed(1)}</td></tr>`;}).join('')}</tbody></table></div></div>
-  <button class="bigPrint" id="printOrder">⊞ EXPORT FULL ESTIMATE TO EXCEL</button>`;}
+  </div></div>`;
+
+  return `<div class="hint" style="padding-top:14px">Each supplier's order is its own card below — submit it for approval, track its status, message about it, and get its certificate all in one place. Choose a different supplier per card if you want to send the same items elsewhere.</div>
+    ${supplierCards}
+    ${wholeOrderCard}
+    <button class="bigPrint" id="printOrder">⊞ EXPORT FULL ESTIMATE TO EXCEL</button>
+    ${costSummary}`;}
 
 function zoneSel(val,kind,id){return `<select class="sel" data-${kind}="${id}" data-k="zone">${store.zones.map(z=>`<option value="${z.id}" ${z.id===val?'selected':''}>${z.name}</option>`).join('')}</select>`;}
 function lipSel(val,id){return `<select class="sel" data-sheet="${id}" data-k="lip">${LIP_PRESETS.map(mm=>`<option value="${mm}" ${mm===val?'selected':''}>${store.unit==='mm'?mm:(mm/MM_PER_IN).toFixed(2)}</option>`).join('')}</select>`;}
@@ -1435,10 +1477,12 @@ function wire(){
     {const mi=document.getElementById('msgInput');if(mi)mi.onkeydown=(e)=>{if(e.key==='Enter'){e.preventDefault();const sm=document.querySelector('[data-sendmsg]');if(sm)sendMessage(sm.dataset.sendmsg);}};}
     return;}
   document.querySelectorAll('[data-unit]').forEach(b=>b.onclick=()=>{store.unit=b.dataset.unit;render();});
+  {const tz=document.getElementById('textZoom');if(tz)tz.oninput=()=>{store.textScale=+tz.value;const r=document.getElementById('root');if(r)r.style.fontSize=(store.textScale/100)+'em';persist();};}
   const cs=document.getElementById('currencySel');if(cs)cs.onchange=()=>{store.currency=cs.value;render();};
   document.getElementById('excel').onclick=exportExcel;
   const po=document.getElementById('printOrder');if(po)po.onclick=exportExcel;
-  document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const e=se[+b.dataset.submitsupplier];if(!e)return;const [sup,d]=e;submitOrderForApproval(d.lines,d.total,sup);});
+  document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const i=+b.dataset.submitsupplier;const e=se[i];if(!e)return;const [sup,d]=e;const target=(store._supReassign&&store._supReassign[i])||sup;submitOrderForApproval(d.lines,d.total,target);});
+  document.querySelectorAll('[data-reassign]').forEach(el=>el.onchange=()=>{const i=+el.dataset.reassign;if(!store._supReassign)store._supReassign={};store._supReassign[i]=el.value||null;});
   document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
   document.querySelectorAll('[data-sendsup]').forEach(b=>b.onclick=()=>{if(confirm('Send this approved order to the supplier'+"'"+'s PitchIQ inbox?'))sendToSupplier(b.dataset.sendsup);});
   document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
