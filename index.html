@@ -146,7 +146,7 @@ const EDGE_OPTS=[{v:'0',t:'None'},{v:'1w',t:'1W = 1 width lip'},{v:'2w',t:'2W = 
 const MM_PER_IN=25.4;
 
 const store={
-  unit:'mm', currency:'$', taxPct:0, textScale:100,
+  unit:'mm', currency:'$', taxPct:0, textScale:100, _loadedUid:null,
   zones:[{id:1,name:'Reception'},{id:2,name:'Meeting Rooms'}],
   zoneFilter:'all', tab:'linear', reuse:true,
   stockLen:3600, linKerf:3, linCode:'STUD-92', linThk:92,
@@ -1744,6 +1744,17 @@ async function loadSession(){
     trialEnds:prof?prof.trial_ends:new Date(Date.now()+30*864e5).toISOString(),
   };
   store.authBusy=false;store.authMsg='';
+  // Clear any workspace data cached in this browser from a *different* account,
+  // so a freshly-logged-in account starts from its own cloud data, not leftovers.
+  if(store._loadedUid!==uid){
+    store.zones=[{id:1,name:'Zone 1'}]; store.zoneFilter='all';
+    store.linRows=[]; store.sheetRows=[]; store.paintRows=[];
+    store.assemblyRows=[]; store.customAssemblies=[]; store.bankedDrops=[];
+    _workspaceId=null; store.projectName='My First Project';
+    store.projects=[]; store.projectsLoaded=false;
+    store.myOrders=[]; store.myOrdersLoaded=false;
+    store._loadedUid=uid;
+  }
   if(acctType!=='supplier'){ await cloudLoad(); }
   subscribeOrders();
   render();
