@@ -1347,7 +1347,11 @@ function orderHTML(){
 
   // ---- self-contained per-supplier order card ----
   const supplierCard=([sup,d],si)=>{
-    const priorO=(store.myOrders||[]).filter(o=>o.supplier_name===sup && o.project_id===_workspaceId).sort((a,b)=>(b.revision||1)-(a.revision||1))[0];
+    // the supplier this card actually sends to (reassigned target if chosen, else its own name)
+    const target=(store._supReassign&&store._supReassign[si])||sup;
+    // match a prior order by EITHER the card's own name or the reassigned target,
+    // so a reassigned order still shows its status/buttons on this card
+    const priorO=(store.myOrders||[]).filter(o=>(o.supplier_name===target||o.supplier_name===sup) && o.project_id===_workspaceId).sort((a,b)=>(b.revision||1)-(a.revision||1))[0];
     const status=priorO?priorO.status:null;
     const pending=status==='pending_approval';
     let actionRow='';
@@ -1550,7 +1554,7 @@ function wire(){
   document.getElementById('excel').onclick=exportExcel;
   const po=document.getElementById('printOrder');if(po)po.onclick=exportExcel;
   document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const i=+b.dataset.submitsupplier;const e=se[i];if(!e)return;const [sup,d]=e;const target=(store._supReassign&&store._supReassign[i])||sup;submitOrderForApproval(d.lines,d.total,target);});
-  document.querySelectorAll('[data-reassign]').forEach(el=>el.onchange=()=>{const i=+el.dataset.reassign;if(!store._supReassign)store._supReassign={};store._supReassign[i]=el.value||null;});
+  document.querySelectorAll('[data-reassign]').forEach(el=>el.onchange=()=>{const i=+el.dataset.reassign;if(!store._supReassign)store._supReassign={};store._supReassign[i]=el.value||null;render();});
   document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
   document.querySelectorAll('[data-sendsup]').forEach(b=>b.onclick=()=>{if(confirm('Send this approved order to the supplier'+"'"+'s PitchIQ inbox?'))sendToSupplier(b.dataset.sendsup);});
   document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
