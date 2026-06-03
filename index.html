@@ -823,7 +823,8 @@ function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
   parts.forEach((p,pi)=>{
     // build a per-row reference once; number the copies within the row
     for(let i=0;i<p.qty;i++){
-      const ref=(typeof pieceRef==='function')?pieceRef(p,pi):'';
+      const baseRef=(typeof pieceRef==='function')?pieceRef(p,pi):'';
+      const ref=baseRef+' · '+(i+1)+' of '+p.qty;
       const item=(typeof itemName==='function')?itemName(p):'';
       items.push({w:p.cw,h:p.ch,ref:ref,label:p.label||'',code:p.code||'',item:item});
     }
@@ -1241,8 +1242,8 @@ function sheetHTML(){
   <div class="grainCard"><div class="grainLbl">GRAIN DIRECTION — runs along the sheet length · pick lowest waste</div>
     <div class="grainRow">${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}"><div class="gT">${g.t}</div><div class="gD">${g.d}</div><div class="gP" style="color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag">★ BEST</div>':''}</button>`).join('')}</div></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
-    <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th>Label</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
-    ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td><td><input class="cell" value="${r.label}" data-sheet="${r.id}" data-k="label"></td>
+    <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
+    ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
       <td class="r">${lipSel(r.lip,r.id)}</td><td>${edgeSel(r.edge,r.id)}</td>
@@ -1745,9 +1746,9 @@ function exportExcel(){
   if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
   const wb=XLSX.utils.book_new(),unit=u();
   const edgeLabel=v=>({'0':'None','1w':'1W','2w':'2W','1h':'1H','2h':'2H','all':'All 4'})[v||'0'];
-  const p1=[['Zone','Code','Thk (mm)','Label',`Final W (${unit})`,`Final H (${unit})`,`Lip thk (${unit})`,'Lip edge','Lip code',`Lip len (${unit})`,'Lip LM',`Cut size (${unit})`,'Qty']];
-  store.sheetRows.forEach(r=>{const cs=cutSize(r);const lipM=(lipLenPerPanel(r)*r.qty/1000).toFixed(2);p1.push([zoneName(r.zone),r.code||'',r.thk||0,r.label,fmt(r.w),fmt(r.h),fmt(r.lip),edgeLabel(r.edge),r.lipCode||'',fmt(r.lipLen||0),lipM,`${fmt(cs.cw)}×${fmt(cs.ch)}`,r.qty]);});
-  const w1=XLSX.utils.aoa_to_sheet(p1);w1['!cols']=[{wch:16},{wch:12},{wch:9},{wch:18},{wch:11},{wch:11},{wch:11},{wch:9},{wch:11},{wch:11},{wch:9},{wch:15},{wch:7}];XLSX.utils.book_append_sheet(wb,w1,'Panel Cut List');
+  const p1=[['Zone','Item','Part','Ref','Code','Thk (mm)',`Final W (${unit})`,`Final H (${unit})`,`Lip thk (${unit})`,'Lip edge','Lip code',`Lip len (${unit})`,'Lip LM',`Cut size (${unit})`,'Qty']];
+  store.sheetRows.forEach((r,ri)=>{const cs=cutSize(r);const lipM=(lipLenPerPanel(r)*r.qty/1000).toFixed(2);p1.push([zoneName(r.zone),itemName(r),r.part||'',pieceRef(r,ri),r.code||'',r.thk||0,fmt(r.w),fmt(r.h),fmt(r.lip),edgeLabel(r.edge),r.lipCode||'',fmt(r.lipLen||0),lipM,`${fmt(cs.cw)}×${fmt(cs.ch)}`,r.qty]);});
+  const w1=XLSX.utils.aoa_to_sheet(p1);w1['!cols']=[{wch:14},{wch:14},{wch:10},{wch:16},{wch:12},{wch:9},{wch:11},{wch:11},{wch:11},{wch:9},{wch:11},{wch:11},{wch:9},{wch:15},{wch:7}];XLSX.utils.book_append_sheet(wb,w1,'Panel Cut List');
   const p2=[['Zone','Code','Thk (mm)','Label',`Length (${unit})`,'Qty']];store.linRows.forEach(r=>p2.push([zoneName(r.zone),r.code||'',r.thk||0,r.label,fmt(r.len),r.qty]));
   const w2=XLSX.utils.aoa_to_sheet(p2);w2['!cols']=[{wch:16},{wch:12},{wch:9},{wch:18},{wch:12},{wch:7}];XLSX.utils.book_append_sheet(wb,w2,'Linear Cut List');
   const p3=[['Zone','Stage','Code','Label',`Area (${au()})`,'Coats',`${vu()} needed`,'Cost']];store.paintRows.forEach(r=>{const pc=paintCalc(r);p3.push([zoneName(r.zone),r.stage||'Other',r.code||'',r.label,r.area,r.coats,pc.litres.toFixed(2),money(pc.cost)]);});
