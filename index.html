@@ -53,7 +53,7 @@
   .tabs{display:flex;gap:4px;flex-wrap:wrap}
   .tab{background:transparent;color:var(--mut);border:1px solid var(--line);padding:9px 16px;font-weight:700;font-size:11px;letter-spacing:1px;border-radius:2px}
   .tab.on{background:var(--amber);color:#000;font-weight:800;border-color:var(--amber)}
-  .body{padding:18px;max-width:1100px;margin:0 auto}
+  .body{padding:18px 26px;max-width:1600px;margin:0 auto}
   .settings{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end}
   .field{display:flex;flex-direction:column;gap:5px}
   .fl{font-size:9px;letter-spacing:1.5px;color:var(--mut)}
@@ -114,7 +114,7 @@
   .bankItem{background:#0f2417;border:1px solid var(--green);border-radius:6px;padding:8px 12px;min-width:120px}
   .bankSize{color:var(--green);font-weight:800;font-size:14px}
   .bankMeta{color:var(--mut);font-size:9px;margin-top:3px}
-  footer{max-width:1100px;margin:0 auto;padding:0 18px;font-size:10px;color:#6b7280;line-height:1.6}
+  footer{max-width:1600px;margin:0 auto;padding:0 26px;font-size:10px;color:#6b7280;line-height:1.6}
   .hint{font-size:10px;color:var(--mut);padding:0 16px 12px}
 </style>
 </head>
@@ -806,7 +806,7 @@ function packGuillotine(sheetW,sheetH,kerf,parts){
     }
     if(!chosen.fit)return false;
     const f=sheet.free[chosen.fit.idx];
-    sheet.placed.push({w:chosen.w,h:chosen.h,x:f.x,y:f.y});
+    sheet.placed.push({w:chosen.w,h:chosen.h,x:f.x,y:f.y,ref:p.ref,label:p.label,code:p.code,grainless:!!p.grainless});
     const rW=f.w-chosen.w-kerf,bH=f.h-chosen.h-kerf;
     sheet.free.splice(chosen.fit.idx,1);
     if(rW>0)sheet.free.push({x:f.x+chosen.w+kerf,y:f.y,w:rW,h:chosen.h});
@@ -818,13 +818,18 @@ function packGuillotine(sheetW,sheetH,kerf,parts){
   return {sheets:sheets.map(s=>({parts:s.placed})),sheetCount:sheets.length,wastePct:total>0?(total-usedArea)/total*100:0};
 }
 function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
-  const items=[];parts.forEach(p=>{for(let i=0;i<p.qty;i++)items.push({w:p.cw,h:p.ch});});
-  // along grain: keep as-is. across grain: swap w/h (grain runs the other way).
-  // no grain: leave orientation free — let the packer rotate each piece for best fit.
+  const items=[];
+  parts.forEach((p,pi)=>{
+    // build a per-row reference once; number the copies within the row
+    for(let i=0;i<p.qty;i++){
+      const ref=(typeof pieceRef==='function')?pieceRef(p,pi):'';
+      items.push({w:p.cw,h:p.ch,ref:ref,label:p.label||'',code:p.code||''});
+    }
+  });
   const mapped=items.map(it=>{
-    if(grain==='across')return {w:it.h,h:it.w,rot:false};
-    if(grain==='none')return {w:it.w,h:it.h,rot:true};
-    return {w:it.w,h:it.h,rot:false};
+    if(grain==='across')return {w:it.h,h:it.w,rot:false,ref:it.ref,label:it.label,code:it.code};
+    if(grain==='none')return {w:it.w,h:it.h,rot:true,grainless:true,ref:it.ref,label:it.label,code:it.code};
+    return {w:it.w,h:it.h,rot:false,ref:it.ref,label:it.label,code:it.code};
   });
   return packGuillotine(sheetW,sheetH,kerf,mapped);
 }
@@ -1258,7 +1263,12 @@ function sheetHTML(){
     <tr style="border-top:2px solid var(--blue)"><td colspan="3" style="text-align:right;font-weight:700">TOTAL LIPPING</td><td class="r"><strong>${(totLip/1000).toFixed(2)} LM</strong></td><td class="r"></td><td class="r"></td><td></td><td class="r"><span class="cost" style="font-size:14px">${money(totCost)}</span></td></tr>
     </tbody></table></div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
-    ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>`<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;background:${PAL[ci++%PAL.length]}">${fmt(p.w)}×${fmt(p.h)}</div>`).join('');return `<div class="sheetWrap"><div class="sheetIdx">SHEET #${i+1}</div><div class="sheet" style="width:${store.sheetW*scale}px;height:${store.sheetH*scale}px">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
+    ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
+      const col=p.grainless?'#e8eaed':PAL[ci++%PAL.length];
+      const txt=p.grainless?'#111':'#111';
+      const tag=p.ref||p.label||'';
+      return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;background:${col};color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.2">${tag?`<span style="font-size:8px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
+    }).join('');return `<div class="sheetWrap"><div class="sheetIdx">SHEET #${i+1}</div><div class="sheet" style="width:${store.sheetW*scale}px;height:${store.sheetH*scale}px">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
 
 function paintHTML(){
   const rows=store.zoneFilter==='all'?store.paintRows:store.paintRows.filter(r=>r.zone===+store.zoneFilter);
