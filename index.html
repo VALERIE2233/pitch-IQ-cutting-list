@@ -154,7 +154,7 @@ const store={
   zoneFilter:'all', tab:'linear', reuse:true,
   stockLen:3600, linKerf:3, linCode:'STUD-92', linThk:92,
   linRows:[{id:1,zone:1,label:'Track top',code:'TRK-92',thk:92,len:2400,qty:12},{id:2,zone:1,label:'Stud',code:'STUD-92',thk:92,len:2700,qty:28},{id:3,zone:2,label:'Stud',code:'STUD-92',thk:92,len:3000,qty:40}],
-  sheetW:1220, sheetH:2440, sheetKerf:3, grain:'along', sheetCode:'GYP', sheetThk:12.5,
+  sheetW:1220, sheetH:2440, sheetKerf:3, sheetTrim:0, grain:'along', sheetCode:'GYP', sheetThk:12.5,
   sheetRows:[{id:1,zone:1,label:'Bulkhead face',code:'GYP',thk:12.5,w:1220,h:900,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:6},{id:2,zone:2,label:'Wall lining',code:'GYP',thk:12.5,w:1220,h:2440,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:10},{id:3,zone:2,label:'Reveal',code:'MDF-OAK',thk:18,w:600,h:2440,lip:18,edge:'2w',lipCode:'LIP-OAK',lipLen:3600,qty:8}],
   lipWaste:10,
   paintRows:[{id:1,zone:1,label:'Walls',stage:'Primer',code:'PRIMER-WHT',area:48,coats:1,spread:10,waste:10},{id:2,zone:1,label:'Walls',stage:'Topcoat',code:'PNT-WHT-MATT',area:48,coats:2,spread:11,waste:10}],
@@ -252,7 +252,7 @@ async function openProject(id){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','grain','sheetCode','sheetThk','sheetRows','lipWaste','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','grain','sheetCode','sheetThk','sheetRows','lipWaste','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
 }
 // start a fresh named project (saves current first)
@@ -838,10 +838,11 @@ function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
 }
 const sheetWaste=(w,h,k,g,p)=>optimiseSheets(w,h,k,g,p).wastePct;
 
-// ---- lipping: lip on an edge reduces the PERPENDICULAR dimension ----
+// lip on an edge reduces the perpendicular dimension; perimeter trim adds oversize on all 4 edges
 function cutSize(r){const t=r.lip||0,e=r.edge||'0';let dw=0,dh=0;
   if(e==='1w')dh=t;else if(e==='2w')dh=2*t;else if(e==='1h')dw=t;else if(e==='2h')dw=2*t;else if(e==='all'){dw=2*t;dh=2*t;}
-  return {cw:Math.max(0,r.w-dw),ch:Math.max(0,r.h-dh)};}
+  const trim=Math.max(0,+store.sheetTrim||0); // cleaning trim on every edge -> +2*trim each way
+  return {cw:Math.max(0,r.w-dw)+2*trim,ch:Math.max(0,r.h-dh)+2*trim};}
 
 // ---- lipping length (mm) per panel based on lipped edges ----
 // A "width edge" runs along the W side (horizontal, top/bottom) so its length = W.
@@ -1238,7 +1239,8 @@ function sheetHTML(){
     <label class="field"><span class="fl">THICKNESS (mm)</span><input class="fi" type="number" id="sheetThk" value="${store.sheetThk}" style="width:100px"></label>
     <label class="field"><span class="fl">SHEET W (${u()})</span><input class="fi" type="number" id="sheetW" value="${fmt(store.sheetW)}"></label>
     <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span><input class="fi" type="number" id="sheetH" value="${fmt(store.sheetH)}"></label>
-    <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label></div>
+    <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label>
+    <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label></div>
   <div class="grainCard"><div class="grainLbl">GRAIN DIRECTION — runs along the sheet length · pick lowest waste</div>
     <div class="grainRow">${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}"><div class="gT">${g.t}</div><div class="gD">${g.d}</div><div class="gP" style="color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag">★ BEST</div>':''}</button>`).join('')}</div></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
@@ -1303,13 +1305,27 @@ function paintHTML(){
 function bankHTML(){
   return `<div class="hint" style="padding-top:14px">Your yard inventory of usable offcuts. Each carries its material code — on any job, a cut with a matching code that fits a banked offcut gets flagged on the Linear tab so you use stock before buying. Drops carry between jobs.</div>
   <div class="card"><div class="cardHead"><span>♻ OFFCUT BANK — ${store.bankedDrops.length} item(s)</span></div>
-    <div class="scroll"><table><thead><tr><th>Code</th><th class="r">Thk</th><th>Material</th><th class="r">Size (${u()})</th><th>Source zone</th><th>Date</th><th></th></tr></thead><tbody>
-    ${store.bankedDrops.length?store.bankedDrops.map(d=>`<tr><td><span class="cost">${d.code||'—'}</span></td><td class="r">${d.thk||0}mm</td><td>${d.material}</td><td class="r">${fmt(d.size)}</td><td>${d.zone}</td><td>${d.date}</td><td><button class="del" data-delbank="${d.id}">✕</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="empty">No banked offcuts yet. Add drops from the Linear tab, or add manually below.</div></td></tr>'}</tbody></table></div></div>
+    <div class="scroll"><table><thead><tr><th>Type</th><th>Code</th><th class="r">Thk</th><th>Material</th><th>Grain</th><th>Finish</th><th class="r">Size (${u()})</th><th>Source zone</th><th>Date</th><th></th></tr></thead><tbody>
+    ${store.bankedDrops.length?store.bankedDrops.map(d=>{
+      const isSheet=d.kind==='sheet';
+      const sizeTxt=isSheet?`${fmt(d.w||0)}×${fmt(d.h||0)}`:fmt(d.size);
+      return `<tr><td><span style="font-size:10px;color:${isSheet?'var(--blue)':'var(--amber)'}">${isSheet?'SHEET':'LINEAR'}</span></td><td><span class="cost">${d.code||'—'}</span></td><td class="r">${d.thk||0}mm</td><td>${d.material||'—'}</td><td>${isSheet?(d.grain||'—'):'—'}</td><td>${isSheet?(d.finish||'—'):'—'}</td><td class="r">${sizeTxt}</td><td>${d.zone||'—'}</td><td>${d.date||''}</td><td><button class="del" data-delbank="${d.id}">✕</button></td></tr>`;
+    }).join(''):'<tr><td colspan="10"><div class="empty">No banked offcuts yet. Add drops from the Linear tab, or add manually below.</div></td></tr>'}</tbody></table></div></div>
+  <div class="cardHead" style="margin-top:14px">ADD LINEAR OFFCUT</div>
   <div class="settings"><label class="field"><span class="fl">CODE</span><input class="fi" id="bc" value="STUD-92" style="width:120px"></label>
     <label class="field"><span class="fl">THK (mm)</span><input class="fi" id="bt" type="number" value="92" style="width:90px"></label>
     <label class="field"><span class="fl">MATERIAL</span><input class="fi" id="bm" value="Stud" style="width:120px"></label>
     <label class="field"><span class="fl">SIZE (${u()})</span><input class="fi" id="bs" type="number" value="800"></label>
-    <button class="zadd" id="addBank" style="padding:12px 16px">+ ADD OFFCUT</button></div>`;}
+    <button class="zadd" id="addBank" style="padding:12px 16px">+ ADD LINEAR OFFCUT</button></div>
+  <div class="cardHead" style="margin-top:14px;color:var(--blue)">ADD SHEET OFFCUT (with full detail)</div>
+  <div class="settings"><label class="field"><span class="fl">CODE</span><input class="fi" id="sbc" value="GYP-12.5" style="width:120px"></label>
+    <label class="field"><span class="fl">THK (mm)</span><input class="fi" id="sbt" type="number" value="12.5" style="width:90px"></label>
+    <label class="field"><span class="fl">MATERIAL</span><input class="fi" id="sbm" value="MDF" style="width:120px"></label>
+    <label class="field"><span class="fl">WIDTH (${u()})</span><input class="fi" id="sbw" type="number" value="600" style="width:100px"></label>
+    <label class="field"><span class="fl">HEIGHT (${u()})</span><input class="fi" id="sbh" type="number" value="800" style="width:100px"></label>
+    <label class="field"><span class="fl">GRAIN</span><select class="fi" id="sbg" style="width:110px"><option value="None">None</option><option value="Along">Along</option><option value="Across">Across</option></select></label>
+    <label class="field"><span class="fl">FINISH</span><input class="fi" id="sbf" value="" placeholder="e.g. Oak veneer" style="width:130px"></label>
+    <button class="zadd" id="addSheetBank" style="padding:12px 16px;border-color:var(--blue);color:var(--blue)">+ ADD SHEET OFFCUT</button></div>`;}
 
 function catalogueHTML(){
   if(!store.catAllLoaded){loadCatalogueAll();}
@@ -1660,7 +1676,7 @@ function wire(){
   document.querySelectorAll('[data-delzone]').forEach(b=>b.onclick=()=>{const id=+b.dataset.delzone;if(store.zones.length<=1)return;store.zones=store.zones.filter(z=>z.id!==id);store.linRows=store.linRows.filter(r=>r.zone!==id);store.sheetRows=store.sheetRows.filter(r=>r.zone!==id);store.paintRows=store.paintRows.filter(r=>r.zone!==id);store.assemblyRows=store.assemblyRows.filter(r=>r.zone!==id);if(+store.zoneFilter===id)store.zoneFilter='all';render();});
   const nz=document.getElementById('newZone');if(nz){nz.oninput=e=>store.newZone=e.target.value;nz.onkeydown=e=>{if(e.key==='Enter')addZone();};}
   const az=document.getElementById('addZone');if(az)az.onclick=addZone;
-  bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');
+  bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
   const lt=document.getElementById('linThk');if(lt)lt.onchange=()=>{store.linThk=+lt.value||0;render();};
@@ -1692,7 +1708,17 @@ function wire(){
   const ap=document.getElementById('addPaint');if(ap)ap.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.paintRows.push({id:Date.now(),zone:z,label:'Walls',stage:'Topcoat',code:'',area:30,coats:2,spread:11,waste:10});render();};
   // bank
   const bd=document.getElementById('bankDrops');if(bd)bd.onclick=()=>{const res=optimiseLinear(store.stockLen,store.linKerf,store.linRows.filter(r=>r.len>0&&r.qty>0));const zn=store.zoneFilter!=='all'?zoneName(+store.zoneFilter):'All';res.newDrops.forEach(d=>store.bankedDrops.push({id:Date.now()+Math.random(),code:store.linCode,thk:store.linThk,material:store.linCode+' '+store.linThk+'mm',size:d,zone:zn,date:new Date().toLocaleDateString()}));store.tab='bank';render();};
-  const abk=document.getElementById('addBank');if(abk)abk.onclick=()=>{const code=document.getElementById('bc').value||'';const thk=+document.getElementById('bt').value||0;const m=document.getElementById('bm').value||'Offcut';const s=Math.max(0,Math.round(toMM(+document.getElementById('bs').value||0)));if(s>0){store.bankedDrops.push({id:Date.now(),code,thk,material:m,size:s,zone:'Manual',date:new Date().toLocaleDateString()});render();}};
+  const abk=document.getElementById('addBank');if(abk)abk.onclick=()=>{const code=document.getElementById('bc').value||'';const thk=+document.getElementById('bt').value||0;const m=document.getElementById('bm').value||'Offcut';const s=Math.max(0,Math.round(toMM(+document.getElementById('bs').value||0)));if(s>0){store.bankedDrops.push({id:Date.now(),kind:'linear',code,thk,material:m,size:s,zone:'Manual',date:new Date().toLocaleDateString()});render();}};
+  const asbk=document.getElementById('addSheetBank');if(asbk)asbk.onclick=()=>{
+    const code=document.getElementById('sbc').value||'';
+    const thk=+document.getElementById('sbt').value||0;
+    const m=document.getElementById('sbm').value||'Offcut';
+    const w=Math.max(0,Math.round(toMM(+document.getElementById('sbw').value||0)));
+    const h=Math.max(0,Math.round(toMM(+document.getElementById('sbh').value||0)));
+    const grain=document.getElementById('sbg').value||'None';
+    const finish=document.getElementById('sbf').value||'';
+    if(w>0&&h>0){store.bankedDrops.push({id:Date.now(),kind:'sheet',code,thk,material:m,w,h,grain,finish,size:Math.max(w,h),zone:'Manual',date:new Date().toLocaleDateString()});render();}
+  };
   document.querySelectorAll('[data-delbank]').forEach(b=>b.onclick=()=>{store.bankedDrops=store.bankedDrops.filter(d=>String(d.id)!==b.dataset.delbank);render();});
   // supplier mode
   document.querySelectorAll('[data-pref]').forEach(el=>el.onchange=()=>{const k=el.dataset.pref;if(el.value)store.supplierPrefs[k]=el.value;else delete store.supplierPrefs[k];render();});
