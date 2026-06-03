@@ -260,7 +260,8 @@ async function newProject(name){
   _workspaceId=null;
   store.projectName=name;
   store.zones=[{id:1,name:'Zone 1'}]; store.zoneFilter='all';
-  store.linRows=[]; store.sheetRows=[]; store.paintRows=[]; store.assemblyRows=[]; store.customAssemblies=[]; store.bankedDrops=[];
+  store.linRows=[{id:Date.now(),zone:1,label:'Stud',code:'STUD-92',thk:92,len:2400,qty:10}];
+  store.sheetRows=[]; store.paintRows=[]; store.assemblyRows=[]; store.customAssemblies=[]; store.bankedDrops=[];
   store.projectsLoaded=false; store.showProjects=false;
   await cloudSave();   // creates the new project row immediately
   render();
@@ -1822,7 +1823,7 @@ async function loadSession(){
   // so a freshly-logged-in account starts from its own cloud data, not leftovers.
   if(store._loadedUid!==uid){
     store.zones=[{id:1,name:'Zone 1'}]; store.zoneFilter='all';
-    store.linRows=[]; store.sheetRows=[]; store.paintRows=[];
+    store.linRows=[{id:Date.now(),zone:1,label:'Stud',code:'STUD-92',thk:92,len:2400,qty:10}]; store.sheetRows=[]; store.paintRows=[];
     store.assemblyRows=[]; store.customAssemblies=[]; store.bankedDrops=[];
     _workspaceId=null; store.projectName='My First Project';
     store.projects=[]; store.projectsLoaded=false;
