@@ -1160,6 +1160,7 @@ function appHTML(){
   <div class="zoneBar"><span class="zlbl">ZONES</span>
     <div class="chips" id="chips"><button class="chip ${store.zoneFilter==='all'?'on':''}" data-zone="all">All</button>
       ${store.zones.map(z=>`<span><button class="chip ${+store.zoneFilter===z.id?'on':''}" data-zone="${z.id}">${z.name}</button>${store.zones.length>1?`<button class="chipX" data-delzone="${z.id}">✕</button>`:''}</span>`).join('')}</div>
+    ${store.tab==='sheet'?sheetSummaryBar():''}
     <div><input class="zinp" id="newZone" placeholder="New zone name…" value="${store.newZone}"><button class="zadd" id="addZone">+ ADD</button></div></div>
   <div class="controlBar"><div class="tabs">
     <button class="tab ${store.tab==='assembly'?'on':''}" data-tab="assembly">◇ ASSEMBLIES</button>
@@ -1252,6 +1253,20 @@ function linearHTML(){
     ${res.bars.length?res.bars.map((b,i)=>{const segs=b.cuts.map((c,j)=>`<div class="seg" style="width:${c.len/b.capacity*100}%;background:${PAL[j%PAL.length]}"><span class="segT">${fmt(c.len)}</span></div>`).join('');const drop=b.remaining>0?`<div class="dropSeg" style="width:${b.remaining/b.capacity*100}%"><span class="dropT">${fmt(b.remaining)}</span></div>`:'';return `<div class="barRow"><div class="barIdx">#${i+1}</div><div class="bar" style="width:100%">${segs}${drop}</div></div>`;}).join(''):'<div class="empty">No cuts in this zone yet.</div>'}
     ${store.reuse&&res.newDrops.length?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:11px"><span style="color:var(--green);font-weight:700">♻ DROPS THIS JOB (${store.linCode} ${store.linThk}mm):</span> ${res.newDrops.sort((a,b)=>b-a).map(d=>fmt(d)+u()).join(', ')} <button class="zadd" id="bankDrops" style="margin-left:8px">→ ADD TO OFFCUT BANK</button></div>`:''}</div></div>`;}
 
+// compact sheet summary shown inline on the ZONES bar when Sheet tab is active
+function sheetSummaryBar(){
+  const rows=store.zoneFilter==='all'?store.sheetRows:store.sheetRows.filter(r=>r.zone===+store.zoneFilter);
+  const calc=rows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)}));
+  const res=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,calc);
+  const off=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH);
+  const totalCost=res.sheetCount*off.price;
+  const grainTxt=store.grain==='along'?'Along':store.grain==='across'?'Across':'No grain';
+  return `<div style="display:flex;align-items:center;gap:14px;margin-left:auto;padding:0 8px">
+    <span style="font-size:11px;color:var(--mut)">GRAIN <strong style="color:var(--amber)">${grainTxt}</strong> · <span style="color:#fff">${res.wastePct.toFixed(1)}%</span> waste</span>
+    <span style="font-size:11px;color:var(--mut)">SHEETS <strong style="color:var(--amber);font-size:14px">${res.sheetCount}</strong></span>
+    <span style="font-size:11px;color:var(--mut)">EST <strong style="color:var(--green);font-size:14px">${money(totalCost)}</strong></span>
+  </div>`;
+}
 function sheetHTML(){
   const rows=store.zoneFilter==='all'?store.sheetRows:store.sheetRows.filter(r=>r.zone===+store.zoneFilter);
   const calc=rows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)}));
