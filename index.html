@@ -1261,14 +1261,7 @@ function sheetHTML(){
   const best=Object.entries(cmp).sort((a,b)=>a[1]-b[1])[0][0];
   const off=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH); const unitCost=off.price, totalCost=res.sheetCount*unitCost;
   const gMeta=[{k:'along',t:'ALONG GRAIN',d:'runs with length'},{k:'across',t:'ACROSS GRAIN',d:'runs across width'},{k:'none',t:'NO GRAIN',d:'free rotate'}];
-  return `<div class="settings">
-    <label class="field"><span class="fl">SHEET CODE</span><input class="fi" id="sheetCode" value="${store.sheetCode}" style="width:130px"></label>
-    <label class="field"><span class="fl">THICKNESS (mm)</span><input class="fi" type="number" id="sheetThk" value="${store.sheetThk}" style="width:100px"></label>
-    <label class="field"><span class="fl">SHEET W (${u()})</span><input class="fi" type="number" id="sheetW" value="${fmt(store.sheetW)}"></label>
-    <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span><input class="fi" type="number" id="sheetH" value="${fmt(store.sheetH)}"></label>
-    <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label>
-    <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label></div>
-  <div class="grainCard"><div class="grainLbl">GRAIN DIRECTION — pick lowest waste · sheets &amp; cost · zone filter</div>
+  return `<div class="grainCard" style="margin-bottom:12px"><div class="grainLbl">GRAIN DIRECTION — pick lowest waste · sheets &amp; cost · zone filter</div>
     <div style="display:flex;align-items:stretch;gap:10px;flex-wrap:nowrap">
       <div class="grainRow" style="display:flex;gap:8px;flex:0 0 auto">${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}" style="min-width:120px"><div class="gT">${g.t}</div><div class="gD">${g.d}</div><div class="gP" style="color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag">★ BEST</div>':''}</button>`).join('')}</div>
       <div class="stat big" style="justify-content:center;min-width:120px"><div class="sv" style="color:var(--amber)">${res.sheetCount}</div><div class="sl">SHEETS @ ${fmt(store.sheetW)}×${fmt(store.sheetH)}</div></div>
@@ -1277,6 +1270,13 @@ function sheetHTML(){
         <select class="fi" id="sheetZoneFilter"><option value="all" ${store.zoneFilter==='all'?'selected':''}>All zones</option>${store.zones.map(z=>`<option value="${z.id}" ${+store.zoneFilter===z.id?'selected':''}>${z.name}</option>`).join('')}</select>
       </label>
     </div></div>
+  <div class="settings">
+    <label class="field"><span class="fl">SHEET CODE</span><input class="fi" id="sheetCode" value="${store.sheetCode}" style="width:130px"></label>
+    <label class="field"><span class="fl">THICKNESS (mm)</span><input class="fi" type="number" id="sheetThk" value="${store.sheetThk}" style="width:100px"></label>
+    <label class="field"><span class="fl">SHEET W (${u()})</span><input class="fi" type="number" id="sheetW" value="${fmt(store.sheetW)}"></label>
+    <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span><input class="fi" type="number" id="sheetH" value="${fmt(store.sheetH)}"></label>
+    <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label>
+    <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
     <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
     ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
@@ -1288,8 +1288,6 @@ function sheetHTML(){
       <td class="r"><input class="num numS" type="number" value="${r.qty}" data-sheet="${r.id}" data-k="qty"></td>
       <td><button class="del" data-delsheet="${r.id}">✕</button></td></tr>`;}).join('')}</tbody></table></div>
     <button class="add" id="addSheet">+ ADD PANEL</button></div>
-  <div class="stats">
-    <div class="stat"><div class="sv" style="color:${res.wastePct>25?'var(--red)':'#fff'}">${res.wastePct.toFixed(1)}%</div><div class="sl">WASTE</div></div></div>
   ${off.fellBack?`<div class="hint" style="color:var(--red)">⚠ ${store.sheetCode} ${store.sheetThk}mm not stocked by your pinned supplier — falling back to ${off.supplier} at ${money(off.price)}.</div>`:''}
   ${off.offers.length>1?`<div class="hint" style="color:var(--green)">✓ ${off.offers.length} suppliers stock this: ${off.offers.sort((a,b)=>a.price-b.price).map(o=>o.supplier+' '+money(o.price)).join(' · ')} (${off.pinned&&!off.fellBack?'pinned to '+off.supplier:'cheapest selected'})</div>`:''}
   ${unitCost===0?`<div class="hint" style="color:var(--amber)">⚠ ${store.sheetCode} ${store.sheetThk}mm @ ${fmt(store.sheetW)}×${fmt(store.sheetH)} — not stocked by any supplier in your catalogue. Add it in the Price Book.</div>`:''}
