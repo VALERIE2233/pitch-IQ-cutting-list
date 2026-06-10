@@ -816,7 +816,7 @@ function packGuillotine(sheetW,sheetH,kerf,parts){
   }
   sorted.forEach(p=>{let placed=false;for(const s of sheets){if(tryPlace(s,p)){placed=true;break;}}if(!placed){const s=newSheet();tryPlace(s,p);sheets.push(s);}});
   const usedArea=sorted.reduce((s,p)=>s+p.w*p.h,0),total=sheets.length*sheetW*sheetH;
-  return {sheets:sheets.map(s=>({parts:s.placed})),sheetCount:sheets.length,wastePct:total>0?(total-usedArea)/total*100:0};
+  return {sheets:sheets.map(s=>({parts:s.placed,free:s.free})),sheetCount:sheets.length,wastePct:total>0?(total-usedArea)/total*100:0};
 }
 function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
   const items=[];
@@ -837,6 +837,32 @@ function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
   return packGuillotine(sheetW,sheetH,kerf,mapped);
 }
 const sheetWaste=(w,h,k,g,p)=>optimiseSheets(w,h,k,g,p).wastePct;
+
+// Auto-bank usable leftover offcuts from the current sheet job.
+// Replaces (not duplicates) this job's auto entries each time. Match key: code+thk.
+const OFFCUT_MIN=200; // ignore scraps smaller than this (mm) on the long side
+function autoBankSheetOffcuts(res){
+  if(!store.bankedDrops)store.bankedDrops=[];
+  const code=store.sheetCode||'', thk=store.sheetThk||0;
+  const grainTxt=store.grain==='along'?'Along':store.grain==='across'?'Across':'None';
+  // remove previous auto entries for THIS job signature (code+thk), keep manual & other jobs
+  const sig='auto:'+code+':'+thk;
+  store.bankedDrops=store.bankedDrops.filter(d=>d._auto!==sig);
+  if(!res||!res.sheets||!res.sheets.length)return;
+  // collect usable free rectangles across sheets
+  const offs=[];
+  res.sheets.forEach(s=>{(s.free||[]).forEach(f=>{
+    const lng=Math.max(f.w,f.h), shrt=Math.min(f.w,f.h);
+    if(lng>=OFFCUT_MIN && shrt>=OFFCUT_MIN){ offs.push({w:Math.round(f.w),h:Math.round(f.h)}); }
+  });});
+  // add them tagged with the job signature
+  const today=new Date().toLocaleDateString();
+  offs.forEach((o,i)=>{
+    store.bankedDrops.push({id:Date.now()+i, _auto:sig, kind:'sheet', code, thk,
+      material:store.sheetCode||'Sheet', w:o.w, h:o.h, grain:grainTxt, finish:'',
+      size:Math.max(o.w,o.h), zone:'Auto (from cut)', date:today});
+  });
+}
 
 // lip on an edge reduces the perpendicular dimension; perimeter trim adds oversize on all 4 edges
 function cutSize(r){const t=r.lip||0,e=r.edge||'0';let dw=0,dh=0;
@@ -1230,6 +1256,7 @@ function sheetHTML(){
   const rows=store.zoneFilter==='all'?store.sheetRows:store.sheetRows.filter(r=>r.zone===+store.zoneFilter);
   const calc=rows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)}));
   const res=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,calc);
+  if(store.autoBankOffcuts!==false){ autoBankSheetOffcuts(res); }
   const cmp={along:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'along',calc),across:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'across',calc),none:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'none',calc)};
   const best=Object.entries(cmp).sort((a,b)=>a[1]-b[1])[0][0];
   const off=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH); const unitCost=off.price, totalCost=res.sheetCount*unitCost;
