@@ -1268,8 +1268,15 @@ function sheetHTML(){
     <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span><input class="fi" type="number" id="sheetH" value="${fmt(store.sheetH)}"></label>
     <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label>
     <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label></div>
-  <div class="grainCard"><div class="grainLbl">GRAIN DIRECTION — runs along the sheet length · pick lowest waste</div>
-    <div class="grainRow">${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}"><div class="gT">${g.t}</div><div class="gD">${g.d}</div><div class="gP" style="color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag">★ BEST</div>':''}</button>`).join('')}</div></div>
+  <div class="grainCard"><div class="grainLbl">GRAIN DIRECTION — pick lowest waste · sheets &amp; cost · zone filter</div>
+    <div style="display:flex;align-items:stretch;gap:10px;flex-wrap:nowrap">
+      <div class="grainRow" style="display:flex;gap:8px;flex:0 0 auto">${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}" style="min-width:120px"><div class="gT">${g.t}</div><div class="gD">${g.d}</div><div class="gP" style="color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag">★ BEST</div>':''}</button>`).join('')}</div>
+      <div class="stat big" style="justify-content:center;min-width:120px"><div class="sv" style="color:var(--amber)">${res.sheetCount}</div><div class="sl">SHEETS @ ${fmt(store.sheetW)}×${fmt(store.sheetH)}</div></div>
+      <div class="stat money" style="justify-content:center;min-width:120px"><div class="sv" style="color:var(--green)">${money(totalCost)}</div><div class="sl">${off.supplier?off.supplier.toUpperCase():'EST. COST'}</div></div>
+      <label class="field" style="justify-content:center;min-width:160px;margin-left:auto"><span class="fl">ZONES</span>
+        <select class="fi" id="sheetZoneFilter"><option value="all" ${store.zoneFilter==='all'?'selected':''}>All zones</option>${store.zones.map(z=>`<option value="${z.id}" ${+store.zoneFilter===z.id?'selected':''}>${z.name}</option>`).join('')}</select>
+      </label>
+    </div></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
     <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
     ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
@@ -1282,9 +1289,7 @@ function sheetHTML(){
       <td><button class="del" data-delsheet="${r.id}">✕</button></td></tr>`;}).join('')}</tbody></table></div>
     <button class="add" id="addSheet">+ ADD PANEL</button></div>
   <div class="stats">
-    <div class="stat big"><div class="sv" style="color:var(--amber)">${res.sheetCount}</div><div class="sl">SHEETS @ ${fmt(store.sheetW)}×${fmt(store.sheetH)}</div></div>
-    <div class="stat"><div class="sv" style="color:${res.wastePct>25?'var(--red)':'#fff'}">${res.wastePct.toFixed(1)}%</div><div class="sl">WASTE</div></div>
-    <div class="stat money"><div class="sv" style="color:var(--green)">${money(totalCost)}</div><div class="sl">${off.supplier?off.supplier.toUpperCase():'EST. COST'}</div></div></div>
+    <div class="stat"><div class="sv" style="color:${res.wastePct>25?'var(--red)':'#fff'}">${res.wastePct.toFixed(1)}%</div><div class="sl">WASTE</div></div></div>
   ${off.fellBack?`<div class="hint" style="color:var(--red)">⚠ ${store.sheetCode} ${store.sheetThk}mm not stocked by your pinned supplier — falling back to ${off.supplier} at ${money(off.price)}.</div>`:''}
   ${off.offers.length>1?`<div class="hint" style="color:var(--green)">✓ ${off.offers.length} suppliers stock this: ${off.offers.sort((a,b)=>a.price-b.price).map(o=>o.supplier+' '+money(o.price)).join(' · ')} (${off.pinned&&!off.fellBack?'pinned to '+off.supplier:'cheapest selected'})</div>`:''}
   ${unitCost===0?`<div class="hint" style="color:var(--amber)">⚠ ${store.sheetCode} ${store.sheetThk}mm @ ${fmt(store.sheetW)}×${fmt(store.sheetH)} — not stocked by any supplier in your catalogue. Add it in the Price Book.</div>`:''}
@@ -1703,6 +1708,7 @@ function wire(){
   document.querySelectorAll('[data-delzone]').forEach(b=>b.onclick=()=>{const id=+b.dataset.delzone;if(store.zones.length<=1)return;store.zones=store.zones.filter(z=>z.id!==id);store.linRows=store.linRows.filter(r=>r.zone!==id);store.sheetRows=store.sheetRows.filter(r=>r.zone!==id);store.paintRows=store.paintRows.filter(r=>r.zone!==id);store.assemblyRows=store.assemblyRows.filter(r=>r.zone!==id);if(+store.zoneFilter===id)store.zoneFilter='all';render();});
   const nz=document.getElementById('newZone');if(nz){nz.oninput=e=>store.newZone=e.target.value;nz.onkeydown=e=>{if(e.key==='Enter')addZone();};}
   const az=document.getElementById('addZone');if(az)az.onclick=addZone;
+  const szf=document.getElementById('sheetZoneFilter');if(szf)szf.onchange=()=>{store.zoneFilter=szf.value==='all'?'all':+szf.value;render();};
   bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
