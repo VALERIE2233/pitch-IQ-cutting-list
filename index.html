@@ -1081,6 +1081,39 @@ async function loadMyCatalogue(){
   try{const {data}=await sb.from('catalogue').select('*').eq('supplier_id',store.account.uid).order('created_at',{ascending:true});store.myCatalogue=data||[];}catch(e){store.myCatalogue=[];}
   store.catLoaded=true;render();
 }
+// ---- catalogue photos (supplier side): up to 2 per item ----
+function photoCell(id,phs){
+  const thumbs=phs.map((url,i)=>`<span style="position:relative;display:inline-block;margin:2px"><img src="${url}" style="width:38px;height:38px;object-fit:cover;border-radius:3px;border:1px solid var(--line)"><button class="catPhotoDel" data-catphoto="${id}" data-idx="${i}" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:1">×</button></span>`).join('');
+  const canAdd=phs.length<2;
+  const controls=canAdd?`<div style="display:flex;flex-direction:column;gap:3px;margin-top:3px">
+    <button class="catPhotoUp" data-catup="${id}" style="font-size:10px;padding:3px 6px;border:1px solid var(--blue);color:var(--blue);background:transparent;border-radius:3px;cursor:pointer">⬆ Upload</button>
+    <button class="catPhotoLink" data-catlink="${id}" style="font-size:10px;padding:3px 6px;border:1px solid var(--mut);color:var(--mut);background:transparent;border-radius:3px;cursor:pointer">🔗 Link</button>
+  </div>`:'';
+  return `<div style="min-width:90px">${thumbs}${controls}</div>`;
+}
+async function uploadCataloguePhoto(file){
+  const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+  const path=store.account.uid+'/'+Date.now()+'.'+ext;
+  const {error}=await sb.storage.from('catalogue-photos').upload(path,file,{upsert:true});
+  if(error){throw error;}
+  const {data}=sb.storage.from('catalogue-photos').getPublicUrl(path);
+  return data.publicUrl;
+}
+async function addPhotoToCatItem(id,url){
+  const item=(store.myCatalogue||[]).find(c=>String(c.id)===String(id));if(!item)return;
+  const phs=Array.isArray(item.photos)?item.photos.slice():[];
+  if(phs.length>=2){alert('Max 2 photos per item.');return;}
+  phs.push(url);item.photos=phs;
+  try{await sb.from('catalogue').update({photos:phs}).eq('id',id);}catch(e){alert('Could not save photo.');}
+  render();
+}
+async function removePhotoFromCatItem(id,idx){
+  const item=(store.myCatalogue||[]).find(c=>String(c.id)===String(id));if(!item)return;
+  const phs=Array.isArray(item.photos)?item.photos.slice():[];
+  phs.splice(idx,1);item.photos=phs;
+  try{await sb.from('catalogue').update({photos:phs}).eq('id',id);}catch(e){}
+  render();
+}
 async function catAdd(){
   if(!sb)return;
   const row={supplier_id:store.account.uid, supplier_name:store.account.company, kind:'', code:'NEW-ITEM', description:'', unit:'each', litres:0, container:'', price:0, currency:store.currency, region:store.account.location||''};
@@ -1124,8 +1157,8 @@ function supplierHTML(){
     ${inc.length?inc.map(incCard).join(''):'<div class="empty">No orders received yet. When a contractor sends you an approved order, it appears here.</div>'}
     <div class="hint" style="padding-top:14px">List the materials you supply. Contractors using PitchIQ across the network will see these in their Catalogue and can price jobs with them. Keep codes and prices accurate — this is your shopfront.</div>
     <div class="card"><div class="cardHead"><span>MY CATALOGUE — ${rows.length} item${rows.length===1?'':'s'}</span></div>
-      <div class="scroll"><table><thead><tr><th>Category / type</th><th>Code</th><th>Description</th><th class="r">Thk</th><th class="r">W</th><th class="r">H</th><th class="r">Length</th><th class="r">Litres</th><th>Container</th><th>Unit</th><th class="r">Price</th><th>Cur</th><th></th></tr></thead><tbody>
-      ${rows.map(r=>`<tr>
+      <div class="scroll"><table><thead><tr><th>Category / type</th><th>Code</th><th>Description</th><th class="r">Thk</th><th class="r">W</th><th class="r">H</th><th class="r">Length</th><th class="r">Litres</th><th>Container</th><th>Unit</th><th class="r">Price</th><th>Cur</th><th>Photos</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>{const phs=Array.isArray(r.photos)?r.photos:[];return `<tr>
         <td><input class="cell" style="width:110px" value="${r.kind||''}" data-cat="${r.id}" data-k="kind" placeholder="e.g. hinges, paint, board"></td>
         <td><input class="cell" style="width:120px" value="${r.code||''}" data-cat="${r.id}" data-k="code"></td>
         <td><input class="cell" style="width:180px" value="${r.description||''}" data-cat="${r.id}" data-k="description"></td>
@@ -1138,7 +1171,8 @@ function supplierHTML(){
         <td><input class="cell" style="width:60px" value="${r.unit||''}" data-cat="${r.id}" data-k="unit"></td>
         <td class="r"><input class="num numS" type="number" value="${r.price||0}" data-cat="${r.id}" data-k="price"></td>
         <td><input class="cell" style="width:44px" value="${r.currency||'$'}" data-cat="${r.id}" data-k="currency"></td>
-        <td><button class="del" data-delcat="${r.id}">✕</button></td></tr>`).join('')}
+        <td>${photoCell(r.id,phs)}</td>
+        <td><button class="del" data-delcat="${r.id}">✕</button></td></tr>`;}).join('')}
       </tbody></table></div>
       <button class="add" id="catAdd">+ ADD MATERIAL</button>
     </div>
@@ -1733,6 +1767,16 @@ function wire(){
     const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];store.incomingLoaded=false;store.incoming=[];store.threadOrderId=null;render();}};
     const ca=document.getElementById('catAdd');if(ca)ca.onclick=catAdd;
     document.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>catDelete(b.dataset.delcat));
+    document.querySelectorAll('[data-catup]').forEach(b=>b.onclick=()=>{
+      const id=b.dataset.catup;
+      const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
+      inp.onchange=async()=>{const f=inp.files[0];if(!f)return;b.textContent='⏳ …';b.disabled=true;try{const url=await uploadCataloguePhoto(f);await addPhotoToCatItem(id,url);}catch(e){alert('Upload failed: '+(e.message||e));b.textContent='⬆ Upload';b.disabled=false;}};
+      inp.click();
+    });
+    document.querySelectorAll('[data-catlink]').forEach(b=>b.onclick=()=>{
+      const id=b.dataset.catlink;const url=prompt('Paste image link (https://…):');if(url&&/^https?:\/\//i.test(url)){addPhotoToCatItem(id,url.trim());}else if(url){alert('Please paste a valid http(s) image link.');}
+    });
+    document.querySelectorAll('[data-catphoto]').forEach(b=>b.onclick=()=>removePhotoFromCatItem(b.dataset.catphoto,+b.dataset.idx));
     document.querySelectorAll('[data-cat]').forEach(el=>el.onchange=()=>{const id=el.dataset.cat,k=el.dataset.k;const num=['thk','width','height','length','litres','price'].includes(k);catUpdate(id,{[k]:num?(+el.value||0):el.value});});
     document.querySelectorAll('[data-ackorder]').forEach(b=>b.onclick=()=>acknowledgeOrder(b.dataset.ackorder));
     document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
