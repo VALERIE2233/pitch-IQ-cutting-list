@@ -1464,10 +1464,13 @@ function catalogueHTML(){
     <div class="stat" style="align-self:flex-end"><div class="sv" style="color:var(--blue);font-size:18px">${all.length}</div><div class="sl">ITEMS · ${suppliers.length} SUPPLIER${suppliers.length===1?'':'S'}</div></div>
   </div>
   ${!all.length?`<div class="empty" style="margin-top:20px">The catalogue is empty so far. As suppliers list their materials, they'll appear here for you to use.</div>`:`
-  <div class="card"><div class="scroll"><table><thead><tr><th>Supplier</th><th>Category</th><th>Code</th><th>Description</th><th class="r">Spec</th><th class="r">Price</th><th></th></tr></thead><tbody>
+  <div class="card"><div class="scroll"><table><thead><tr><th>Photo</th><th>Supplier</th><th>Category</th><th>Code</th><th>Description</th><th class="r">Spec</th><th class="r">Price</th><th></th></tr></thead><tbody>
   ${rows.map(r=>{
     const spec=[r.thk?`${r.thk}mm`:'',r.width&&r.height?`${r.width}×${r.height}`:'',r.length?`L${r.length}`:'',r.litres?`${r.litres}L`:'',r.container||''].filter(Boolean).join(' · ');
+    const phs=Array.isArray(r.photos)?r.photos:[];
+    const photoCell=phs.length?phs.map(u=>`<img src="${u}" data-bigphoto="${u}" style="width:42px;height:42px;object-fit:cover;border-radius:3px;border:1px solid var(--line);margin:1px;cursor:pointer">`).join(''):'<span style="color:var(--mut);font-size:10px">—</span>';
     return `<tr>
+      <td style="white-space:nowrap">${photoCell}</td>
       <td style="color:var(--blue)">${r.supplier_name||'—'}</td>
       <td>${r.kind||''}</td>
       <td><strong>${r.code||''}</strong></td>
@@ -1887,6 +1890,14 @@ function wire(){
   const apa=document.getElementById('addPA');if(apa)apa.onclick=()=>{if(!store.priceBook.ancillary)store.priceBook.ancillary=[];store.priceBook.ancillary.push({supplier:'',code:'',desc:'',unit:'each',price:0});render();};
   const cse=document.getElementById('catSearch');if(cse){cse.oninput=()=>{store.catSearch=cse.value;render();const f=document.getElementById('catSearch');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}};}
   document.querySelectorAll('[data-usecat]').forEach(b=>b.onclick=()=>useCatalogueItem(b.dataset.usecat));
+  document.querySelectorAll('[data-bigphoto]').forEach(img=>img.onclick=()=>{
+    const url=img.dataset.bigphoto;
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out';
+    ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.6)">`;
+    ov.onclick=()=>ov.remove();
+    document.body.appendChild(ov);
+  });
 }
 function addZone(){const n=store.newZone.trim();if(!n)return;store.zones.push({id:Date.now(),name:n});store.newZone='';render();}
 // parse pasted/CSV rows: type,supplier,code,thk,len_or_w,h,price
