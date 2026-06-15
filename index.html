@@ -155,6 +155,13 @@ const store={
   stockLen:3600, linKerf:3, linCode:'STUD-92', linThk:92,
   linRows:[{id:1,zone:1,label:'Track top',code:'TRK-92',thk:92,len:2400,qty:12},{id:2,zone:1,label:'Stud',code:'STUD-92',thk:92,len:2700,qty:28},{id:3,zone:2,label:'Stud',code:'STUD-92',thk:92,len:3000,qty:40}],
   sheetW:1220, sheetH:2440, sheetKerf:3, sheetTrim:0, grain:'along', sheetCode:'GYP', sheetThk:12.5,
+  accRules:{
+    hingeBands:[{max:900,n:2},{max:1600,n:3},{max:2000,n:4},{max:99999,n:5}],
+    handlesPerDoor:1, handlesPerDrawer:1, shelfPins:4, runnerPairs:1,
+    dowelsPerCarcass:4, screwsPerCarcass:4,
+    carcassParts:['Side','Top','Bottom','Back']
+  },
+  accCodes:{hinge:'HINGE',handle:'HANDLE',pin:'SHELF-PIN',runner:'DRAWER-RUNNER',dowel:'DOWEL',screw:'SCREW'},
   sheetRows:[{id:1,zone:1,label:'Bulkhead face',code:'GYP',thk:12.5,w:1220,h:900,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:6},{id:2,zone:2,label:'Wall lining',code:'GYP',thk:12.5,w:1220,h:2440,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:10},{id:3,zone:2,label:'Reveal',code:'MDF-OAK',thk:18,w:600,h:2440,lip:18,edge:'2w',lipCode:'LIP-OAK',lipLen:3600,qty:8}],
   lipWaste:10,
   paintRows:[{id:1,zone:1,label:'Walls',stage:'Primer',code:'PRIMER-WHT',area:48,coats:1,spread:10,waste:10},{id:2,zone:1,label:'Walls',stage:'Topcoat',code:'PNT-WHT-MATT',area:48,coats:2,spread:11,waste:10}],
@@ -252,7 +259,7 @@ async function openProject(id){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
 }
 // start a fresh named project (saves current first)
@@ -930,6 +937,44 @@ function sheetPaintCalc(){
   const o=offerPaint(store.sheetPaintCode||'PNT-WHT-MATT');
   return {area:paintM2, litres, cost:litres*o.price, supplier:o.supplier, price:o.price};
 }
+// ---- auto-accessories: count parts across sheet panels, generate hardware ----
+function sheetAccessories(){
+  const R=store.accRules||{};
+  const rows=store.zoneFilter==='all'?store.sheetRows:store.sheetRows.filter(r=>r.zone===+store.zoneFilter);
+  const acc={}; // code -> qty
+  const add=(code,n)=>{if(!code||n<=0)return;acc[code]=(acc[code]||0)+n;};
+  const C=store.accCodes||{};
+  const carcass=(R.carcassParts||['Side','Top','Bottom','Back']);
+  rows.forEach(r=>{
+    const part=r.part||''; const qty=Math.max(0,+r.qty||0); if(!part||qty<=0)return;
+    if(part==='Door'){
+      // hinges scale by door height (use final H)
+      const h=+r.h||0; const band=(R.hingeBands||[]).find(b=>h<=b.max)||{n:2};
+      add(C.hinge, band.n*qty);
+      add(C.handle,(R.handlesPerDoor||1)*qty);
+    } else if(part==='Shelf'){
+      add(C.pin,(R.shelfPins||4)*qty);
+    } else if(part==='Drawer front'){
+      add(C.runner,(R.runnerPairs||1)*qty);
+      add(C.handle,(R.handlesPerDrawer||1)*qty);
+    } else if(carcass.includes(part)){
+      add(C.dowel,(R.dowelsPerCarcass||4)*qty);
+      add(C.screw,(R.screwsPerCarcass||4)*qty);
+    }
+  });
+  // turn into rows with price from catalogue/price book
+  return Object.entries(acc).map(([code,qty])=>{
+    const o=offerAccessory(code);
+    return {code, qty, supplier:o.supplier, price:o.price, cost:o.price*qty};
+  }).filter(a=>a.qty>0);
+}
+// find a price for an accessory code from the price book / catalogue (best/cheapest)
+function offerAccessory(code){
+  let best=null;
+  (store.catalogueAll||[]).forEach(c=>{if((c.code||'').toUpperCase()===code.toUpperCase()&&c.price>0){if(!best||c.price<best.price)best={price:c.price,supplier:c.supplier_name};}});
+  (store.myCatalogue||[]).forEach(c=>{if((c.code||'').toUpperCase()===code.toUpperCase()&&c.price>0){if(!best||c.price<best.price)best={price:c.price,supplier:'You'};}});
+  return best||{price:0,supplier:null};
+}
 function paintCalc(r){
   const area=r.area||0, coats=r.coats||1, spread=r.spread||10, waste=(r.waste||0)/100;
   const litres=spread>0?(area*coats/spread)*(1+waste):0;
@@ -1234,7 +1279,42 @@ function appHTML(){
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
   </div></div>
   <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,order:orderHTML}[store.tab])()}</div>
-  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>`;}
+  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}`;}
+
+// editable accessory-rules overlay
+function accRulesOverlay(){
+  if(!store.showAccRules)return '';
+  const R=store.accRules;
+  return `<div id="accRulesOv" style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;max-width:520px;width:100%;max-height:88vh;overflow:auto;padding:18px">
+      <div style="display:flex;align-items:center;margin-bottom:12px"><strong style="color:var(--blue);font-size:14px">🔩 ACCESSORY RULES</strong><button id="accRulesClose" class="zadd" style="margin-left:auto;padding:4px 10px">✕ CLOSE</button></div>
+      <div class="hint" style="padding:0 0 10px">Quantities per part. Edit to match how you build. Hinges scale with door height.</div>
+      <table style="width:100%"><tbody>
+        <tr><td style="padding:5px">Handles per door</td><td class="r"><input class="num numS" type="number" id="ar_hd" value="${R.handlesPerDoor}"></td></tr>
+        <tr><td style="padding:5px">Handles per drawer</td><td class="r"><input class="num numS" type="number" id="ar_hdr" value="${R.handlesPerDrawer}"></td></tr>
+        <tr><td style="padding:5px">Shelf pins per shelf</td><td class="r"><input class="num numS" type="number" id="ar_sp" value="${R.shelfPins}"></td></tr>
+        <tr><td style="padding:5px">Runner pairs per drawer</td><td class="r"><input class="num numS" type="number" id="ar_rp" value="${R.runnerPairs}"></td></tr>
+        <tr><td style="padding:5px">Dowels per carcass panel</td><td class="r"><input class="num numS" type="number" id="ar_dw" value="${R.dowelsPerCarcass}"></td></tr>
+        <tr><td style="padding:5px">Screws per carcass panel</td><td class="r"><input class="num numS" type="number" id="ar_sc" value="${R.screwsPerCarcass}"></td></tr>
+      </tbody></table>
+      <div style="font-size:11px;color:var(--mut);margin:12px 0 4px">HINGES BY DOOR HEIGHT (${u()})</div>
+      <table style="width:100%"><tbody>
+        ${R.hingeBands.map((b,i)=>`<tr><td style="padding:5px">up to ${b.max>=99999?'taller':fmt(b.max)}</td><td class="r"><input class="num numS" type="number" data-hinge="${i}" value="${b.n}"> hinges</td></tr>`).join('')}
+      </tbody></table>
+      <button id="accRulesSave" class="add" style="margin-top:14px">SAVE RULES</button>
+    </div></div>`;
+}
+function bindAccRulesOverlay(){
+  const cl=document.getElementById('accRulesClose');if(cl)cl.onclick=()=>{store.showAccRules=false;render();};
+  const sv=document.getElementById('accRulesSave');if(sv)sv.onclick=()=>{
+    const g=(id)=>Math.max(0,+(document.getElementById(id)||{}).value||0);
+    const R=store.accRules;
+    R.handlesPerDoor=g('ar_hd');R.handlesPerDrawer=g('ar_hdr');R.shelfPins=g('ar_sp');
+    R.runnerPairs=g('ar_rp');R.dowelsPerCarcass=g('ar_dw');R.screwsPerCarcass=g('ar_sc');
+    document.querySelectorAll('[data-hinge]').forEach(inp=>{const i=+inp.dataset.hinge;if(R.hingeBands[i])R.hingeBands[i].n=Math.max(0,+inp.value||0);});
+    store.showAccRules=false;render();
+  };
+}
 
 function assemblyHTML(){
   const rows=store.zoneFilter==='all'?store.assemblyRows:store.assemblyRows.filter(r=>r.zone===+store.zoneFilter);
@@ -1391,6 +1471,12 @@ function sheetHTML(){
     <tr><td class="r">${pc.area.toFixed(2)}</td><td class="r"><strong style="color:var(--green)">${pc.litres.toFixed(2)} L</strong></td><td>${pc.supplier||'—'}</td><td class="r"><span class="cost" style="font-size:14px">${pc.price>0?money(pc.cost):'⚠ no price'}</span></td></tr>
     </tbody></table></div>
     <div class="hint">Set each panel's finish (Prime/Paint/Both) and faces in the Finish column above. Primer & paint coats are set on their own cards.</div></div>`;})()}
+  ${(()=>{const acc=sheetAccessories();if(!acc.length)return '';const total=acc.reduce((s,a)=>s+a.cost,0);return `<div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>🔩 ACCESSORIES (auto, from parts)</span><button class="zadd" id="accRulesBtn" style="font-size:10px;padding:4px 8px">⚙ EDIT RULES</button></div>
+    <div class="scroll"><table><thead><tr><th>Accessory</th><th class="r">Qty</th><th>Supplier</th><th class="r">Unit price</th><th class="r">Cost</th></tr></thead><tbody>
+    ${acc.map(a=>`<tr><td><strong>${a.code}</strong></td><td class="r">${a.qty}</td><td>${a.supplier||'<span style="color:var(--amber)">⚠ no price</span>'}</td><td class="r">${a.price>0?money(a.price):'—'}</td><td class="r"><span class="cost">${a.price>0?money(a.cost):'—'}</span></td></tr>`).join('')}
+    <tr style="border-top:2px solid var(--line)"><td colspan="4" class="r"><strong>TOTAL ACCESSORIES</strong></td><td class="r"><strong style="color:var(--blue)">${money(total)}</strong></td></tr>
+    </tbody></table></div>
+    <div class="hint">Auto-counted from your panel Parts: Doors→hinges (by height)+handles, Shelves→pins, Drawer fronts→runners+handles, carcass panels (Side/Top/Bottom/Back)→dowels+screws. Add accessory prices in your Price Book/Catalogue using the codes shown (HINGE, HANDLE, SHELF-PIN, DRAWER-RUNNER, DOWEL, SCREW). Click EDIT RULES to change quantities.</div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
     ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
       const col=p.grainless?'#e8eaed':PAL[ci++%PAL.length];
@@ -1821,6 +1907,8 @@ function wire(){
   bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
+  const arb=document.getElementById('accRulesBtn');if(arb)arb.onclick=()=>{store.showAccRules=true;render();};
+  bindAccRulesOverlay();
   const spc=document.getElementById('sheetPaintCode');if(spc)spc.onchange=()=>{store.sheetPaintCode=spc.value||'';render();};
   const sps=document.getElementById('sheetPaintSpread');if(sps)sps.onchange=()=>{store.sheetPaintSpread=Math.max(0,+sps.value||0);render();};
   const spw=document.getElementById('sheetPaintWaste');if(spw)spw.onchange=()=>{store.sheetPaintWaste=Math.max(0,+spw.value||0);render();};
