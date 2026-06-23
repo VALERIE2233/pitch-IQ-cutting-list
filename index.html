@@ -259,7 +259,7 @@ async function openProject(id){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
 }
 // start a fresh named project (saves current first)
@@ -1333,7 +1333,39 @@ function appHTML(){
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
   </div></div>
   <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,order:orderHTML}[store.tab])()}</div>
-  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}`;}
+  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}`;}
+
+// export picker: choose which sheets go into the Excel
+function exportPickerOverlay(){
+  if(!store.showExportPicker)return '';
+  const opts=[
+    ['panel','Panel Cut List'],['linear','Linear Cut List'],['paint','Paint'],
+    ['lipping','Lipping'],['assemblies','Assemblies'],['offcut','Offcut Bank'],
+    ['summary','Estimate Summary'],['pos','POs by Supplier']
+  ];
+  const sel=store.exportSel||{};
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;max-width:420px;width:100%;padding:18px">
+      <div style="display:flex;align-items:center;margin-bottom:12px"><strong style="color:var(--green);font-size:14px">⬇ EXPORT TO EXCEL — choose sheets</strong><button id="expClose" class="zadd" style="margin-left:auto;padding:4px 10px">✕</button></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${opts.map(([k,label])=>`<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px"><input type="checkbox" data-exp="${k}" ${sel[k]!==false?'checked':''} style="width:18px;height:18px"> ${label}</label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="expAll" class="zadd" style="flex:1;font-size:11px">Select all</button>
+        <button id="expNone" class="zadd" style="flex:1;font-size:11px">Clear all</button>
+      </div>
+      <button id="expGo" class="add" style="margin-top:14px">⬇ DOWNLOAD EXCEL</button>
+    </div></div>`;
+}
+function bindExportPicker(){
+  if(!store.showExportPicker)return;
+  if(!store.exportSel)store.exportSel={};
+  document.querySelectorAll('[data-exp]').forEach(cb=>cb.onchange=()=>{store.exportSel[cb.dataset.exp]=cb.checked;});
+  const cl=document.getElementById('expClose');if(cl)cl.onclick=()=>{store.showExportPicker=false;render();};
+  const al=document.getElementById('expAll');if(al)al.onclick=()=>{['panel','linear','paint','lipping','assemblies','offcut','summary','pos'].forEach(k=>store.exportSel[k]=true);render();};
+  const nn=document.getElementById('expNone');if(nn)nn.onclick=()=>{['panel','linear','paint','lipping','assemblies','offcut','summary','pos'].forEach(k=>store.exportSel[k]=false);render();};
+  const go=document.getElementById('expGo');if(go)go.onclick=()=>{store.showExportPicker=false;const sel={...store.exportSel};render();exportExcel(sel);};
+}
 
 // editable accessory-rules overlay
 function accRulesOverlay(){
@@ -1970,6 +2002,7 @@ function wire(){
   const rt=document.getElementById('reuseToggle');if(rt)rt.onclick=()=>{store.reuseSheetOffcuts=!store.reuseSheetOffcuts;render();};
   const arb=document.getElementById('accRulesBtn');if(arb)arb.onclick=()=>{store.showAccRules=true;render();};
   bindAccRulesOverlay();
+  bindExportPicker();
   const spc=document.getElementById('sheetPaintCode');if(spc)spc.onchange=()=>{store.sheetPaintCode=spc.value||'';render();};
   const sps=document.getElementById('sheetPaintSpread');if(sps)sps.onchange=()=>{store.sheetPaintSpread=Math.max(0,+sps.value||0);render();};
   const spw=document.getElementById('sheetPaintWaste');if(spw)spw.onchange=()=>{store.sheetPaintWaste=Math.max(0,+spw.value||0);render();};
@@ -2075,17 +2108,20 @@ function bindRow(el,kind,arr){const id=+el.dataset[kind],k=el.dataset.k;el.oncha
   else if(k==='area'||k==='spread'||k==='waste'){row[k]=Math.max(0,+v||0);}
   else{row[k]=Math.max(0,Math.round(toMM(+v||0)));}render();};}
 
-function exportExcel(){
+function exportExcel(sel){
   if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  // sel: object of which sheets to include; if not given, show the picker first
+  if(!sel){ store.showExportPicker=true; render(); return; }
+  const inc=(k)=>sel[k]!==false; // default include unless explicitly false
   const wb=XLSX.utils.book_new(),unit=u();
   const edgeLabel=v=>({'0':'None','1w':'1W','2w':'2W','1h':'1H','2h':'2H','all':'All 4'})[v||'0'];
   const p1=[['Zone','Item','Part','Ref','Code','Thk (mm)',`Final W (${unit})`,`Final H (${unit})`,`Lip thk (${unit})`,'Lip edge','Lip code',`Lip len (${unit})`,'Lip LM',`Cut size (${unit})`,'Qty']];
   store.sheetRows.forEach((r,ri)=>{const cs=cutSize(r);const lipM=(lipLenPerPanel(r)*r.qty/1000).toFixed(2);p1.push([zoneName(r.zone),itemName(r),r.part||'',pieceRef(r,ri),r.code||'',r.thk||0,fmt(r.w),fmt(r.h),fmt(r.lip),edgeLabel(r.edge),r.lipCode||'',fmt(r.lipLen||0),lipM,`${fmt(cs.cw)}×${fmt(cs.ch)}`,r.qty]);});
-  const w1=XLSX.utils.aoa_to_sheet(p1);w1['!cols']=[{wch:14},{wch:14},{wch:10},{wch:16},{wch:12},{wch:9},{wch:11},{wch:11},{wch:11},{wch:9},{wch:11},{wch:11},{wch:9},{wch:15},{wch:7}];XLSX.utils.book_append_sheet(wb,w1,'Panel Cut List');
+  if(inc('panel')){const w1=XLSX.utils.aoa_to_sheet(p1);w1['!cols']=[{wch:14},{wch:14},{wch:10},{wch:16},{wch:12},{wch:9},{wch:11},{wch:11},{wch:11},{wch:9},{wch:11},{wch:11},{wch:9},{wch:15},{wch:7}];XLSX.utils.book_append_sheet(wb,w1,'Panel Cut List');}
   const p2=[['Zone','Code','Thk (mm)','Label',`Length (${unit})`,'Qty']];store.linRows.forEach(r=>p2.push([zoneName(r.zone),r.code||'',r.thk||0,r.label,fmt(r.len),r.qty]));
-  const w2=XLSX.utils.aoa_to_sheet(p2);w2['!cols']=[{wch:16},{wch:12},{wch:9},{wch:18},{wch:12},{wch:7}];XLSX.utils.book_append_sheet(wb,w2,'Linear Cut List');
+  if(inc('linear')){const w2=XLSX.utils.aoa_to_sheet(p2);w2['!cols']=[{wch:16},{wch:12},{wch:9},{wch:18},{wch:12},{wch:7}];XLSX.utils.book_append_sheet(wb,w2,'Linear Cut List');}
   const p3=[['Zone','Stage','Code','Label',`Area (${au()})`,'Coats',`${vu()} needed`,'Cost']];store.paintRows.forEach(r=>{const pc=paintCalc(r);p3.push([zoneName(r.zone),r.stage||'Other',r.code||'',r.label,r.area,r.coats,pc.litres.toFixed(2),money(pc.cost)]);});
-  const w3=XLSX.utils.aoa_to_sheet(p3);w3['!cols']=[{wch:16},{wch:11},{wch:14},{wch:16},{wch:12},{wch:8},{wch:12},{wch:12}];XLSX.utils.book_append_sheet(wb,w3,'Paint');
+  if(inc('paint')){const w3=XLSX.utils.aoa_to_sheet(p3);w3['!cols']=[{wch:16},{wch:11},{wch:14},{wch:16},{wch:12},{wch:8},{wch:12},{wch:12}];XLSX.utils.book_append_sheet(wb,w3,'Paint');}
   const lin=optimiseLinear(store.stockLen,store.linKerf,store.linRows.filter(r=>r.len>0&&r.qty>0));
   const sh=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,store.sheetRows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)})));
   let paintC=0;store.paintRows.forEach(r=>paintC+=paintCalc(r).cost);
@@ -2106,16 +2142,16 @@ function exportExcel(){
     [],['MATERIAL TOTAL','','','',money(linC+shC+paintC+assyTotal+lipCost+customTotal),''],
     [],['Offcut bank items',store.bankedDrops.length],[],['BREAKDOWN BY ZONE'],['Zone','Lin pieces','Lin m','Panels','Panel m²']];
   store.zones.forEach(z=>{const lp=store.linRows.filter(r=>r.zone===z.id),sp=store.sheetRows.filter(r=>r.zone===z.id);sum.push([z.name,lp.reduce((s,r)=>s+r.qty,0),(lp.reduce((s,r)=>s+r.len*r.qty,0)/1000).toFixed(1),sp.reduce((s,r)=>s+r.qty,0),(sp.reduce((s,r)=>s+r.w*r.h*r.qty,0)/1e6).toFixed(2)]);});
-  const w4=XLSX.utils.aoa_to_sheet(sum);w4['!cols']=[{wch:18},{wch:12},{wch:30},{wch:16},{wch:12},{wch:10}];XLSX.utils.book_append_sheet(wb,w4,'Estimate Summary');
+  if(inc('summary')){const w4=XLSX.utils.aoa_to_sheet(sum);w4['!cols']=[{wch:18},{wch:12},{wch:30},{wch:16},{wch:12},{wch:10}];XLSX.utils.book_append_sheet(wb,w4,'Estimate Summary');}
   // Lipping sheet
-  if(lipAllX.length){
+  if(inc('lipping') && lipAllX.length){
     const lx=[['Lip code','Thk (mm)',`Stock len (${unit})`,'Total LM',`+${store.lipWaste}% LM`,'Lengths to buy','Supplier','Unit price','Cost']];
     lipAllX.forEach(l=>lx.push([l.code,l.thk,fmt(l.stockLen),(l.totalMM/1000).toFixed(2),(l.withWasteMM/1000).toFixed(2),l.lengthsToBuy,l.supplier,l.unitPrice>0?money(l.unitPrice):'—',l.unitPrice>0?money(l.cost):'⚠ no price']));
     const wL=XLSX.utils.aoa_to_sheet(lx);wL['!cols']=[{wch:14},{wch:9},{wch:14},{wch:10},{wch:12},{wch:14},{wch:16},{wch:11},{wch:11}];XLSX.utils.book_append_sheet(wb,wL,'Lipping');
   }
-  if(store.bankedDrops.length){const b=[['Code','Thk (mm)','Material',`Size (${unit})`,'Source zone','Date']];store.bankedDrops.forEach(d=>b.push([d.code||'',d.thk||0,d.material,fmt(d.size),d.zone,d.date]));const w5=XLSX.utils.aoa_to_sheet(b);w5['!cols']=[{wch:14},{wch:9},{wch:18},{wch:12},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,w5,'Offcut Bank');}
+  if(inc('offcut') && store.bankedDrops.length){const b=[['Code','Thk (mm)','Material',`Size (${unit})`,'Source zone','Date']];store.bankedDrops.forEach(d=>b.push([d.code||'',d.thk||0,d.material,fmt(d.size),d.zone,d.date]));const w5=XLSX.utils.aoa_to_sheet(b);w5['!cols']=[{wch:14},{wch:9},{wch:18},{wch:12},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,w5,'Offcut Bank');}
   // Assemblies sheet
-  if(store.assemblyRows.length||store.customAssemblies.length){
+  if(inc('assemblies') && (store.assemblyRows.length||store.customAssemblies.length)){
     const ax=[['Zone','Assembly','Item','Code','Qty','Unit','Supplier','Unit price','Cost']];
     store.assemblyRows.forEach(r=>{const tpl=ASSEMBLIES[r.type];const c=assemblyCost(r);c.items.forEach(it=>ax.push([zoneName(r.zone),tpl?tpl.name:r.type,it.desc,it.code||'',it.qty,it.unit||'',it.supplier,it.price>0?money(it.price):'—',it.cost>0?money(it.cost):'—']));});
     store.customAssemblies.forEach(ca=>{const c=customCost(ca);c.items.forEach(it=>ax.push([zoneName(ca.zone),ca.name,it.name||it.code,it.code||'',it.qty,it.unit||'',it.supplier,it.price>0?money(it.price):'—',it.cost>0?money(it.cost):'—']));});
@@ -2132,7 +2168,9 @@ function exportExcel(){
   store.customAssemblies.forEach(ca=>{const c=customCost(ca);c.items.forEach(it=>{if(it.cost>0)addX(it.supplier,`${ca.name} · ${it.name||it.code} (${zoneName(ca.zone)})`,it.qty+' '+(it.unit||''),it.cost);});});
   const po=[['PURCHASE ORDERS BY SUPPLIER'],[]];
   Object.entries(bySupX).sort((a,b)=>b[1].total-a[1].total).forEach(([sup,d])=>{po.push([sup.toUpperCase()]);po.push(['Item','Qty','Cost']);d.rows.forEach(r=>po.push(r));po.push(['','SUBTOTAL',money(d.total)]);po.push([]);});
-  const w6=XLSX.utils.aoa_to_sheet(po);w6['!cols']=[{wch:42},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,w6,'POs by Supplier');
+  if(inc('pos')){const w6=XLSX.utils.aoa_to_sheet(po);w6['!cols']=[{wch:42},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,w6,'POs by Supplier');}
+  // guard: if nothing was selected, warn instead of exporting an empty file
+  if(!wb.SheetNames.length){alert('Select at least one sheet to export.');return;}
   XLSX.writeFile(wb,`PitchIQ-Estimate-${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 function exportJob(){const job={...store};delete job.account;const blob=new Blob([JSON.stringify(job,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pitchiq-'+new Date().toISOString().slice(0,10)+'.json';a.click();}
