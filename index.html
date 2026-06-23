@@ -259,7 +259,7 @@ async function openProject(id){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
 }
 // start a fresh named project (saves current first)
@@ -872,6 +872,28 @@ function autoBankSheetOffcuts(res){
 }
 
 // lip on an edge reduces the perpendicular dimension; perimeter trim adds oversize on all 4 edges
+// site-fit check: does the finished panel fit the site opening?
+// uses the panel's own siteW/siteH, OR the zone's site limit if set.
+function siteLimitFor(r){
+  let sw=+r.siteW||0, sh=+r.siteH||0;
+  const zl=(store.zoneSiteLimits||{})[r.zone];
+  if(zl){ if(!sw&&zl.w)sw=zl.w; if(!sh&&zl.h)sh=zl.h; }
+  return {sw,sh};
+}
+function fitIndicator(r){
+  const {sw,sh}=siteLimitFor(r);
+  if(!sw&&!sh)return '<span style="color:var(--mut);font-size:10px">—</span>';
+  const tol=+store.siteTol||0; // optional clearance: item should be this much smaller
+  const overW = sw>0 && (r.w > sw - tol);
+  const overH = sh>0 && (r.h > sh - tol);
+  if(overW||overH){
+    const msgs=[];
+    if(overW)msgs.push(`W ${fmt(r.w)}>${fmt(sw)}`);
+    if(overH)msgs.push(`H ${fmt(r.h)}>${fmt(sh)}`);
+    return `<span style="color:#fff;background:var(--red);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;white-space:nowrap" title="Item exceeds site space">⚠ ${msgs.join(' · ')}</span>`;
+  }
+  return '<span style="color:var(--green);font-size:11px;font-weight:700" title="Fits the site space">✓ fits</span>';
+}
 function cutSize(r){const t=r.lip||0,e=r.edge||'0';let dw=0,dh=0;
   if(e==='1w')dh=t;else if(e==='2w')dh=2*t;else if(e==='1h')dw=t;else if(e==='2h')dw=2*t;else if(e==='all'){dw=2*t;dh=2*t;}
   const trim=Math.max(0,+store.sheetTrim||0); // cleaning trim on every edge -> +2*trim each way
@@ -1429,12 +1451,16 @@ function sheetHTML(){
     <label class="field"><span class="fl">SHEET W (${u()})</span><input class="fi" type="number" id="sheetW" value="${fmt(store.sheetW)}"></label>
     <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span><input class="fi" type="number" id="sheetH" value="${fmt(store.sheetH)}"></label>
     <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label>
-    <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label></div>
+    <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label>
+    <label class="field"><span class="fl">SITE CLEARANCE (${u()})</span><input class="fi" type="number" id="siteTol" value="${fmt(store.siteTol||0)}" title="Item must be this much smaller than the site opening to fit/install — warns if it's not"></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
-    <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th>Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
+    <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Site W</th><th class="r">Site H</th><th>Fit</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th>Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
     ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
+      <td class="r"><input class="num numS" type="number" value="${r.siteW?fmt(r.siteW):''}" data-sheet="${r.id}" data-k="siteW" placeholder="—" title="Site opening width"></td>
+      <td class="r"><input class="num numS" type="number" value="${r.siteH?fmt(r.siteH):''}" data-sheet="${r.id}" data-k="siteH" placeholder="—" title="Site opening height"></td>
+      <td>${fitIndicator(r)}</td>
       <td class="r">${lipSel(r.lip,r.id)}</td><td>${edgeSel(r.edge,r.id)}</td>
       <td><input class="cell" style="width:90px" value="${r.lipCode||''}" data-sheet="${r.id}" data-k="lipCode" placeholder="e.g. LIP-OAK"></td>
       <td>${finishSel(r.pfinish,r.id)}${(r.pfinish&&r.pfinish!=='none')?' '+paintFacesSel(r.paintFaces,r.id):''}</td>
@@ -1904,7 +1930,7 @@ function wire(){
   const nz=document.getElementById('newZone');if(nz){nz.oninput=e=>store.newZone=e.target.value;nz.onkeydown=e=>{if(e.key==='Enter')addZone();};}
   const az=document.getElementById('addZone');if(az)az.onclick=addZone;
   const szf=document.getElementById('sheetZoneFilter');if(szf)szf.onchange=()=>{store.zoneFilter=szf.value==='all'?'all':+szf.value;render();};
-  bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');
+  bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');bindNum('siteTol','siteTol');
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
   const arb=document.getElementById('accRulesBtn');if(arb)arb.onclick=()=>{store.showAccRules=true;render();};
