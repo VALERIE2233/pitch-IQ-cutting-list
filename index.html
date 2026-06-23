@@ -259,7 +259,7 @@ async function openProject(id){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
 }
 // start a fresh named project (saves current first)
@@ -836,12 +836,44 @@ function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
       items.push({w:p.cw,h:p.ch,ref:ref,label:p.label||'',code:p.code||'',item:item});
     }
   });
-  const mapped=items.map(it=>{
+  const orient=it=>{
     if(grain==='across')return {w:it.h,h:it.w,rot:false,ref:it.ref,label:it.label,code:it.code,item:it.item};
     if(grain==='none')return {w:it.w,h:it.h,rot:true,grainless:true,ref:it.ref,label:it.label,code:it.code,item:it.item};
     return {w:it.w,h:it.h,rot:false,ref:it.ref,label:it.label,code:it.code,item:it.item};
-  });
-  return packGuillotine(sheetW,sheetH,kerf,mapped);
+  };
+  let mapped=items.map(orient);
+
+  // ---- Stage 2: reuse banked sheet offcuts first (by code + thickness) ----
+  let offcutSheets=[]; let offcutsUsed=0;
+  if(store.reuseSheetOffcuts){
+    const code=(store.sheetCode||'').toUpperCase(), thk=+store.sheetThk||0;
+    // matching banked sheet offcuts, biggest first
+    const banks=(store.bankedDrops||[]).filter(d=>d.kind==='sheet' && (d.code||'').toUpperCase()===code && (+d.thk||0)===thk && d.w>0 && d.h>0)
+      .sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+    for(const b of banks){
+      if(!mapped.length)break;
+      // try to pack remaining pieces onto this single offcut "board"
+      const r=packGuillotine(b.w,b.h,kerf,mapped);
+      // keep only the FIRST offcut-board worth of placements, return the rest to the pool
+      if(r.sheets.length && r.sheets[0].parts.length){
+        const placed=r.sheets[0].parts;
+        offcutSheets.push({parts:placed,fromOffcut:true,offcutW:b.w,offcutH:b.h});
+        offcutsUsed++;
+        // remove the placed pieces from mapped (match by ref, which is unique per piece)
+        const placedRefs={}; placed.forEach(p=>{placedRefs[p.ref]=(placedRefs[p.ref]||0)+1;});
+        const remain=[];
+        mapped.forEach(m=>{ if(placedRefs[m.ref]>0){placedRefs[m.ref]--;} else remain.push(m); });
+        mapped=remain;
+      }
+    }
+  }
+
+  // ---- remaining pieces go onto fresh full boards ----
+  const fresh=packGuillotine(sheetW,sheetH,kerf,mapped);
+  // combine: offcut boards first, then fresh boards
+  const allSheets=offcutSheets.concat(fresh.sheets);
+  // waste % is measured against FRESH boards only (offcuts were "free" leftovers)
+  return {sheets:allSheets, sheetCount:fresh.sheetCount, offcutsUsed, wastePct:fresh.wastePct};
 }
 const sheetWaste=(w,h,k,g,p)=>optimiseSheets(w,h,k,g,p).wastePct;
 
@@ -1440,7 +1472,7 @@ function sheetHTML(){
   const rows=store.zoneFilter==='all'?store.sheetRows:store.sheetRows.filter(r=>r.zone===+store.zoneFilter);
   const calc=rows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)}));
   const res=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,calc);
-  if(store.autoBankOffcuts!==false){ autoBankSheetOffcuts(res); }
+  if(store.autoBankOffcuts!==false && !store.reuseSheetOffcuts){ autoBankSheetOffcuts(res); }
   const cmp={along:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'along',calc),across:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'across',calc),none:sheetWaste(store.sheetW,store.sheetH,store.sheetKerf,'none',calc)};
   const best=Object.entries(cmp).sort((a,b)=>a[1]-b[1])[0][0];
   const off=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH); const unitCost=off.price, totalCost=res.sheetCount*unitCost;
@@ -1452,7 +1484,8 @@ function sheetHTML(){
     <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span><input class="fi" type="number" id="sheetH" value="${fmt(store.sheetH)}"></label>
     <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label>
     <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label>
-    <label class="field"><span class="fl">SITE CLEARANCE (${u()})</span><input class="fi" type="number" id="siteTol" value="${fmt(store.siteTol||0)}" title="Item must be this much smaller than the site opening to fit/install — warns if it's not"></label></div>
+    <label class="field"><span class="fl">SITE CLEARANCE (${u()})</span><input class="fi" type="number" id="siteTol" value="${fmt(store.siteTol||0)}" title="Item must be this much smaller than the site opening to fit/install — warns if it's not"></label>
+    <label class="field" style="justify-content:center"><span class="fl">REUSE OFFCUTS</span><button class="zadd" id="reuseToggle" style="padding:8px 12px;${store.reuseSheetOffcuts?'background:var(--green);color:#000;border-color:var(--green)':''}">${store.reuseSheetOffcuts?'✓ ON':'OFF'}</button></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
     <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Site W</th><th class="r">Site H</th><th>Fit</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th>Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
     ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
@@ -1470,6 +1503,7 @@ function sheetHTML(){
     <button class="add" id="addSheet">+ ADD PANEL</button></div>
   ${off.fellBack?`<div class="hint" style="color:var(--red)">⚠ ${store.sheetCode} ${store.sheetThk}mm not stocked by your pinned supplier — falling back to ${off.supplier} at ${money(off.price)}.</div>`:''}
   ${off.offers.length>1?`<div class="hint" style="color:var(--green)">✓ ${off.offers.length} suppliers stock this: ${off.offers.sort((a,b)=>a.price-b.price).map(o=>o.supplier+' '+money(o.price)).join(' · ')} (${off.pinned&&!off.fellBack?'pinned to '+off.supplier:'cheapest selected'})</div>`:''}
+  ${store.reuseSheetOffcuts?`<div class="hint" style="color:var(--green)">♻ Reuse ON — ${res.offcutsUsed||0} banked offcut${(res.offcutsUsed||0)===1?'':'s'} used before buying fresh boards. Fresh boards needed: ${res.sheetCount}.</div>`:''}
   ${unitCost===0?`<div class="hint" style="color:var(--amber)">⚠ ${store.sheetCode} ${store.sheetThk}mm @ ${fmt(store.sheetW)}×${fmt(store.sheetH)} — not stocked by any supplier in your catalogue. Add it in the Price Book.</div>`:''}
   ${(()=>{const lipRows=lipDemand(rows);if(!lipRows.length)return '';let totLip=0,totCost=0;lipRows.forEach(l=>{totLip+=l.totalMM;totCost+=l.cost;});return `<div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>LIPPING REQUIRED</span><label class="field" style="flex-direction:row;align-items:center;gap:6px"><span class="fl" style="margin:0">WASTAGE %</span><input class="num numS" type="number" id="lipWaste" value="${store.lipWaste}" style="width:54px"></label></div>
   <div class="scroll"><table><thead><tr><th>Lip code</th><th class="r">Thk (mm)</th><th class="r">Stock len</th><th class="r">Total LM</th><th class="r">+${store.lipWaste}% LM</th><th class="r">Lengths to buy</th><th>Supplier</th><th class="r">Cost</th></tr></thead><tbody>
@@ -1510,7 +1544,7 @@ function sheetHTML(){
       const itm=p.item||'';
       const tag=p.ref||p.label||'';
       return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;background:${col};color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.25;padding:2px;text-align:center">${itm?`<span style="font-size:9px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${itm}</span>`:''}${tag?`<span style="font-size:7px;opacity:.8;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
-    }).join('');return `<div class="sheetWrap"><div class="sheetIdx">SHEET #${i+1}</div><div class="sheet" style="width:${store.sheetW*scale}px;height:${store.sheetH*scale}px">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
+    }).join('');const isOff=s.fromOffcut;const bw=isOff?s.offcutW:store.sheetW,bh=isOff?s.offcutH:store.sheetH;return `<div class="sheetWrap"><div class="sheetIdx" style="${isOff?'color:var(--green)':''}">${isOff?'♻ OFFCUT '+fmt(bw)+'×'+fmt(bh):'SHEET #'+(i+1)}</div><div class="sheet" style="width:${bw*scale}px;height:${bh*scale}px;${isOff?'border-color:var(--green)':''}">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
 
 function paintHTML(){
   const rows=store.zoneFilter==='all'?store.paintRows:store.paintRows.filter(r=>r.zone===+store.zoneFilter);
@@ -1933,6 +1967,7 @@ function wire(){
   bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');bindNum('siteTol','siteTol');
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
+  const rt=document.getElementById('reuseToggle');if(rt)rt.onclick=()=>{store.reuseSheetOffcuts=!store.reuseSheetOffcuts;render();};
   const arb=document.getElementById('accRulesBtn');if(arb)arb.onclick=()=>{store.showAccRules=true;render();};
   bindAccRulesOverlay();
   const spc=document.getElementById('sheetPaintCode');if(spc)spc.onchange=()=>{store.sheetPaintCode=spc.value||'';render();};
