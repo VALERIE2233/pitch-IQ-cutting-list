@@ -1039,7 +1039,7 @@ function paintCalc(r){
 const PAL=['#FFB300','#3ddc84','#5db8ff','#ff8fb1','#c08bff','#ffd24d','#7ee8c0','#ffa94d'];
 
 // ============================ RENDER ============================
-function render(){persist();const root=document.getElementById('root');root.style.fontSize=((store.textScale||100)/100)+'em';root.innerHTML=store.account?(store.account.accountType==='supplier'?supplierHTML():store.account.accountType==='manager'?managerHTML():appHTML()):authHTML();wire();}
+function render(){persist();const root=document.getElementById('root');root.style.fontSize=((store.textScale||100)/100)+'em';root.innerHTML=store.account?(store.account.accountType==='supplier'?supplierHTML():store.account.accountType==='manager'?managerHTML():store.account.accountType==='site_engineer'?siteEngineerHTML():appHTML()):authHTML();wire();}
 
 function authHTML(){
   const m=store.authMode;
@@ -1054,6 +1054,7 @@ function authHTML(){
       <div class="tabs" style="display:flex;gap:4px;margin-bottom:14px">
         <button class="tab ${store.signupType==='contractor'?'on':''}" data-signuptype="contractor" style="flex:1;font-size:10px">CONTRACTOR</button>
         <button class="tab ${store.signupType==='manager'?'on':''}" data-signuptype="manager" style="flex:1;font-size:10px">MANAGER</button>
+        <button class="tab ${store.signupType==='siteEngineer'?'on':''}" data-signuptype="siteEngineer" style="flex:1;font-size:9px">SITE ENGINEER</button>
         <button class="tab ${store.signupType==='supplier'?'on':''}" data-signuptype="supplier" style="flex:1;font-size:10px">SUPPLIER</button>
       </div>
       ${store.signupType==='contractor'?`
@@ -1078,6 +1079,17 @@ function authHTML(){
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupManager" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE MANAGER ACCOUNT'}</button>
         <div class="trial">Enter the exact company name your estimators use, so their work reaches you.</div>`
+      :store.signupType==='siteEngineer'?`
+        <div class="demoBanner" style="border-color:var(--blue);color:var(--blue)">Site Engineer account: upload site photos, record site measurements, and send detail back to the factory.</div>
+        <label class="lbl">COMPANY NAME (must match your team's)</label><input class="inp" id="f_company" list="companyOptions" placeholder="Start typing — pick your company" autocomplete="off"><datalist id="companyOptions">${(store.companyList||[]).map(nm=>`<option value="${nm.replace(/"/g,'&quot;')}">`).join('')}</datalist>
+        <div style="font-size:10px;color:var(--mut);margin:-4px 0 8px">Pick your company from the list so your site visits reach the right factory. Type exactly if creating it new.</div>
+        <label class="lbl">YOUR NAME</label><input class="inp" id="f_name" placeholder="Your full name">
+        <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
+        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+44 ...">
+        <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <div class="err" id="authErr">${store.authMsg}</div>
+        <button class="cta" id="doSignupSiteEng" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE SITE ENGINEER ACCOUNT'}</button>
+        <div class="trial">Enter the exact company name your factory team uses.</div>`
       :`
         <div class="demoBanner" style="border-color:var(--blue);color:var(--blue)">Supplier account: list your materials in the shared catalogue so contractors across PitchIQ can find and price them.</div>
         <label class="lbl">SUPPLIER / BUSINESS NAME</label><input class="inp" id="f_company" placeholder="Gulf Gypsum Trading LLC">
@@ -1228,6 +1240,88 @@ async function catDelete(id){
   if(!sb)return;
   store.myCatalogue=store.myCatalogue.filter(x=>x.id!==id);render();
   try{await sb.from('catalogue').delete().eq('id',id);}catch(e){}
+}
+function siteEngineerHTML(){
+  if(!store.siteVisitsLoaded){loadSiteVisits();}
+  const visits=store.siteVisits||[];
+  const d=store.svDraft||{};
+  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · SITE ENGINEER</div><div class="bs">${store.account.company}</div></div></div>
+    <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+  <div class="body">
+    <div class="card" style="border-color:var(--blue)">
+      <div class="cardHead" style="color:var(--blue)"><span>➕ NEW SITE VISIT</span></div>
+      <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label class="field" style="grid-column:1/3"><span class="fl">PROJECT / JOB NAME</span><input class="fi" id="sv_project" value="${(d.project_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. 7th Floor Office Fit-Out"></label>
+        <label class="field" style="grid-column:1/3"><span class="fl">LOCATION / ROOM</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
+        <label class="field"><span class="fl">SITE WIDTH (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
+        <label class="field"><span class="fl">SITE HEIGHT (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
+        <label class="field" style="grid-column:1/3"><span class="fl">NOTES</span><textarea class="fi" id="sv_notes" rows="2" placeholder="Anything the factory needs to know…">${(d.notes||'').replace(/</g,'&lt;')}</textarea></label>
+        <div style="grid-column:1/3">
+          <span class="fl" style="display:block;margin-bottom:6px">SITE PHOTOS</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            ${(d.photos||[]).map((url,i)=>`<div style="position:relative"><img src="${url}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--line)"><button data-svremovephoto="${i}" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>`).join('')}
+            <label class="zadd" style="cursor:pointer">⬆ Add photo<input type="file" id="sv_photo" accept="image/*" capture="environment" style="display:none"></label>
+          </div>
+          ${store.svUploading?'<div style="font-size:11px;color:var(--amber);margin-top:4px">Uploading…</div>':''}
+        </div>
+        <button class="add" id="sv_save" style="grid-column:1/3" ${store.svBusy?'disabled':''}>${store.svBusy?'SAVING…':'✓ SAVE SITE VISIT'}</button>
+        ${store.svMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.svErr?'var(--red)':'var(--green)'}">${store.svMsg}</div>`:''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="cardHead"><span>👷 SITE VISITS (${visits.length})</span></div>
+      ${visits.length? `<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H</th><th>Photos</th><th>Notes</th><th>Status</th></tr></thead><tbody>
+        ${visits.map(v=>{const phs=Array.isArray(v.photos)?v.photos:[];return `<tr>
+          <td style="font-size:11px;white-space:nowrap">${(v.created_at||'').slice(0,10)}</td>
+          <td>${v.project_name||'—'}</td>
+          <td>${v.location_name||'—'}</td>
+          <td class="r">${v.site_w||'?'}×${v.site_h||'?'}</td>
+          <td>${phs.length?phs.map(u=>`<img src="${u}" data-bigphoto="${u}" style="width:32px;height:32px;object-fit:cover;border-radius:3px;border:1px solid var(--line);margin:1px;cursor:pointer">`).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
+          <td style="font-size:11px;max-width:160px">${v.notes||''}</td>
+          <td><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${v.status==='open'?'var(--amber)':'var(--green)'};color:#000">${(v.status||'open').toUpperCase()}</span></td>
+        </tr>`;}).join('')}
+      </tbody></table></div>`
+      : '<div style="padding:16px;text-align:center;color:var(--mut)">No site visits yet. Create your first one above.</div>'}
+    </div>
+  </div>
+  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>`;
+}
+async function loadSiteVisits(){
+  store.siteVisitsLoaded=true;
+  try{const {data}=await sb.from('site_visits').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});store.siteVisits=data||[];}
+  catch(e){store.siteVisits=[];}
+  render();
+}
+async function uploadSiteVisitPhoto(file){
+  const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+  const path=store.account.uid+'/'+Date.now()+'.'+ext;
+  const {error}=await sb.storage.from('site-visit-photos').upload(path,file,{upsert:true});
+  if(error){throw error;}
+  const {data}=sb.storage.from('site-visit-photos').getPublicUrl(path);
+  return data.publicUrl;
+}
+async function saveSiteVisit(){
+  const d=store.svDraft||{};
+  const project=(document.getElementById('sv_project')||{}).value||'';
+  const location=(document.getElementById('sv_location')||{}).value||'';
+  const w=+(document.getElementById('sv_w')||{}).value||null;
+  const h=+(document.getElementById('sv_h')||{}).value||null;
+  const notes=(document.getElementById('sv_notes')||{}).value||'';
+  if(!project.trim()){store.svMsg='Please enter a project name.';store.svErr=true;render();return;}
+  store.svBusy=true;store.svMsg='';store.svErr=false;render();
+  const row={
+    company_id:store.account.companyId, site_engineer_id:store.account.uid,
+    site_engineer_name:store.account.name||store.account.email,
+    project_name:project, location_name:location, site_w:w, site_h:h,
+    notes:notes, photos:d.photos||[], status:'open'
+  };
+  try{
+    const {data,error}=await sb.from('site_visits').insert(row).select().single();
+    if(error)throw error;
+    store.siteVisits=[data,...(store.siteVisits||[])];
+    store.svDraft={}; store.svBusy=false; store.svMsg='Site visit saved.'; store.svErr=false;
+    render();
+  }catch(e){store.svBusy=false;store.svMsg='Could not save: '+(e.message||'error');store.svErr=true;render();}
 }
 function supplierHTML(){
   if(!store.catLoaded){loadMyCatalogue();}
@@ -1489,11 +1583,11 @@ function sheetGrainZoneBar(){
   const best=Object.entries(cmp).sort((a,b)=>a[1]-b[1])[0][0];
   const off=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH);
   const totalCost=res.sheetCount*off.price;
-  const gMeta=[{k:'along',t:'ALONG',d:'with length'},{k:'across',t:'ACROSS',d:'across width'},{k:'none',t:'NO GRAIN',d:'free rotate'}];
-  return `<div class="zoneBar" style="gap:10px">
-    <div style="display:flex;gap:6px">${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}" style="min-width:96px;padding:6px 8px"><div class="gT" style="font-size:11px">${g.t}</div><div class="gP" style="font-size:13px;color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag" style="font-size:8px">★ BEST</div>':''}</button>`).join('')}</div>
-    <div class="stat" style="min-width:96px"><div class="sv" style="color:var(--amber);font-size:18px">${res.sheetCount}</div><div class="sl">SHEETS</div></div>
-    <div class="stat" style="min-width:110px"><div class="sv" style="color:var(--green);font-size:18px">${money(totalCost)}</div><div class="sl">${off.supplier?off.supplier.toUpperCase():'EST. COST'}</div></div>
+  const gMeta=[{k:'along',t:'ALONG',d:'with length',arrow:'→'},{k:'across',t:'ACROSS',d:'across width',arrow:'↓'},{k:'none',t:'NO GRAIN',d:'free rotate',arrow:'↻'}];
+  return `<div class="zoneBar" style="gap:8px;align-items:stretch">
+    ${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px"><div style="display:flex;align-items:center;gap:5px"><span style="font-size:17px;line-height:1;color:${store.grain===g.k?'var(--amber)':'#9aa3ad'}">${g.arrow}</span><div class="gT" style="font-size:11px">${g.t}</div></div><div class="gP" style="font-size:16px;color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag" style="font-size:8px">★ BEST</div>':''}</button>`).join('')}
+    <div class="stat" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="sv" style="color:var(--amber);font-size:20px">${res.sheetCount}</div><div class="sl">SHEETS</div></div>
+    <div class="stat" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="sv" style="color:var(--green);font-size:20px">${money(totalCost)}</div><div class="sl">${off.supplier?off.supplier.toUpperCase():'EST. COST'}</div></div>
     <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
       <span class="zlbl">ZONE</span>
       <select class="fi" id="sheetZoneFilter" style="min-width:130px"><option value="all" ${store.zoneFilter==='all'?'selected':''}>All zones</option>${store.zones.map(z=>`<option value="${z.id}" ${+store.zoneFilter===z.id?'selected':''}>${z.name}</option>`).join('')}</select>
@@ -1881,7 +1975,32 @@ function wire(){
         await loadSession();
       }catch(ex){sErr(ex.message||'Sign-up failed.');}
     };
-    const sup=document.getElementById('doSignupSupplier');
+    const seg=document.getElementById('doSignupSiteEng');
+    if(seg)seg.onclick=async()=>{
+      const co=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),pw=document.getElementById('f_pass').value;
+      if(!co||!n||!e||!pw){return sErr('Please fill company, name, email and password.');}
+      if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
+      if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(!sb){return sErr('No connection to Supabase.');}
+      store.authBusy=true;store.authMsg='';render();
+      try{
+        await sb.auth.signOut();
+        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        if(error)return sErr(error.message);
+        if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
+          return sErr('That email is already registered. Please sign in instead, or use a different email.');
+        }
+        let {data:sess}=await sb.auth.getSession();
+        if(!sess.session){ await sb.auth.signInWithPassword({email:e,password:pw}); }
+        const uid=data.user?.id;
+        for(let i=0;i<5;i++){try{const {data:pr}=await sb.from('profiles').select('id').eq('id',uid).maybeSingle();if(pr)break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
+        let companyId=null;
+        try{const {data:found}=await sb.from('companies').select('id').eq('name',co).maybeSingle();if(found)companyId=found.id;}catch(ex){}
+        if(!companyId){try{const {data:co2}=await sb.from('companies').insert({name:co}).select().single();if(co2)companyId=co2.id;}catch(ex){}}
+        for(let i=0;i<4;i++){try{await sb.from('profiles').update({full_name:n,phone:p,company_id:companyId,account_type:'site_engineer',role:'site_engineer'}).eq('id',uid);}catch(ex){}try{const {data:chk}=await sb.from('profiles').select('company_id,account_type').eq('id',uid).maybeSingle();if(chk&&chk.company_id&&chk.account_type==='site_engineer')break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
+        await loadSession();
+      }catch(ex){sErr(ex.message||'Sign-up failed.');}
+    };
     if(sup)sup.onclick=async()=>{
       const biz=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),reg=val('f_location'),web=val('f_website'),pw=document.getElementById('f_pass').value;
       if(!biz||!n||!e||!pw){return sErr('Please fill business name, contact, email and password.');}
@@ -1925,6 +2044,29 @@ function wire(){
       if(error)return sErr(error.message);
       sErr('✓ Check your email for the login link.');
     };
+    return;}
+  // ---- site engineer dashboard wiring ----
+  if(store.account.accountType==='site_engineer'){
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};render();}};
+    if(!store.svDraft)store.svDraft={};
+    // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
+    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_name=g('sv_project');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.notes=g('sv_notes');};
+    const ph=document.getElementById('sv_photo');
+    if(ph)ph.onchange=async(e)=>{
+      const f=e.target.files[0];if(!f)return;
+      keep();
+      store.svUploading=true;render();
+      try{const url=await uploadSiteVisitPhoto(f);store.svDraft.photos=[...(store.svDraft.photos||[]),url];}
+      catch(ex){store.svMsg='Photo upload failed: '+(ex.message||'error');store.svErr=true;}
+      store.svUploading=false;render();
+    };
+    document.querySelectorAll('[data-svremovephoto]').forEach(b=>b.onclick=()=>{keep();const i=+b.dataset.svremovephoto;store.svDraft.photos=(store.svDraft.photos||[]).filter((_,idx)=>idx!==i);render();});
+    const sv=document.getElementById('sv_save');if(sv)sv.onclick=()=>saveSiteVisit();
+    document.querySelectorAll('[data-bigphoto]').forEach(img=>img.onclick=()=>{
+      const url=img.dataset.bigphoto;const ov=document.createElement('div');
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out';
+      ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px">`;ov.onclick=()=>ov.remove();document.body.appendChild(ov);
+    });
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
