@@ -134,6 +134,16 @@ const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 let sb=null;
 try{ if(window.supabase){ sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON); } }catch(e){ console.error('Supabase init failed',e); }
 
+// Wrap any promise so it rejects if it takes too long, instead of hanging the app
+// forever when Supabase is slow or having an outage. Keeps sign-in / page load from
+// silently freezing (buttons appear dead). Default 12s.
+function withTimeout(promise,ms,label){
+  return Promise.race([
+    promise,
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error((label||'Request')+' timed out — the server may be temporarily unavailable. Please try again shortly.')),ms||12000))
+  ]);
+}
+
 const CURRENCIES=['$','£','€','₦','₹','AED','﷼','R','¥','₱','₩','KSh','₵','RM','฿'];
 const PLANS=[
   {id:'s_mo',name:'Single user · Monthly',desc:'1 seat',price:'$150/mo'},
@@ -2030,9 +2040,11 @@ function wire(){
       if(!e||!pw)return sErr('Enter your email and password.');
       if(!sb)return sErr('No connection to Supabase.');
       store.authBusy=true;store.authMsg='';render();
-      const {error}=await sb.auth.signInWithPassword({email:e,password:pw});
-      if(error)return sErr(error.message);
-      await loadSession();
+      try{
+        const {error}=await withTimeout(sb.auth.signInWithPassword({email:e,password:pw}),12000,'Sign-in');
+        if(error){store.authBusy=false;return sErr(error.message);}
+        await loadSession();
+      }catch(ex){store.authBusy=false;sErr(ex.message||'Sign-in failed. Please try again.');}
     };
     const mg=document.getElementById('doMagic');
     if(mg)mg.onclick=async()=>{
@@ -2353,7 +2365,16 @@ async function linkContractorCompany(uid,companyName,fullName,phone,location){
 }
 async function loadSession(){
   if(!sb){render();return;}
-  const {data:{session}}=await sb.auth.getSession();
+  let session=null;
+  try{
+    const res=await withTimeout(sb.auth.getSession(),12000,'Loading your session');
+    session=res.data?res.data.session:null;
+  }catch(ex){
+    // Supabase unreachable/slow — don't hang. Show the login screen with a notice.
+    store.account=null;store.authBusy=false;
+    store.authMsg=(ex.message||'Could not reach the server.')+' ';
+    render();return;
+  }
   if(!session){store.account=null;store.authBusy=false;render();return;}
   const uid=session.user.id;
   let prof=null;
