@@ -2011,6 +2011,7 @@ function wire(){
         await loadSession();
       }catch(ex){sErr(ex.message||'Sign-up failed.');}
     };
+    const sup=document.getElementById('doSignupSupplier');
     if(sup)sup.onclick=async()=>{
       const biz=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),reg=val('f_location'),web=val('f_website'),pw=document.getElementById('f_pass').value;
       if(!biz||!n||!e||!pw){return sErr('Please fill business name, contact, email and password.');}
