@@ -1265,12 +1265,14 @@ function siteEngineerHTML(){
         <label class="field" style="grid-column:1/3"><span class="fl">LOCATION / ROOM</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
         <label class="field"><span class="fl">SITE WIDTH (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
         <label class="field"><span class="fl">SITE HEIGHT (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
+        <label class="field"><span class="fl">SITE DEPTH (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
         <label class="field" style="grid-column:1/3"><span class="fl">NOTES</span><textarea class="fi" id="sv_notes" rows="2" placeholder="Anything the factory needs to know…">${(d.notes||'').replace(/</g,'&lt;')}</textarea></label>
         <div style="grid-column:1/3">
           <span class="fl" style="display:block;margin-bottom:6px">SITE PHOTOS</span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             ${(d.photos||[]).map((url,i)=>`<div style="position:relative"><img src="${url}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--line)"><button data-svremovephoto="${i}" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>`).join('')}
-            <label class="zadd" style="cursor:pointer">⬆ Add photo<input type="file" id="sv_photo" accept="image/*" capture="environment" style="display:none"></label>
+            <label class="zadd" style="cursor:pointer">🖼 Choose photo<input type="file" id="sv_photo_choose" accept="image/*" style="display:none"></label>
+            <label class="zadd" style="cursor:pointer">📷 Take photo<input type="file" id="sv_photo_camera" accept="image/*" capture="environment" style="display:none"></label>
           </div>
           ${store.svUploading?'<div style="font-size:11px;color:var(--amber);margin-top:4px">Uploading…</div>':''}
         </div>
@@ -1280,12 +1282,12 @@ function siteEngineerHTML(){
     </div>
     <div class="card">
       <div class="cardHead"><span>👷 SITE VISITS (${visits.length})</span></div>
-      ${visits.length? `<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H</th><th>Photos</th><th>Notes</th><th>Status</th></tr></thead><tbody>
+      ${visits.length? `<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Photos</th><th>Notes</th><th>Status</th></tr></thead><tbody>
         ${visits.map(v=>{const phs=Array.isArray(v.photos)?v.photos:[];return `<tr>
           <td style="font-size:11px;white-space:nowrap">${(v.created_at||'').slice(0,10)}</td>
           <td>${v.project_name||'—'}</td>
           <td>${v.location_name||'—'}</td>
-          <td class="r">${v.site_w||'?'}×${v.site_h||'?'}</td>
+          <td class="r">${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'}</td>
           <td>${phs.length?phs.map(u=>`<img src="${u}" data-bigphoto="${u}" style="width:32px;height:32px;object-fit:cover;border-radius:3px;border:1px solid var(--line);margin:1px;cursor:pointer">`).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
           <td style="font-size:11px;max-width:160px">${v.notes||''}</td>
           <td><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${v.status==='open'?'var(--amber)':'var(--green)'};color:#000">${(v.status||'open').toUpperCase()}</span></td>
@@ -1316,13 +1318,14 @@ async function saveSiteVisit(){
   const location=(document.getElementById('sv_location')||{}).value||'';
   const w=+(document.getElementById('sv_w')||{}).value||null;
   const h=+(document.getElementById('sv_h')||{}).value||null;
+  const dep=+(document.getElementById('sv_d')||{}).value||null;
   const notes=(document.getElementById('sv_notes')||{}).value||'';
   if(!project.trim()){store.svMsg='Please enter a project name.';store.svErr=true;render();return;}
   store.svBusy=true;store.svMsg='';store.svErr=false;render();
   const row={
     company_id:store.account.companyId, site_engineer_id:store.account.uid,
     site_engineer_name:store.account.name||store.account.email,
-    project_name:project, location_name:location, site_w:w, site_h:h,
+    project_name:project, location_name:location, site_w:w, site_h:h, site_d:dep,
     notes:notes, photos:d.photos||[], status:'open'
   };
   try{
@@ -2063,9 +2066,8 @@ function wire(){
     const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};render();}};
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
-    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_name=g('sv_project');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.notes=g('sv_notes');};
-    const ph=document.getElementById('sv_photo');
-    if(ph)ph.onchange=async(e)=>{
+    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_name=g('sv_project');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
+    const handlePhoto=async(e)=>{
       const f=e.target.files[0];if(!f)return;
       keep();
       store.svUploading=true;render();
@@ -2073,6 +2075,8 @@ function wire(){
       catch(ex){store.svMsg='Photo upload failed: '+(ex.message||'error');store.svErr=true;}
       store.svUploading=false;render();
     };
+    const phC=document.getElementById('sv_photo_choose');if(phC)phC.onchange=handlePhoto;
+    const phK=document.getElementById('sv_photo_camera');if(phK)phK.onchange=handlePhoto;
     document.querySelectorAll('[data-svremovephoto]').forEach(b=>b.onclick=()=>{keep();const i=+b.dataset.svremovephoto;store.svDraft.photos=(store.svDraft.photos||[]).filter((_,idx)=>idx!==i);render();});
     const sv=document.getElementById('sv_save');if(sv)sv.onclick=()=>saveSiteVisit();
     document.querySelectorAll('[data-bigphoto]').forEach(img=>img.onclick=()=>{
