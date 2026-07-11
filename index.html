@@ -219,9 +219,10 @@ try{const s=localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j
 function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;localStorage.setItem('pitchiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
-let _saveTimer=null, _workspaceId=null;
+let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
 function scheduleCloudSave(){
   if(!sb||!store.account||store.account.accountType!=='contractor')return;
+  if(_workspaceId && _workspaceOwnerId && _workspaceOwnerId!==store.account.uid)return; // view-only shared project
   clearTimeout(_saveTimer);
   store.syncState='saving';
   _saveTimer=setTimeout(cloudSave, 1500);
@@ -238,6 +239,9 @@ function projectPayload(){
 }
 async function cloudSave(){
   if(!sb||!store.account)return;
+  // if a shared project (someone else's) is open, this account is VIEW-ONLY — don't
+  // try to save, since only the owning contractor can edit the cut-list data.
+  if(_workspaceId && _workspaceOwnerId && _workspaceOwnerId!==store.account.uid){ store.syncState='view-only'; updateSyncBadge(); return; }
   const payload=projectPayload();
   try{
     if(_workspaceId){
@@ -253,10 +257,20 @@ async function cloudSave(){
   }catch(e){ store.syncState='error'; }
   updateSyncBadge();
 }
-// list all of this contractor's projects
+// list all projects visible to this person: their own, PLUS everyone else's in their company
+// (so contractor/manager/site engineer see the same shared project list)
 async function loadProjects(){
   if(!sb||!store.account)return;
-  try{const {data}=await sb.from('jobs').select('id,name,updated_at').eq('owner_id',store.account.uid).order('updated_at',{ascending:false});store.projects=data||[];}catch(e){store.projects=[];}
+  try{
+    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id').order('updated_at',{ascending:false});
+    if(store.account.companyId){
+      q=q.or(`owner_id.eq.${store.account.uid},company_id.eq.${store.account.companyId}`);
+    }else{
+      q=q.eq('owner_id',store.account.uid);
+    }
+    const {data}=await q;
+    store.projects=data||[];
+  }catch(e){store.projects=[];}
   store.projectsLoaded=true;render();
 }
 // open a specific project by id
@@ -264,7 +278,7 @@ async function openProject(id){
   if(!sb)return;
   try{
     const {data}=await sb.from('jobs').select('*').eq('id',id).maybeSingle();
-    if(data){ _workspaceId=data.id; store.projectName=data.name; const d=data.data||{}; applyProject(d); store.syncState='saved'; store.showProjects=false; render(); }
+    if(data){ _workspaceId=data.id; _workspaceOwnerId=data.owner_id; store.projectName=data.name; const d=data.data||{}; applyProject(d); store.syncState='saved'; store.showProjects=false; render(); }
   }catch(e){}
 }
 // apply a loaded project's data into the store (only the project fields)
@@ -277,6 +291,7 @@ async function newProject(name){
   if(!name)return;
   // reset to a clean slate
   _workspaceId=null;
+  _workspaceOwnerId=null;
   store.projectName=name;
   store.zones=[{id:1,name:'Zone 1'}]; store.zoneFilter='all';
   store.linRows=[{id:Date.now(),zone:1,label:'Stud',code:'STUD-92',thk:92,len:2400,qty:10}];
@@ -1409,7 +1424,7 @@ function appHTML(){
   </div>
   ${store.showProjects?`<div style="padding:12px 14px;background:#15181d;border-bottom:1px solid var(--line)">
     <div style="font-size:11px;color:var(--mut);margin-bottom:8px">YOUR SAVED PROJECTS — tap to open</div>
-    ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px;cursor:pointer" data-openproj="${p.id}"><span>${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}</span><span style="font-size:10px;color:var(--mut)">${new Date(p.updated_at).toLocaleDateString()}</span></div>`).join('')||'<div class="empty">No projects yet.</div>'}
+    ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px;cursor:pointer" data-openproj="${p.id}"><span>${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut)">${new Date(p.updated_at).toLocaleDateString()}</span></div>`).join('')||'<div class="empty">No projects yet.</div>'}
   </div>`:''}
   <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">PITCH&nbsp;IQ</div><div class="sub">CUT LIST · FIT-OUT ESTIMATOR</div></div></div>
     <div class="headBtns">
@@ -2145,7 +2160,7 @@ function wire(){
   document.getElementById('export').onclick=exportJob;
   document.getElementById('import').onchange=importJob;
   document.getElementById('share').onclick=shareLink;
-  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;render();}};
+  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;_workspaceOwnerId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;render();}};
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
   const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
   document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
