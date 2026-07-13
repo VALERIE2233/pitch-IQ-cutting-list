@@ -283,7 +283,7 @@ async function openProject(id){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','accSelections','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
 }
 // start a fresh named project (saves current first)
@@ -1041,10 +1041,10 @@ function sheetAccessories(){
       add(C.screw,(R.screwsPerCarcass||4)*qty);
     }
   });
-  // turn into rows with price from catalogue/price book
+  // turn into rows with the CHOSEN (or default) brand/model priced from catalogue
   return Object.entries(acc).map(([code,qty])=>{
-    const o=offerAccessory(code);
-    return {code, qty, supplier:o.supplier, price:o.price, cost:o.price*qty};
+    const o=chosenAccessory(code);
+    return {code, qty, supplier:o.supplier, desc:o.desc, price:o.price, cost:o.price*qty, options:accessoryOptions(code)};
   }).filter(a=>a.qty>0);
 }
 // find a price for an accessory code from the price book / catalogue (best/cheapest)
@@ -1053,6 +1053,24 @@ function offerAccessory(code){
   (store.catalogueAll||[]).forEach(c=>{if((c.code||'').toUpperCase()===code.toUpperCase()&&c.price>0){if(!best||c.price<best.price)best={price:c.price,supplier:c.supplier_name};}});
   (store.myCatalogue||[]).forEach(c=>{if((c.code||'').toUpperCase()===code.toUpperCase()&&c.price>0){if(!best||c.price<best.price)best={price:c.price,supplier:'You'};}});
   return best||{price:0,supplier:null};
+}
+// list every catalogue item (any supplier, or the contractor's own price book) that could
+// serve as this accessory code — lets the person pick a specific brand/model, not just
+// whichever is cheapest.
+function accessoryOptions(code){
+  const opts=[];
+  (store.catalogueAll||[]).forEach(c=>{if((c.code||'').toUpperCase()===code.toUpperCase()&&c.price>0){opts.push({id:'cat:'+c.id,price:c.price,supplier:c.supplier_name,desc:c.description||c.code,currency:c.currency||store.currency});}});
+  (store.myCatalogue||[]).forEach(c=>{if((c.code||'').toUpperCase()===code.toUpperCase()&&c.price>0){opts.push({id:'mine:'+c.id,price:c.price,supplier:'You',desc:c.description||c.code,currency:c.currency||store.currency});}});
+  opts.sort((a,b)=>a.price-b.price);
+  return opts;
+}
+// the chosen (or default-cheapest) accessory option for a given code
+function chosenAccessory(code){
+  const opts=accessoryOptions(code);
+  if(!opts.length)return {price:0,supplier:null,desc:null,id:null};
+  const savedId=(store.accSelections||{})[code];
+  const found=savedId?opts.find(o=>o.id===savedId):null;
+  return found||opts[0];
 }
 function paintCalc(r){
   const area=r.area||0, coats=r.coats||1, spread=r.spread||10, waste=(r.waste||0)/100;
@@ -1686,11 +1704,11 @@ function sheetHTML(){
     </tbody></table></div>
     <div class="hint">Set each panel's finish (Prime/Paint/Both) and faces in the Finish column above. Primer & paint coats are set on their own cards.</div></div>`;})()}
   ${(()=>{const acc=sheetAccessories();if(!acc.length)return '';const total=acc.reduce((s,a)=>s+a.cost,0);return `<div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>🔩 ACCESSORIES (auto, from parts)</span><button class="zadd" id="accRulesBtn" style="font-size:10px;padding:4px 8px">⚙ EDIT RULES</button></div>
-    <div class="scroll"><table><thead><tr><th>Accessory</th><th class="r">Qty</th><th>Supplier</th><th class="r">Unit price</th><th class="r">Cost</th></tr></thead><tbody>
-    ${acc.map(a=>`<tr><td><strong>${a.code}</strong></td><td class="r">${a.qty}</td><td>${a.supplier||'<span style="color:var(--amber)">⚠ no price</span>'}</td><td class="r">${a.price>0?money(a.price):'—'}</td><td class="r"><span class="cost">${a.price>0?money(a.cost):'—'}</span></td></tr>`).join('')}
+    <div class="scroll"><table><thead><tr><th>Accessory</th><th class="r">Qty</th><th>Brand / model</th><th class="r">Unit price</th><th class="r">Cost</th></tr></thead><tbody>
+    ${acc.map(a=>{const curId=chosenAccessory(a.code).id;return `<tr><td><strong>${a.code}</strong></td><td class="r">${a.qty}</td><td>${a.options&&a.options.length?`<select class="cell" data-accpick="${a.code}" style="width:100%;font-size:11px">${a.options.map(o=>`<option value="${o.id}" ${o.id===curId?'selected':''}>${o.desc} — ${o.supplier} (${o.currency}${o.price.toFixed(2)})</option>`).join('')}</select>`:'<span style="color:var(--amber)">⚠ no supplier stocks this — add it in Price Book</span>'}</td><td class="r">${a.price>0?money(a.price):'—'}</td><td class="r"><span class="cost">${a.price>0?money(a.cost):'—'}</span></td></tr>`;}).join('')}
     <tr style="border-top:2px solid var(--line)"><td colspan="4" class="r"><strong>TOTAL ACCESSORIES</strong></td><td class="r"><strong style="color:var(--blue)">${money(total)}</strong></td></tr>
     </tbody></table></div>
-    <div class="hint">Auto-counted from your panel Parts: Doors→hinges (by height)+handles, Shelves→pins, Drawer fronts→runners+handles, carcass panels (Side/Top/Bottom/Back)→dowels+screws. Add accessory prices in your Price Book/Catalogue using the codes shown (HINGE, HANDLE, SHELF-PIN, DRAWER-RUNNER, DOWEL, SCREW). Click EDIT RULES to change quantities.</div></div>`;})()}
+    <div class="hint">Auto-counted from your panel Parts: Doors→hinges (by height)+handles, Shelves→pins, Drawer fronts→runners+handles, carcass panels (Side/Top/Bottom/Back)→dowels+screws. Pick which supplier's brand/model to use for each — your choice is remembered. Click EDIT RULES to change quantities.</div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
     ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
       const col=p.grainless?'#e8eaed':PAL[ci++%PAL.length];
@@ -2175,6 +2193,11 @@ function wire(){
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
   const rt=document.getElementById('reuseToggle');if(rt)rt.onclick=()=>{store.reuseSheetOffcuts=!store.reuseSheetOffcuts;render();};
   const arb=document.getElementById('accRulesBtn');if(arb)arb.onclick=()=>{store.showAccRules=true;render();};
+  document.querySelectorAll('[data-accpick]').forEach(sel=>sel.onchange=()=>{
+    if(!store.accSelections)store.accSelections={};
+    store.accSelections[sel.dataset.accpick]=sel.value;
+    render();
+  });
   bindAccRulesOverlay();
   bindExportPicker();
   const spc=document.getElementById('sheetPaintCode');if(spc)spc.onchange=()=>{store.sheetPaintCode=spc.value||'';render();};
