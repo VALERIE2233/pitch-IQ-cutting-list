@@ -155,6 +155,14 @@ const LIP_PRESETS=[0,0.4,0.6,1,2,3,12,15,18,22,25];
 const EDGE_OPTS=[{v:'0',t:'None'},{v:'1w',t:'1W = 1 width lip'},{v:'2w',t:'2W = 2 width lip'},{v:'1h',t:'1H = 1 height lip'},{v:'2h',t:'2H = 2 height lip'},{v:'all',t:'All 4 lips'}];
 const PART_TYPES=['','Bottom','Top','Side','Shelf','Door','Back','Drawer front','Rail','Other'];
 const ITEM_TYPES=['','Wardrobe','Vanity','Kitchen cabinet','Wall cabinet','Base cabinet','Tall unit','Drawer unit','Shelf unit','Reception desk','Counter','Other'];
+// merge a base type list with any names the person has typed in before (remembered in
+// store), so custom entries show up as normal dropdown options next time — not just
+// hidden behind "Other" every time.
+function mergedTypes(base,custom){
+  const middle=base.filter(x=>x!==''&&x!=='Other');
+  const extra=(custom||[]).filter(c=>c&&!middle.includes(c));
+  return ['',...middle,...extra,'Other'];
+}
 const MM_PER_IN=25.4;
 
 const store={
@@ -283,7 +291,7 @@ async function openProject(id){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','accSelections','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','accSelections','customItemTypes','customPartTypes','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
 }
 // start a fresh named project (saves current first)
@@ -1660,7 +1668,7 @@ function sheetHTML(){
     <label class="field" style="justify-content:center"><span class="fl">REUSE OFFCUTS</span><button class="zadd" id="reuseToggle" style="padding:8px 12px;${store.reuseSheetOffcuts?'background:var(--green);color:#000;border-color:var(--green)':''}">${store.reuseSheetOffcuts?'✓ ON':'OFF'}</button></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
     <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Site W</th><th class="r">Site H</th><th>Fit</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th>Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
-    ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
+    ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.partOther,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
       <td class="r"><input class="num numS" type="number" value="${r.siteW?fmt(r.siteW):''}" data-sheet="${r.id}" data-k="siteW" placeholder="—" title="Site opening width"></td>
@@ -1943,10 +1951,17 @@ function orderHTML(){
     ${costSummary}`;}
 
 function zoneSel(val,kind,id){return `<select class="sel" data-${kind}="${id}" data-k="zone">${store.zones.map(z=>`<option value="${z.id}" ${z.id===val?'selected':''}>${z.name}</option>`).join('')}</select>`;}
-function partSel(val,id){return `<select class="sel" style="width:96px" data-sheet="${id}" data-k="part">${PART_TYPES.map(p=>`<option value="${p}" ${p===(val||'')?'selected':''}>${p||'— part —'}</option>`).join('')}</select>`;}
-function itemSel(val,other,id){
+function partSel(val,other,id){
+  const list=mergedTypes(PART_TYPES,store.customPartTypes);
   const isOther=(val==='Other');
-  const dd=`<select class="sel" style="width:120px" data-sheet="${id}" data-k="item">${ITEM_TYPES.map(p=>`<option value="${p}" ${p===(val||'')?'selected':''}>${p||'— item —'}</option>`).join('')}</select>`;
+  const dd=`<select class="sel" style="width:96px" data-sheet="${id}" data-k="part">${list.map(p=>`<option value="${p}" ${p===(val||'')?'selected':''}>${p||'— part —'}</option>`).join('')}</select>`;
+  const tx=isOther?`<input class="cell" style="width:90px;margin-top:4px" value="${other||''}" data-sheet="${id}" data-k="partOther" placeholder="type part">`:'';
+  return `<div style="display:flex;flex-direction:column">${dd}${tx}</div>`;
+}
+function itemSel(val,other,id){
+  const list=mergedTypes(ITEM_TYPES,store.customItemTypes);
+  const isOther=(val==='Other');
+  const dd=`<select class="sel" style="width:120px" data-sheet="${id}" data-k="item">${list.map(p=>`<option value="${p}" ${p===(val||'')?'selected':''}>${p||'— item —'}</option>`).join('')}</select>`;
   const tx=isOther?`<input class="cell" style="width:110px;margin-top:4px" value="${other||''}" data-sheet="${id}" data-k="itemOther" placeholder="type item">`:'';
   return `<div style="display:flex;flex-direction:column">${dd}${tx}</div>`;
 }
@@ -2299,7 +2314,24 @@ function importRows(text){
 const val=id=>document.getElementById(id).value.trim();
 function bindNum(id,key){const el=document.getElementById(id);if(!el)return;el.onchange=()=>{store[key]=Math.max(0,Math.round(toMM(+el.value||0)));render();};}
 function bindRow(el,kind,arr){const id=+el.dataset[kind],k=el.dataset.k;el.onchange=()=>{const row=store[arr].find(r=>r.id===id);if(!row)return;const v=el.value;
-  if(k==='label'||k==='code'||k==='stage'||k==='lipCode'||k==='part'||k==='item'||k==='itemOther'||k==='pfinish'){row[k]=v;}else if(k==='zone'){row[k]=+v;}else if(k==='edge'){row[k]=v;}else if(k==='lip'){row[k]=+v;}
+  if(k==='itemOther'||k==='partOther'){
+    row[k]=v;
+    const name=(v||'').trim();
+    if(name){
+      // remember this typed name for next time, and switch the row straight to it —
+      // so the dropdown shows it directly instead of staying parked on "Other"
+      if(k==='itemOther'){
+        if(!store.customItemTypes)store.customItemTypes=[];
+        if(!store.customItemTypes.some(c=>c.toLowerCase()===name.toLowerCase()))store.customItemTypes.push(name);
+        row.item=name;
+      }else{
+        if(!store.customPartTypes)store.customPartTypes=[];
+        if(!store.customPartTypes.some(c=>c.toLowerCase()===name.toLowerCase()))store.customPartTypes.push(name);
+        row.part=name;
+      }
+    }
+  }
+  else if(k==='label'||k==='code'||k==='stage'||k==='lipCode'||k==='part'||k==='item'||k==='pfinish'){row[k]=v;}else if(k==='zone'){row[k]=+v;}else if(k==='edge'){row[k]=v;}else if(k==='lip'){row[k]=+v;}
   else if(k==='thk'){row[k]=Math.max(0,+v||0);}
   else if(k==='qty'||k==='coats'||k==='paintFaces'||k==='paintCoats'){row[k]=Math.max(0,Math.round(+v||0));}
   else if(k==='area'||k==='spread'||k==='waste'){row[k]=Math.max(0,+v||0);}
