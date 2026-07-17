@@ -1315,6 +1315,110 @@ function managerHTML(){
     </div></div>`:''}`;}
 
 // ---- PRODUCTION tab (Coordinator features) ----
+// ---- Stage D rollups: by Project, by Project▸Zone, by Team — same aggregation
+// logic as the Excel's Projects / Project▸Zone / Team sheets ----
+function prodByProject(items){
+  const map={};
+  items.forEach(it=>{
+    const key=it.project_name||'(no project)';
+    if(!map[key])map[key]={project:key,qty:0,progressSum:0,progressCount:0,aging:0};
+    const c=prodItemCalc(it); const qty=+it.qty||0;
+    map[key].qty+=qty; map[key].progressSum+=c.progress; map[key].progressCount++;
+    if(c.aging==='Aging')map[key].aging+=qty;
+  });
+  return Object.values(map).map(p=>({...p,avgProgress:p.progressCount?p.progressSum/p.progressCount:0}))
+    .sort((a,b)=>a.project.localeCompare(b.project));
+}
+function prodByProjectZone(items){
+  const projects={};
+  items.forEach(it=>{
+    const pk=it.project_name||'(no project)', zk=it.zone_name||'(no zone)';
+    if(!projects[pk])projects[pk]={project:pk,qty:0,progressSum:0,progressCount:0,zones:{}};
+    const c=prodItemCalc(it); const qty=+it.qty||0;
+    projects[pk].qty+=qty; projects[pk].progressSum+=c.progress; projects[pk].progressCount++;
+    if(!projects[pk].zones[zk])projects[pk].zones[zk]={zone:zk,qty:0,progressSum:0,progressCount:0,stages:{}};
+    const z=projects[pk].zones[zk];
+    z.qty+=qty; z.progressSum+=c.progress; z.progressCount++;
+    z.stages[it.stage]=(z.stages[it.stage]||0)+qty;
+  });
+  return Object.values(projects).map(p=>({...p,avgProgress:p.progressCount?p.progressSum/p.progressCount:0,
+    zones:Object.values(p.zones).map(z=>({...z,avgProgress:z.progressCount?z.progressSum/z.progressCount:0}))
+      .sort((a,b)=>a.zone.localeCompare(b.zone))}))
+    .sort((a,b)=>a.project.localeCompare(b.project));
+}
+function prodByTeam(items){
+  const map={};
+  items.forEach(it=>{
+    const key=it.assignee||'Unassigned';
+    if(!map[key])map[key]={person:key,qty:0,inProduction:0,onSite:0};
+    const qty=+it.qty||0;
+    map[key].qty+=qty;
+    if(it.stage==='Site')map[key].onSite+=qty;
+    else if(it.stage!=='Not Started')map[key].inProduction+=qty;
+  });
+  return Object.values(map).sort((a,b)=>b.qty-a.qty);
+}
+// ---- Dashboard: filters + KPIs, matching the Excel Dashboard sheet's formulas ----
+function prodFilteredItems(items){
+  const f=store.dashFilter||{};
+  return items.filter(it=>
+    (!f.project||f.project==='(All)'||it.project_name===f.project) &&
+    (!f.assignee||f.assignee==='(All)'||it.assignee===f.assignee) &&
+    (!f.zone||f.zone==='(All)'||it.zone_name===f.zone)
+  );
+}
+function prodDashboardCalc(items){
+  const filtered=prodFilteredItems(items);
+  const qty=filtered.reduce((s,it)=>s+(+it.qty||0),0);
+  const onSiteQty=filtered.filter(it=>it.stage==='Site').reduce((s,it)=>s+(+it.qty||0),0);
+  const notStartedQty=filtered.filter(it=>it.stage==='Not Started').reduce((s,it)=>s+(+it.qty||0),0);
+  const inProgQty=qty-onSiteQty-notStartedQty;
+  const agingQty=filtered.filter(it=>prodItemCalc(it).aging==='Aging').reduce((s,it)=>s+(+it.qty||0),0);
+  const avgProgress=filtered.length?filtered.reduce((s,it)=>s+prodItemCalc(it).progress,0)/filtered.length:0;
+  const byRelease={}; PROD_STAGES.forEach(s=>byRelease[s]=0);
+  filtered.forEach(it=>{byRelease[it.stage]=(byRelease[it.stage]||0)+(+it.qty||0);});
+  return {filtered,qty,onSiteQty,notStartedQty,inProgQty,agingQty,avgProgress,byRelease,pctOnSite:qty?onSiteQty/qty:0};
+}
+function prodDashboardHTML(items){
+  const projects=['(All)',...new Set(items.map(i=>i.project_name).filter(Boolean))];
+  const assignees=['(All)',...new Set(items.map(i=>i.assignee).filter(Boolean))];
+  const zones=['(All)',...new Set(items.map(i=>i.zone_name).filter(Boolean))];
+  const f=store.dashFilter||{project:'(All)',assignee:'(All)',zone:'(All)'};
+  const c=prodDashboardCalc(items);
+  const maxRelease=Math.max(1,...PROD_STAGES.map(s=>c.byRelease[s]||0));
+  return `<div class="card">
+    <div class="cardHead"><span>📊 DASHBOARD</span></div>
+    <div style="padding:12px;display:flex;gap:10px;flex-wrap:wrap">
+      <label class="field" style="flex:1;min-width:140px"><span class="fl">▾ PROJECT</span><select class="fi" id="dash_project">${projects.map(p=>`<option value="${p}" ${p===f.project?'selected':''}>${p}</option>`).join('')}</select></label>
+      <label class="field" style="flex:1;min-width:140px"><span class="fl">▾ ASSIGNEE</span><select class="fi" id="dash_assignee">${assignees.map(a=>`<option value="${a}" ${a===f.assignee?'selected':''}>${a}</option>`).join('')}</select></label>
+      <label class="field" style="flex:1;min-width:140px"><span class="fl">▾ ZONE / FLOOR</span><select class="fi" id="dash_zone">${zones.map(z=>`<option value="${z}" ${z===f.zone?'selected':''}>${z}</option>`).join('')}</select></label>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;padding:0 12px 12px">
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:22px">${c.qty}</div><div class="sl">ITEMS (QTY)</div></div>
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:22px;color:var(--green)">${Math.round(c.pctOnSite*100)}%</div><div class="sl">% ON SITE</div></div>
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:22px;color:${c.agingQty?'var(--red)':'var(--mut)'}">${c.agingQty}</div><div class="sl">AGING (QTY)</div></div>
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:22px;color:var(--amber)">${Math.round(c.avgProgress*100)}%</div><div class="sl">AVG PROGRESS</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="cardHead"><span>📦 ITEMS STATUS (selected slice)</span></div>
+    <div style="padding:12px;display:flex;gap:10px;flex-wrap:wrap">
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--green)">${c.onSiteQty}</div><div class="sl">ON SITE</div></div>
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--amber)">${c.inProgQty}</div><div class="sl">IN PROGRESS</div></div>
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--mut)">${c.notStartedQty}</div><div class="sl">NOT STARTED</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="cardHead"><span>📈 BY RELEASE (selected slice)</span></div>
+    <div style="padding:12px 16px">
+      ${PROD_STAGES.map(s=>{const v=c.byRelease[s]||0;const pct=Math.round((v/maxRelease)*100);return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:110px;font-size:11px;color:var(--mut)">${s}</div>
+        <div style="flex:1;background:var(--steel);border-radius:3px;overflow:hidden;height:14px"><div style="width:${pct}%;background:var(--blue);height:100%"></div></div>
+        <div style="width:34px;text-align:right;font-size:11px">${v}</div>
+      </div>`;}).join('')}
+    </div>
+  </div>`;
+}
 function productionTabHTML(){
   if(!store.prodItemsLoaded){loadProductionItems();}
   const items=store.prodItems||[];
@@ -1334,6 +1438,15 @@ function productionTabHTML(){
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:var(--green)">${onSite}</div><div class="sl">ON SITE</div></div>
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:${agingCount?'var(--red)':'var(--mut)'}">${agingCount}</div><div class="sl">AGING >7d</div></div>
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="zadd" data-prodview="dashboard" style="${(!store.prodView||store.prodView==='dashboard')?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">📊 DASHBOARD</button>
+      <button class="zadd" data-prodview="items" style="${store.prodView==='items'?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">ITEMS</button>
+      <button class="zadd" data-prodview="project" style="${store.prodView==='project'?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">BY PROJECT</button>
+      <button class="zadd" data-prodview="zone" style="${store.prodView==='zone'?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">BY PROJECT ▸ ZONE</button>
+      <button class="zadd" data-prodview="team" style="${store.prodView==='team'?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">BY TEAM</button>
+    </div>
+    ${(!store.prodView||store.prodView==='dashboard')?prodDashboardHTML(items):''}
+    ${store.prodView==='items'?`
     <div class="card" style="border-color:var(--blue)">
       <div class="cardHead" style="color:var(--blue)"><span>➕ ADD PRODUCTION ITEM</span></div>
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1371,8 +1484,35 @@ function productionTabHTML(){
           <td><button class="del" data-pidelete="${it.id}">✕</button></td>
         </tr>`;}).join('')}
       </tbody></table></div>`:'<div class="empty">No production items yet. Add your first one above.</div>'}
-    </div>
+    </div>`:''}
+    ${store.prodView==='project'?prodProjectViewHTML(items):''}
+    ${store.prodView==='zone'?prodZoneViewHTML(items):''}
+    ${store.prodView==='team'?prodTeamViewHTML(items):''}
   </div>${prodReadyOverlay(items)}`;
+}
+// ---- rollup view renderers ----
+function prodProjectViewHTML(items){
+  const rows=prodByProject(items);
+  return `<div class="card"><div class="cardHead"><span>📁 BY PROJECT</span></div>
+    ${rows.length?`<div class="scroll"><table><thead><tr><th>Project</th><th class="r">Items (qty)</th><th class="r">Avg progress</th><th class="r">Aging >7d (qty)</th></tr></thead><tbody>
+    ${rows.map(p=>`<tr><td><strong>${p.project}</strong></td><td class="r">${p.qty}</td><td class="r">${Math.round(p.avgProgress*100)}%</td><td class="r" style="color:${p.aging?'var(--red)':'var(--mut)'}">${p.aging}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">No items yet.</div>'}</div>`;
+}
+function prodZoneViewHTML(items){
+  const rows=prodByProjectZone(items);
+  const stageAbbr={'Not Started':'NotSt','Drawing':'Draw','Sample Approved':'Sampl','Started':'Start','Machinery':'Mach','Assembly':'Assy','Painting':'Paint','Delivery':'Deliv','Site':'Site'};
+  return `<div class="card"><div class="cardHead"><span>📁 BY PROJECT ▸ ZONE</span></div>
+    ${rows.length?`<div class="scroll"><table><thead><tr><th>Project / Zone</th><th class="r">Qty</th><th class="r">Progress</th>${PROD_STAGES.map(s=>`<th class="r" style="font-size:9px">${stageAbbr[s]}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(p=>`<tr style="border-top:2px solid var(--line)"><td><strong>${p.project}</strong></td><td class="r"><strong>${p.qty}</strong></td><td class="r"><strong>${Math.round(p.avgProgress*100)}%</strong></td>${PROD_STAGES.map(()=>'<td></td>').join('')}</tr>
+    ${p.zones.map(z=>`<tr><td style="padding-left:18px;font-size:11px;color:var(--mut)">⤷ ${z.zone}</td><td class="r" style="font-size:11px">${z.qty}</td><td class="r" style="font-size:11px">${Math.round(z.avgProgress*100)}%</td>${PROD_STAGES.map(s=>`<td class="r" style="font-size:11px">${z.stages[s]||''}</td>`).join('')}</tr>`).join('')}`).join('')}
+    </tbody></table></div>`:'<div class="empty">No items yet.</div>'}</div>`;
+}
+function prodTeamViewHTML(items){
+  const rows=prodByTeam(items);
+  return `<div class="card"><div class="cardHead"><span>👥 BY TEAM</span></div>
+    ${rows.length?`<div class="scroll"><table><thead><tr><th>Person</th><th class="r">Items (qty)</th><th class="r">In production</th><th class="r">On site</th></tr></thead><tbody>
+    ${rows.map(t=>`<tr><td>${t.person}</td><td class="r">${t.qty}</td><td class="r" style="color:var(--amber)">${t.inProduction}</td><td class="r" style="color:var(--green)">${t.onSite}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">No items yet.</div>'}</div>`;
 }
 // readiness checklist overlay — matches the Excel's 6-item pre-production check
 function prodReadyOverlay(items){
@@ -2285,7 +2425,7 @@ function wire(){
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.managerTab='approvals';render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
@@ -2312,6 +2452,12 @@ function wire(){
     document.querySelectorAll('[data-piready]').forEach(b=>b.onclick=()=>{store.prodReadyId=b.dataset.piready;render();});
     const prc=document.getElementById('prodReadyClose');if(prc)prc.onclick=()=>{store.prodReadyId=null;render();};
     document.querySelectorAll('[data-readycheck]').forEach(cb=>cb.onchange=()=>{updateProductionItem(store.prodReadyId,{[cb.dataset.readycheck]:cb.checked});});
+    document.querySelectorAll('[data-prodview]').forEach(b=>b.onclick=()=>{store.prodView=b.dataset.prodview;render();});
+    (()=>{if(!store.dashFilter)store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};
+      const dp=document.getElementById('dash_project');if(dp)dp.onchange=()=>{store.dashFilter.project=dp.value;render();};
+      const da=document.getElementById('dash_assignee');if(da)da.onchange=()=>{store.dashFilter.assignee=da.value;render();};
+      const dz=document.getElementById('dash_zone');if(dz)dz.onchange=()=>{store.dashFilter.zone=dz.value;render();};
+    })();
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
