@@ -121,6 +121,7 @@
 <body>
 <div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ============================================================================
@@ -1273,6 +1274,59 @@ async function deleteProductionItem(id){
   store.prodItems=(store.prodItems||[]).filter(x=>x.id!==id); render();
   try{await sb.from('production_items').delete().eq('id',id);}catch(e){}
 }
+// bulk-import production items from the factory's own Items-sheet Excel layout
+// (Project / Zone / Item-description / Qty / Assignee / f=Stage / Flag / Status / 8 stage dates)
+function importProductionItemsExcel(file){
+  if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  const reader=new FileReader();
+  reader.onload=async(e)=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const sheetName=wb.SheetNames.find(n=>n.toLowerCase()==='items')||wb.SheetNames[0];
+      const raw=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:''});
+      if(!raw.length){alert('That sheet looks empty.');return;}
+      const norm=s=>String(s||'').toLowerCase().replace('▾','').trim();
+      const headerRow=raw[0].map(norm);
+      const col=(...names)=>{for(const n of names){const i=headerRow.indexOf(n);if(i>=0)return i;}return -1;};
+      const idx={
+        project:col('project'), zone:col('zone'), desc:col('item / description','item','description'),
+        qty:col('qty'), assignee:col('assignee'), stage:col('f'), flag:col('flag'), note:col('status'),
+        drawing:col('drawing date'), sample:col('sample approved date'), started:col('started date'),
+        machinery:col('machinery date'), assembly:col('assembly date'), painting:col('painting date'),
+        delivery:col('delivery date'), site:col('site date')
+      };
+      const toDateStr=v=>{if(!v)return null; const d=(v instanceof Date)?v:new Date(v); return isNaN(d)?null:d.toISOString().slice(0,10);};
+      const rows=raw.slice(1).filter(r=>r.some(c=>c!=='')).map(r=>{
+        let stage=String(idx.stage>=0?r[idx.stage]:'').trim();
+        if(!PROD_STAGES.includes(stage))stage=PROD_STAGES.find(s=>s.toLowerCase()===stage.toLowerCase())||'Not Started';
+        let flag=String(idx.flag>=0?r[idx.flag]:'').trim()||'—';
+        if(!PROD_FLAGS.includes(flag))flag='—';
+        return {
+          company_id:store.account.companyId, created_by:store.account.uid,
+          project_name:idx.project>=0?String(r[idx.project]||''):'', zone_name:idx.zone>=0?String(r[idx.zone]||''):'',
+          description:idx.desc>=0?String(r[idx.desc]||''):'', qty:Math.max(1,Math.round(+(idx.qty>=0?r[idx.qty]:1)||1)),
+          assignee:(idx.assignee>=0?String(r[idx.assignee]||''):'')||'Unassigned', flag, stage,
+          status_note:idx.note>=0?String(r[idx.note]||''):'',
+          drawing_date:toDateStr(idx.drawing>=0?r[idx.drawing]:null), sample_approved_date:toDateStr(idx.sample>=0?r[idx.sample]:null),
+          started_date:toDateStr(idx.started>=0?r[idx.started]:null), machinery_date:toDateStr(idx.machinery>=0?r[idx.machinery]:null),
+          assembly_date:toDateStr(idx.assembly>=0?r[idx.assembly]:null), painting_date:toDateStr(idx.painting>=0?r[idx.painting]:null),
+          delivery_date:toDateStr(idx.delivery>=0?r[idx.delivery]:null), site_date:toDateStr(idx.site>=0?r[idx.site]:null),
+        };
+      }).filter(r=>r.project_name||r.description);
+      if(!rows.length){alert('No usable rows found — check this is your Items sheet.');return;}
+      if(!confirm(`Import found ${rows.length} items. They'll be ADDED to your existing production list (not replacing it). Continue?`))return;
+      let ok=0, failed=0;
+      for(let i=0;i<rows.length;i+=200){
+        const batch=rows.slice(i,i+200);
+        try{await sb.from('production_items').insert(batch); ok+=batch.length;}
+        catch(ex){failed+=batch.length;}
+      }
+      await loadProductionItems();
+      alert(`Import complete: ${ok} added${failed?`, ${failed} failed`:''}.`);
+    }catch(ex){alert('Could not read that file: '+(ex.message||'unknown error'));}
+  };
+  reader.readAsArrayBuffer(file);
+}
 function managerHTML(){
   if(!store.apprLoaded){loadApprovals();}
   const all=store.approvals||[];
@@ -1367,6 +1421,30 @@ function prodFilteredItems(items){
     (!f.zone||f.zone==='(All)'||it.zone_name===f.zone)
   );
 }
+// chart.js instances for the dashboard — must be tracked outside `store` (not data,
+// just DOM/canvas bindings) so we can destroy+recreate them cleanly on every re-render.
+let _prodCharts={status:null,release:null};
+function renderProdCharts(items){
+  if(typeof Chart==='undefined')return; // CDN not loaded yet — skip quietly
+  const c=prodDashboardCalc(items);
+  const sc=document.getElementById('statusChart');
+  if(sc){
+    if(_prodCharts.status)_prodCharts.status.destroy();
+    _prodCharts.status=new Chart(sc,{type:'doughnut',
+      data:{labels:['On site','In progress','Not started'],datasets:[{data:[c.onSiteQty,c.inProgQty,c.notStartedQty],backgroundColor:['#3ddc84','#FFB300','#5c636b'],borderColor:'#1c1f24',borderWidth:2}]},
+      options:{plugins:{legend:{display:false}},cutout:'62%',responsive:true,maintainAspectRatio:false}
+    });
+  }
+  const rc=document.getElementById('releaseChart');
+  if(rc){
+    if(_prodCharts.release)_prodCharts.release.destroy();
+    _prodCharts.release=new Chart(rc,{type:'bar',
+      data:{labels:PROD_STAGES,datasets:[{data:PROD_STAGES.map(s=>c.byRelease[s]||0),backgroundColor:'#5db8ff'}]},
+      options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,
+        scales:{x:{ticks:{color:'#9aa3ad',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#9aa3ad'},grid:{color:'#2a2f37'}}}}
+    });
+  }
+}
 function prodDashboardCalc(items){
   const filtered=prodFilteredItems(items);
   const qty=filtered.reduce((s,it)=>s+(+it.qty||0),0);
@@ -1402,21 +1480,18 @@ function prodDashboardHTML(items){
   </div>
   <div class="card">
     <div class="cardHead"><span>📦 ITEMS STATUS (selected slice)</span></div>
-    <div style="padding:12px;display:flex;gap:10px;flex-wrap:wrap">
-      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--green)">${c.onSiteQty}</div><div class="sl">ON SITE</div></div>
-      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--amber)">${c.inProgQty}</div><div class="sl">IN PROGRESS</div></div>
-      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--mut)">${c.notStartedQty}</div><div class="sl">NOT STARTED</div></div>
+    <div style="padding:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <div style="width:180px;height:180px;flex-shrink:0"><canvas id="statusChart"></canvas></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;flex:1">
+        <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--green)">${c.onSiteQty}</div><div class="sl">ON SITE</div></div>
+        <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--amber)">${c.inProgQty}</div><div class="sl">IN PROGRESS</div></div>
+        <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:18px;color:var(--mut)">${c.notStartedQty}</div><div class="sl">NOT STARTED</div></div>
+      </div>
     </div>
   </div>
   <div class="card">
     <div class="cardHead"><span>📈 BY RELEASE (selected slice)</span></div>
-    <div style="padding:12px 16px">
-      ${PROD_STAGES.map(s=>{const v=c.byRelease[s]||0;const pct=Math.round((v/maxRelease)*100);return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="width:110px;font-size:11px;color:var(--mut)">${s}</div>
-        <div style="flex:1;background:var(--steel);border-radius:3px;overflow:hidden;height:14px"><div style="width:${pct}%;background:var(--blue);height:100%"></div></div>
-        <div style="width:34px;text-align:right;font-size:11px">${v}</div>
-      </div>`;}).join('')}
-    </div>
+    <div style="padding:12px 16px;height:260px"><canvas id="releaseChart"></canvas></div>
   </div>`;
 }
 function productionTabHTML(){
@@ -1447,6 +1522,9 @@ function productionTabHTML(){
     </div>
     ${(!store.prodView||store.prodView==='dashboard')?prodDashboardHTML(items):''}
     ${store.prodView==='items'?`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <label class="zadd" style="cursor:pointer">⬆ IMPORT FROM EXCEL (Items sheet)<input type="file" id="prodImportXlsx" accept=".xlsx,.xls" style="display:none"></label>
+    </div>
     <div class="card" style="border-color:var(--blue)">
       <div class="cardHead" style="color:var(--blue)"><span>➕ ADD PRODUCTION ITEM</span></div>
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1751,6 +1829,7 @@ function appHTML(){
       <button class="gbtn" id="share">🔗 SHARE</button>
       <span id="syncBadge" style="font-size:10px;letter-spacing:1px;align-self:center;min-width:60px">${store.syncState==='saved'?'✓ saved':store.syncState==='saving'?'⟳ saving…':''}</span>
       <button class="pbtn" id="excel">⊞ EXCEL</button>
+      <label class="pbtn" style="cursor:pointer">⬆ IMPORT XLSX<input type="file" accept=".xlsx,.xls" id="importXlsx" class="hide"></label>
       <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--mut)" title="Text size">
         <span style="font-size:10px">A</span>
         <input type="range" id="textZoom" min="80" max="160" step="10" value="${store.textScale||100}" style="width:80px">
@@ -2425,7 +2504,7 @@ function wire(){
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
@@ -2458,6 +2537,8 @@ function wire(){
       const da=document.getElementById('dash_assignee');if(da)da.onchange=()=>{store.dashFilter.assignee=da.value;render();};
       const dz=document.getElementById('dash_zone');if(dz)dz.onchange=()=>{store.dashFilter.zone=dz.value;render();};
     })();
+    if(store.managerTab==='production' && (!store.prodView||store.prodView==='dashboard')){renderProdCharts(store.prodItems||[]);}
+    const pix=document.getElementById('prodImportXlsx');if(pix)pix.onchange=(e)=>{const f=e.target.files[0];if(f)importProductionItemsExcel(f);e.target.value='';};
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
@@ -2485,6 +2566,7 @@ function wire(){
   {const tz=document.getElementById('textZoom');if(tz)tz.oninput=()=>{store.textScale=+tz.value;const r=document.getElementById('root');if(r)r.style.fontSize=(store.textScale/100)+'em';persist();};}
   const cs=document.getElementById('currencySel');if(cs)cs.onchange=()=>{store.currency=cs.value;render();};
   document.getElementById('excel').onclick=exportExcel;
+  const ixl=document.getElementById('importXlsx');if(ixl)ixl.onchange=(e)=>{const f=e.target.files[0];if(f)importCutListExcel(f);e.target.value='';};
   const po=document.getElementById('printOrder');if(po)po.onclick=exportExcel;
   document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const i=+b.dataset.submitsupplier;const e=se[i];if(!e)return;const [sup,d]=e;const target=(store._supReassign&&store._supReassign[i])||sup;submitOrderForApproval(d.lines,d.total,target);});
   document.querySelectorAll('[data-reassign]').forEach(el=>el.onchange=()=>{const i=+el.dataset.reassign;if(!store._supReassign)store._supReassign={};store._supReassign[i]=el.value||null;render();});
@@ -2646,6 +2728,54 @@ function bindRow(el,kind,arr){const id=+el.dataset[kind],k=el.dataset.k;el.oncha
   else if(k==='area'||k==='spread'||k==='waste'){row[k]=Math.max(0,+v||0);}
   else{row[k]=Math.max(0,Math.round(toMM(+v||0)));}render();};}
 
+// ---- round-trip Excel import: reads the app's OWN export format back in, so people
+// can export → edit in Excel → re-import, rather than retyping everything. ----
+function importCutListExcel(file){
+  if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const findSheet=(name)=>wb.SheetNames.find(n=>n.toLowerCase()===name.toLowerCase());
+      const panelName=findSheet('Panel Cut List'), linName=findSheet('Linear Cut List');
+      if(!panelName && !linName){alert("Could not find a 'Panel Cut List' or 'Linear Cut List' sheet in this file. Make sure you're re-importing a file that was exported from PitchIQ.");return;}
+      const zoneIdFor=(name)=>{
+        const n=(name||'').trim(); if(!n||n==='—')return store.zones[0]?store.zones[0].id:1;
+        let z=store.zones.find(z=>z.name.toLowerCase()===n.toLowerCase());
+        if(!z){z={id:Date.now()+Math.floor(Math.random()*100000),name:n};store.zones.push(z);}
+        return z.id;
+      };
+      const rememberType=(list,val)=>{if(val&&!list.includes(val))list.push(val);};
+      const edgeCodeFor=(label)=>({'none':'0','1w':'1w','2w':'2w','1h':'1h','2h':'2h','all 4':'all'})[(label||'').toLowerCase().trim()]||'0';
+      let newPanels=null, newLinear=null;
+      if(panelName){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[panelName],{header:1,defval:''}).slice(1).filter(r=>r.some(c=>c!==''));
+        if(!store.customItemTypes)store.customItemTypes=[]; if(!store.customPartTypes)store.customPartTypes=[];
+        newPanels=rows.map((r,i)=>{
+          const item=String(r[1]||''), part=String(r[2]||'');
+          if(item && !ITEM_TYPES.includes(item))rememberType(store.customItemTypes,item);
+          if(part && !PART_TYPES.includes(part))rememberType(store.customPartTypes,part);
+          return {id:Date.now()+i, zone:zoneIdFor(r[0]), item, part, code:String(r[4]||''), thk:+r[5]||0,
+            w:+r[6]||0, h:+r[7]||0, lip:+r[8]||0, edge:edgeCodeFor(r[9]), lipCode:String(r[10]||''),
+            lipLen:+r[11]||0, qty:Math.max(1,Math.round(+r[14]||1))};
+        });
+      }
+      if(linName){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[linName],{header:1,defval:''}).slice(1).filter(r=>r.some(c=>c!==''));
+        newLinear=rows.map((r,i)=>({id:Date.now()+10000+i, zone:zoneIdFor(r[0]), code:String(r[1]||''),
+          thk:+r[2]||0, label:String(r[3]||''), len:+r[4]||0, qty:Math.max(1,Math.round(+r[5]||1))}));
+      }
+      const msg=`Import found ${newPanels?newPanels.length+' panel rows':''}${newPanels&&newLinear?' and ':''}${newLinear?newLinear.length+' linear rows':''}. This will REPLACE your current cut list. Continue?`;
+      if(!confirm(msg))return;
+      if(newPanels)store.sheetRows=newPanels;
+      if(newLinear)store.linRows=newLinear;
+      scheduleCloudSave();
+      render();
+      alert('Import complete.');
+    }catch(ex){alert('Could not read that file: '+(ex.message||'unknown error'));}
+  };
+  reader.readAsArrayBuffer(file);
+}
 function exportExcel(sel){
   if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
   // sel: object of which sheets to include; if not given, show the picker first
