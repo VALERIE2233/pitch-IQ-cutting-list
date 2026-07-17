@@ -155,6 +155,43 @@ const LIP_PRESETS=[0,0.4,0.6,1,2,3,12,15,18,22,25];
 const EDGE_OPTS=[{v:'0',t:'None'},{v:'1w',t:'1W = 1 width lip'},{v:'2w',t:'2W = 2 width lip'},{v:'1h',t:'1H = 1 height lip'},{v:'2h',t:'2H = 2 height lip'},{v:'all',t:'All 4 lips'}];
 const PART_TYPES=['','Bottom','Top','Side','Shelf','Door','Back','Drawer front','Rail','Other'];
 const ITEM_TYPES=['','Wardrobe','Vanity','Kitchen cabinet','Wall cabinet','Base cabinet','Tall unit','Drawer unit','Shelf unit','Reception desk','Counter','Other'];
+// ---- Production tracker (Coordinator features on the Manager dashboard) ----
+// Mirrors the 9-stage pipeline from the factory's own production-tracking Excel.
+const PROD_STAGES=['Not Started','Drawing','Sample Approved','Started','Machinery','Assembly','Painting','Delivery','Site'];
+const PROD_FLAGS=['—','On Hold','Blocked','Priority'];
+const PROD_DATE_FIELD={'Drawing':'drawing_date','Sample Approved':'sample_approved_date','Started':'started_date','Machinery':'machinery_date','Assembly':'assembly_date','Painting':'painting_date','Delivery':'delivery_date','Site':'site_date'};
+function prodStageIndex(stage){const i=PROD_STAGES.indexOf(stage);return i<0?0:i;}
+// compute progress / aging / cycle time for one production item — same logic as the
+// Excel's Progress / Days in stage / Aging / Cycle (days) columns.
+function prodItemCalc(it){
+  const idx=prodStageIndex(it.stage);
+  const progress=idx/8;
+  const dateFields=['drawing_date','sample_approved_date','started_date','machinery_date','assembly_date','painting_date','delivery_date','site_date'];
+  const dates=dateFields.map(f=>it[f]).filter(Boolean).map(d=>new Date(d)).filter(d=>!isNaN(d));
+  const lastDate=dates.length?new Date(Math.max(...dates)):null;
+  const firstDate=dates.length?new Date(Math.min(...dates)):null;
+  const today=new Date();
+  const daysSince=d=>Math.floor((today-d)/86400000);
+  let daysInStage='', aging='Not dated';
+  if(idx>=8){daysInStage='Done';aging='Done';}
+  else if(!lastDate){daysInStage='';aging='Not dated';}
+  else{const d=daysSince(lastDate);daysInStage=d;aging=d>7?'Aging':'On track';}
+  const cycleDays=(dates.length>=2)?Math.floor((lastDate-firstDate)/86400000):null;
+  return {progress, daysInStage, aging, cycleDays, lastDate, firstDate};
+}
+const READINESS_CHECKS=[
+  {k:'ready_drawing',label:'Drawing approved'},
+  {k:'ready_material',label:'Material available'},
+  {k:'ready_veneer',label:'Veneer / laminate approved'},
+  {k:'ready_ironmongery',label:'Ironmongery approved'},
+  {k:'ready_paint',label:'Paint / finish approved'},
+  {k:'ready_accessories',label:'Accessories / glass approved'},
+];
+// READY? / To-approve — matches the Excel: READY only once all 6 checks are done.
+function prodReadyCalc(it){
+  const done=READINESS_CHECKS.filter(c=>it[c.k]).length;
+  return {done, total:6, ready:done===6, toApprove:6-done};
+}
 // merge a base type list with any names the person has typed in before (remembered in
 // store), so custom entries show up as normal dropdown options next time — not just
 // hidden behind "Other" every time.
@@ -1200,6 +1237,42 @@ async function confirmApproval(id,title){
   store.approvingId=null;
   render();
 }
+// ---- production tracker: load / add / update / delete ----
+async function loadProductionItems(){
+  if(!sb||!store.account)return;
+  try{const {data}=await sb.from('production_items').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});store.prodItems=data||[];}
+  catch(e){store.prodItems=[];}
+  store.prodItemsLoaded=true;render();
+}
+async function addProductionItem(){
+  const d=store.prodDraft||{};
+  if(!(d.description||'').trim()){store.prodMsg='Please enter an item description.';store.prodErr=true;render();return;}
+  const row={
+    company_id:store.account.companyId, created_by:store.account.uid,
+    project_name:(d.project_name||'').trim(), zone_name:(d.zone_name||'').trim(),
+    description:d.description.trim(), qty:Math.max(1,+d.qty||1),
+    assignee:(d.assignee||'Unassigned').trim()||'Unassigned', flag:d.flag||'—',
+    status_note:(d.status_note||'').trim(), stage:d.stage||'Not Started'
+  };
+  store.prodBusy=true;render();
+  try{
+    const {data,error}=await sb.from('production_items').insert(row).select().single();
+    if(error)throw error;
+    store.prodItems=[data,...(store.prodItems||[])];
+    store.prodDraft={}; store.prodMsg='Item added.'; store.prodErr=false;
+  }catch(e){store.prodMsg='Could not add: '+(e.message||'error');store.prodErr=true;}
+  store.prodBusy=false; render();
+}
+async function updateProductionItem(id,patch){
+  const it=(store.prodItems||[]).find(x=>x.id===id); if(!it)return;
+  Object.assign(it,patch); render(); // optimistic local update
+  try{await sb.from('production_items').update(patch).eq('id',id);}catch(e){}
+}
+async function deleteProductionItem(id){
+  if(!confirm('Delete this production item?'))return;
+  store.prodItems=(store.prodItems||[]).filter(x=>x.id!==id); render();
+  try{await sb.from('production_items').delete().eq('id',id);}catch(e){}
+}
 function managerHTML(){
   if(!store.apprLoaded){loadApprovals();}
   const all=store.approvals||[];
@@ -1223,12 +1296,16 @@ function managerHTML(){
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
-  <div class="body">
+  <div class="tabs" style="padding:10px 16px 0">
+    <button class="tab ${(!store.managerTab||store.managerTab==='approvals')?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
+    <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production" style="color:var(--blue)">🏭 PRODUCTION</button>
+  </div>
+  ${(!store.managerTab||store.managerTab==='approvals')?`<div class="body">
     <div class="hint" style="padding-top:14px">Review cutting lists and orders your estimators submit. Approve to release them to suppliers, or reject with a reason. Only orders from <strong>${store.account.company}</strong> appear here.</div>
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>
+  </div>`:productionTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:10px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -1237,7 +1314,80 @@ function managerHTML(){
       <button class="pbtn" id="cancelApprove" style="width:100%;margin-top:4px">CANCEL</button>
     </div></div>`:''}`;}
 
-// ===================== SUPPLIER DASHBOARD =====================
+// ---- PRODUCTION tab (Coordinator features) ----
+function productionTabHTML(){
+  if(!store.prodItemsLoaded){loadProductionItems();}
+  const items=store.prodItems||[];
+  const d=store.prodDraft||{};
+  const projects=[...new Set(items.map(i=>i.project_name).filter(Boolean))];
+  const zones=[...new Set(items.map(i=>i.zone_name).filter(Boolean))];
+  const assignees=[...new Set(items.map(i=>i.assignee).filter(Boolean))];
+  const onSite=items.filter(i=>i.stage==='Site').length;
+  const notStarted=items.filter(i=>i.stage==='Not Started').length;
+  const inProd=items.length-onSite-notStarted;
+  const agingCount=items.filter(i=>prodItemCalc(i).aging==='Aging').length;
+  return `<div class="body">
+    <div class="hint" style="padding-top:14px">Track every production item through the shop floor, stage by stage — the same pipeline as your factory tracking sheet. Add items here as jobs come in; move them through stages as they progress.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px">${items.length}</div><div class="sl">ITEMS</div></div>
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:var(--amber)">${inProd}</div><div class="sl">IN PRODUCTION</div></div>
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:var(--green)">${onSite}</div><div class="sl">ON SITE</div></div>
+      <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:${agingCount?'var(--red)':'var(--mut)'}">${agingCount}</div><div class="sl">AGING >7d</div></div>
+    </div>
+    <div class="card" style="border-color:var(--blue)">
+      <div class="cardHead" style="color:var(--blue)"><span>➕ ADD PRODUCTION ITEM</span></div>
+      <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label class="field"><span class="fl">PROJECT</span><input class="fi" id="pi_project" list="prodProjectList" value="${(d.project_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. La Mer SC22"><datalist id="prodProjectList">${projects.map(p=>`<option value="${p.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
+        <label class="field"><span class="fl">ZONE / FLOOR</span><input class="fi" id="pi_zone" list="prodZoneList" value="${(d.zone_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Ground Floor"><datalist id="prodZoneList">${zones.map(z=>`<option value="${z.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
+        <label class="field" style="grid-column:1/3"><span class="fl">ITEM / DESCRIPTION</span><input class="fi" id="pi_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Guest ensuite vanity 1750×600×430"></label>
+        <label class="field"><span class="fl">QTY</span><input class="fi" type="number" id="pi_qty" value="${d.qty||1}" min="1"></label>
+        <label class="field"><span class="fl">ASSIGNEE</span><input class="fi" id="pi_assignee" list="prodAssigneeList" value="${(d.assignee||'').replace(/"/g,'&quot;')}" placeholder="Unassigned"><datalist id="prodAssigneeList">${assignees.map(a=>`<option value="${a.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
+        <label class="field"><span class="fl">FLAG</span><select class="fi" id="pi_flag">${PROD_FLAGS.map(f=>`<option value="${f}" ${f===(d.flag||'—')?'selected':''}>${f}</option>`).join('')}</select></label>
+        <label class="field"><span class="fl">STAGE</span><select class="fi" id="pi_stage">${PROD_STAGES.map(s=>`<option value="${s}" ${s===(d.stage||'Not Started')?'selected':''}>${s}</option>`).join('')}</select></label>
+        <label class="field" style="grid-column:1/3"><span class="fl">STATUS NOTE</span><input class="fi" id="pi_note" value="${(d.status_note||'').replace(/"/g,'&quot;')}" placeholder="optional note"></label>
+        <button class="add" id="pi_save" style="grid-column:1/3" ${store.prodBusy?'disabled':''}>${store.prodBusy?'ADDING…':'+ ADD ITEM'}</button>
+        ${store.prodMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.prodErr?'var(--red)':'var(--green)'}">${store.prodMsg}</div>`:''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="cardHead"><span>🏭 PRODUCTION ITEMS (${items.length})</span></div>
+      ${items.length?`<div class="scroll"><table><thead><tr><th>Project</th><th>Zone</th><th>Item</th><th class="r">Qty</th><th>Assignee</th><th>Flag</th><th>Ready</th><th>Stage</th><th class="r">Progress</th><th>Aging</th><th class="r">Cycle</th><th></th></tr></thead><tbody>
+      ${items.map(it=>{
+        const c=prodItemCalc(it);
+        const r=prodReadyCalc(it);
+        const agingColor=c.aging==='Aging'?'var(--red)':c.aging==='On track'?'var(--green)':c.aging==='Done'?'var(--mut)':'var(--mut)';
+        return `<tr>
+          <td style="font-size:11px">${it.project_name||'—'}</td>
+          <td style="font-size:11px">${it.zone_name||'—'}</td>
+          <td style="font-size:11px;max-width:180px">${it.description||''}</td>
+          <td class="r"><input class="num numS" type="number" min="1" value="${it.qty||1}" data-piqty="${it.id}"></td>
+          <td><input class="cell" style="width:100px;font-size:11px" list="prodAssigneeList" value="${(it.assignee||'').replace(/"/g,'&quot;')}" data-piassignee="${it.id}"></td>
+          <td><select class="sel" style="font-size:11px" data-piflag="${it.id}">${PROD_FLAGS.map(f=>`<option value="${f}" ${f===it.flag?'selected':''}>${f}</option>`).join('')}</select></td>
+          <td><button class="zadd" data-piready="${it.id}" style="font-size:10px;padding:4px 8px;${r.ready?'border-color:var(--green);color:var(--green)':'border-color:var(--amber);color:var(--amber)'}">${r.ready?'✓ READY':`⏳ ${r.toApprove} left`}</button></td>
+          <td><select class="sel" style="font-size:11px" data-pistage="${it.id}">${PROD_STAGES.map(s=>`<option value="${s}" ${s===it.stage?'selected':''}>${s}</option>`).join('')}</select></td>
+          <td class="r" style="font-size:11px">${Math.round(c.progress*100)}%</td>
+          <td style="font-size:11px;color:${agingColor};font-weight:${c.aging==='Aging'?'700':'400'}">${c.aging}${typeof c.daysInStage==='number'?` (${c.daysInStage}d)`:''}</td>
+          <td class="r" style="font-size:11px">${c.cycleDays!==null?c.cycleDays+'d':'—'}</td>
+          <td><button class="del" data-pidelete="${it.id}">✕</button></td>
+        </tr>`;}).join('')}
+      </tbody></table></div>`:'<div class="empty">No production items yet. Add your first one above.</div>'}
+    </div>
+  </div>${prodReadyOverlay(items)}`;
+}
+// readiness checklist overlay — matches the Excel's 6-item pre-production check
+function prodReadyOverlay(items){
+  if(!store.prodReadyId)return '';
+  const it=items.find(i=>i.id===store.prodReadyId); if(!it)return '';
+  const r=prodReadyCalc(it);
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;max-width:420px;width:100%;padding:18px">
+      <div style="display:flex;align-items:center;margin-bottom:4px"><strong style="color:${r.ready?'var(--green)':'var(--amber)'};font-size:14px">📋 READINESS — ${it.description||''}</strong><button id="prodReadyClose" class="zadd" style="margin-left:auto;padding:4px 10px">✕</button></div>
+      <div class="hint" style="padding:0 0 10px">${r.ready?'✓ All checks complete — READY for production.':`${r.toApprove} of 6 checks still needed before this item is READY.`}</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${READINESS_CHECKS.map(c=>`<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px"><input type="checkbox" data-readycheck="${c.k}" ${it[c.k]?'checked':''} style="width:18px;height:18px"> ${c.label}</label>`).join('')}
+      </div>
+    </div></div>`;
+}
 async function loadMyCatalogue(){
   if(!sb||!store.account)return;
   try{const {data}=await sb.from('catalogue').select('*').eq('supplier_id',store.account.uid).order('created_at',{ascending:true});store.myCatalogue=data||[];}catch(e){store.myCatalogue=[];}
@@ -2135,7 +2285,7 @@ function wire(){
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.apprLoaded=false;store.approvals=[];render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.managerTab='approvals';render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
@@ -2149,6 +2299,19 @@ function wire(){
       confirmApproval(store.approvingId,t);
     });
     const ca=document.getElementById('cancelApprove');if(ca)ca.onclick=()=>{store.approvingId=null;render();};
+    document.querySelectorAll('[data-mgrtab]').forEach(b=>b.onclick=()=>{store.managerTab=b.dataset.mgrtab;render();});
+    // production tracker (Coordinator) bindings
+    const pkeep=()=>{const g=id=>(document.getElementById(id)||{}).value;if(!store.prodDraft)store.prodDraft={};Object.assign(store.prodDraft,{project_name:g('pi_project'),zone_name:g('pi_zone'),description:g('pi_desc'),qty:g('pi_qty'),assignee:g('pi_assignee'),flag:g('pi_flag'),stage:g('pi_stage'),status_note:g('pi_note')});};
+    ['pi_project','pi_zone','pi_desc','pi_qty','pi_assignee','pi_flag','pi_stage','pi_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=pkeep;});
+    const pisave=document.getElementById('pi_save');if(pisave)pisave.onclick=()=>{pkeep();addProductionItem();};
+    document.querySelectorAll('[data-pistage]').forEach(sel=>sel.onchange=()=>updateProductionItem(sel.dataset.pistage,{stage:sel.value}));
+    document.querySelectorAll('[data-piflag]').forEach(sel=>sel.onchange=()=>updateProductionItem(sel.dataset.piflag,{flag:sel.value}));
+    document.querySelectorAll('[data-piqty]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.piqty,{qty:Math.max(1,+inp.value||1)}));
+    document.querySelectorAll('[data-piassignee]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.piassignee,{assignee:inp.value||'Unassigned'}));
+    document.querySelectorAll('[data-pidelete]').forEach(b=>b.onclick=()=>deleteProductionItem(b.dataset.pidelete));
+    document.querySelectorAll('[data-piready]').forEach(b=>b.onclick=()=>{store.prodReadyId=b.dataset.piready;render();});
+    const prc=document.getElementById('prodReadyClose');if(prc)prc.onclick=()=>{store.prodReadyId=null;render();};
+    document.querySelectorAll('[data-readycheck]').forEach(cb=>cb.onchange=()=>{updateProductionItem(store.prodReadyId,{[cb.dataset.readycheck]:cb.checked});});
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
