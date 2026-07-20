@@ -122,6 +122,7 @@
 <div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ============================================================================
@@ -1677,10 +1678,10 @@ function siteEngineerHTML(){
         <label class="field"><span class="fl">SITE DEPTH (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
         <label class="field" style="grid-column:1/3"><span class="fl">NOTES</span><textarea class="fi" id="sv_notes" rows="2" placeholder="Anything the factory needs to know…">${(d.notes||'').replace(/</g,'&lt;')}</textarea></label>
         <div style="grid-column:1/3">
-          <span class="fl" style="display:block;margin-bottom:6px">SITE PHOTOS</span>
+          <span class="fl" style="display:block;margin-bottom:6px">SITE DOCUMENTS</span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            ${(d.photos||[]).map((url,i)=>`<div style="position:relative"><img src="${url}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--line)"><button data-svremovephoto="${i}" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>`).join('')}
-            <label class="zadd" style="cursor:pointer">🖼 Choose photo<input type="file" id="sv_photo_choose" accept="image/*" style="display:none"></label>
+            ${(d.photos||[]).map((url,i)=>`<div style="position:relative">${attachCell(url,60,'draft')}<button data-svremovephoto="${i}" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>`).join('')}
+            <label class="zadd" style="cursor:pointer">📄 Choose document<input type="file" id="sv_photo_choose" style="display:none"></label>
             <label class="zadd" style="cursor:pointer">📷 Take photo<input type="file" id="sv_photo_camera" accept="image/*" capture="environment" style="display:none"></label>
           </div>
           ${store.svUploading?'<div style="font-size:11px;color:var(--amber);margin-top:4px">Uploading…</div>':''}
@@ -1691,13 +1692,13 @@ function siteEngineerHTML(){
     </div>
     <div class="card">
       <div class="cardHead"><span>👷 SITE VISITS (${visits.length})</span></div>
-      ${visits.length? `<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Photos</th><th>Notes</th><th>Status</th></tr></thead><tbody>
+      ${visits.length? `<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Documents</th><th>Notes</th><th>Status</th></tr></thead><tbody>
         ${visits.map(v=>{const phs=Array.isArray(v.photos)?v.photos:[];return `<tr>
           <td style="font-size:11px;white-space:nowrap">${(v.created_at||'').slice(0,10)}</td>
           <td>${v.project_name||'—'}</td>
           <td>${v.location_name||'—'}</td>
           <td class="r">${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'}</td>
-          <td>${phs.length?phs.map(u=>`<img src="${u}" data-bigphoto="${u}" style="width:32px;height:32px;object-fit:cover;border-radius:3px;border:1px solid var(--line);margin:1px;cursor:pointer">`).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
+          <td style="white-space:nowrap">${phs.length?phs.map(u=>attachCell(u,32,v.id)).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
           <td style="font-size:11px;max-width:160px">${v.notes||''}</td>
           <td><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${v.status==='open'?'var(--amber)':'var(--green)'};color:#000">${(v.status||'open').toUpperCase()}</span></td>
         </tr>`;}).join('')}
@@ -1705,8 +1706,117 @@ function siteEngineerHTML(){
       : '<div style="padding:16px;text-align:center;color:var(--mut)">No site visits yet. Create your first one above.</div>'}
     </div>
   </div>
-  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>`;
+  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${markupOverlay()}`;
 }
+// render an uploaded file as a photo thumbnail (images) or a document icon + link
+// (PDFs, Word docs, anything else) — since Site Visit now accepts any file type.
+// `target` identifies where a markup save should be written back to: 'draft' for the
+// unsaved form, or a saved visit's id.
+function attachCell(url,size,target){
+  const s=size||60;
+  const ext=(url.split('.').pop()||'').split('?')[0].toLowerCase();
+  const isImg=['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext);
+  const isPdf=ext==='pdf';
+  const markupBtn=(isImg||isPdf)&&target?`<button data-markup="${target}|${encodeURIComponent(url)}" title="Mark up this ${isPdf?'PDF':'photo'}" style="position:absolute;bottom:-6px;right:-6px;background:var(--blue);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:10px;cursor:pointer">✏</button>`:'';
+  if(isImg)return `<div style="position:relative;display:inline-block"><img src="${url}" data-bigphoto="${url}" style="width:${s}px;height:${s}px;object-fit:cover;border-radius:4px;border:1px solid var(--line);cursor:pointer">${markupBtn}</div>`;
+  const icon={pdf:'📕',doc:'📘',docx:'📘',xls:'📗',xlsx:'📗',ppt:'📙',pptx:'📙'}[ext]||'📄';
+  return `<div style="position:relative;display:inline-block"><a href="${url}" target="_blank" rel="noopener" title="Open document" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:${s}px;height:${s}px;border:1px solid var(--line);border-radius:4px;text-decoration:none;background:var(--steel)"><span style="font-size:${Math.round(s*0.4)}px">${icon}</span><span style="font-size:8px;color:var(--mut);text-transform:uppercase">${ext||'file'}</span></a>${markupBtn}</div>`;
+}
+// ---- markup tool: pen / line / text annotation over a photo or PDF (page 1) ----
+if(typeof pdfjsLib!=='undefined'){ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js'; }
+async function openMarkup(target,url){
+  store.markupTarget=target; store.markupSourceUrl=url;
+  store.markupStrokes=[]; store.markupTool='pen'; store.markupColor='#e0392b';
+  store.markupLoading=true; store.markupImg=null; render();
+  try{
+    const ext=(url.split('.').pop()||'').split('?')[0].toLowerCase();
+    let imgUrl=url;
+    if(ext==='pdf'){
+      if(typeof pdfjsLib==='undefined')throw new Error('PDF viewer failed to load — check your connection and try again.');
+      const resp=await fetch(url); const buf=await resp.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      const page=await pdf.getPage(1);
+      const viewport=page.getViewport({scale:2});
+      const off=document.createElement('canvas'); off.width=viewport.width; off.height=viewport.height;
+      await page.render({canvasContext:off.getContext('2d'),viewport}).promise;
+      imgUrl=off.toDataURL('image/png');
+    }
+    const img=new Image(); img.crossOrigin='anonymous';
+    await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('Could not load that image.'));img.src=imgUrl;});
+    store.markupImg={src:imgUrl,w:img.naturalWidth,h:img.naturalHeight};
+    store.markupLoading=false; render();
+    setTimeout(()=>drawMarkupCanvas(),30);
+  }catch(ex){store.markupLoading=false; store.markupTarget=null; alert('Could not open for markup: '+(ex.message||'error')); render();}
+}
+function drawMarkupCanvas(){
+  const cv=document.getElementById('markupCanvas'); if(!cv||!store.markupImg)return;
+  const ctx=cv.getContext('2d');
+  const img=cv._bgImg||(cv._bgImg=(()=>{const i=new Image();i.crossOrigin='anonymous';i.src=store.markupImg.src;return i;})());
+  const draw=()=>{
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.drawImage(img,0,0,cv.width,cv.height);
+    (store.markupStrokes||[]).forEach(s=>drawStroke(ctx,s));
+  };
+  if(img.complete)draw(); else img.onload=draw;
+}
+function drawStroke(ctx,s){
+  ctx.strokeStyle=s.color; ctx.fillStyle=s.color; ctx.lineWidth=3; ctx.lineCap='round'; ctx.lineJoin='round';
+  if(s.type==='pen'&&s.points.length){
+    ctx.beginPath(); ctx.moveTo(s.points[0].x,s.points[0].y);
+    s.points.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke();
+  }else if(s.type==='line'){
+    ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+  }else if(s.type==='text'){
+    ctx.font='bold 20px Arial'; ctx.fillText(s.text,s.x,s.y);
+  }
+}
+async function saveMarkup(){
+  const cv=document.getElementById('markupCanvas'); if(!cv)return;
+  store.markupSaving=true; render();
+  try{
+    const blob=await new Promise(res=>cv.toBlob(res,'image/png'));
+    const file=new File([blob],'marked-'+Date.now()+'.png',{type:'image/png'});
+    const url=await uploadSiteVisitPhoto(file);
+    const [target]=[store.markupTarget];
+    if(target==='draft'){
+      if(!store.svDraft)store.svDraft={};
+      store.svDraft.photos=[...(store.svDraft.photos||[]),url];
+    }else{
+      const visit=(store.siteVisits||[]).find(v=>v.id===target);
+      if(visit){
+        const photos=[...(Array.isArray(visit.photos)?visit.photos:[]),url];
+        visit.photos=photos;
+        try{await sb.from('site_visits').update({photos}).eq('id',target);}catch(ex){}
+      }
+    }
+    store.markupTarget=null; store.markupSaving=false; render();
+  }catch(ex){store.markupSaving=false; alert('Could not save markup: '+(ex.message||'error')); render();}
+}
+function markupOverlay(){
+  if(!store.markupTarget && !store.markupLoading)return '';
+  if(store.markupLoading)return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:9999;color:#fff;font-size:14px">Loading document for markup…</div>`;
+  if(!store.markupImg)return '';
+  const maxW=Math.min(900,store.markupImg.w), scale=maxW/store.markupImg.w;
+  const cw=Math.round(store.markupImg.w*scale), ch=Math.round(store.markupImg.h*scale);
+  const colors=['#e0392b','#111111','#2b6fe0','#2ba84a'];
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;max-width:96vw;max-height:96vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="zadd" data-marktool="pen" style="${store.markupTool==='pen'?'background:var(--blue);color:#fff':''}">✏ PEN</button>
+        <button class="zadd" data-marktool="line" style="${store.markupTool==='line'?'background:var(--blue);color:#fff':''}">📏 LINE</button>
+        <button class="zadd" data-marktool="text" style="${store.markupTool==='text'?'background:var(--blue);color:#fff':''}">🔤 TEXT</button>
+        ${colors.map(c=>`<button data-markcolor="${c}" style="width:24px;height:24px;border-radius:50%;background:${c};border:2px solid ${store.markupColor===c?'#fff':'transparent'};cursor:pointer"></button>`).join('')}
+        <button class="zadd" id="markUndo">↶ UNDO</button>
+        <button class="zadd" id="markClear">🗑 CLEAR</button>
+        <div style="flex:1"></div>
+        <button class="pbtn" id="markCancel">✕ CANCEL</button>
+        <button class="add" id="markSave" ${store.markupSaving?'disabled':''}>${store.markupSaving?'SAVING…':'✓ SAVE MARKUP'}</button>
+      </div>
+      <canvas id="markupCanvas" width="${cw}" height="${ch}" style="border:1px solid var(--line);cursor:crosshair;touch-action:none;max-width:100%"></canvas>
+      <div class="hint">Pen: draw freehand. Line: click-drag for a straight line. Text: click to place a label.</div>
+    </div></div>`;
+}
+
 async function loadSiteVisits(){
   store.siteVisitsLoaded=true;
   try{const {data}=await sb.from('site_visits').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});store.siteVisits=data||[];}
@@ -2501,6 +2611,44 @@ function wire(){
       ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out';
       ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px">`;ov.onclick=()=>ov.remove();document.body.appendChild(ov);
     });
+    document.querySelectorAll('[data-markup]').forEach(b=>b.onclick=(e)=>{
+      e.stopPropagation();
+      const [target,encUrl]=b.dataset.markup.split('|');
+      openMarkup(target,decodeURIComponent(encUrl));
+    });
+    document.querySelectorAll('[data-marktool]').forEach(b=>b.onclick=()=>{store.markupTool=b.dataset.marktool;render();});
+    document.querySelectorAll('[data-markcolor]').forEach(b=>b.onclick=()=>{store.markupColor=b.dataset.markcolor;render();});
+    const mUndo=document.getElementById('markUndo');if(mUndo)mUndo.onclick=()=>{(store.markupStrokes||[]).pop();drawMarkupCanvas();};
+    const mClear=document.getElementById('markClear');if(mClear)mClear.onclick=()=>{if(confirm('Clear all markup on this page?')){store.markupStrokes=[];drawMarkupCanvas();}};
+    const mCancel=document.getElementById('markCancel');if(mCancel)mCancel.onclick=()=>{store.markupTarget=null;render();};
+    const mSave=document.getElementById('markSave');if(mSave)mSave.onclick=()=>saveMarkup();
+    const mcv=document.getElementById('markupCanvas');
+    if(mcv){
+      drawMarkupCanvas();
+      const pos=(e)=>{const r=mcv.getBoundingClientRect();const p=e.touches?e.touches[0]:e;return {x:(p.clientX-r.left)*(mcv.width/r.width),y:(p.clientY-r.top)*(mcv.height/r.height)};};
+      let drawing=false, cur=null;
+      const start=(e)=>{
+        e.preventDefault(); const p=pos(e);
+        if(store.markupTool==='text'){
+          const t=prompt('Text to add:'); if(t&&t.trim()){(store.markupStrokes||(store.markupStrokes=[])).push({type:'text',color:store.markupColor,x:p.x,y:p.y,text:t.trim()});drawMarkupCanvas();}
+          return;
+        }
+        drawing=true;
+        if(store.markupTool==='pen')cur={type:'pen',color:store.markupColor,points:[p]};
+        else cur={type:'line',color:store.markupColor,x1:p.x,y1:p.y,x2:p.x,y2:p.y};
+      };
+      const move=(e)=>{
+        if(!drawing)return; e.preventDefault(); const p=pos(e);
+        if(cur.type==='pen')cur.points.push(p); else {cur.x2=p.x;cur.y2=p.y;}
+        drawMarkupCanvas(); const ctx=mcv.getContext('2d'); drawStroke(ctx,cur);
+      };
+      const end=(e)=>{
+        if(!drawing)return; drawing=false;
+        (store.markupStrokes||(store.markupStrokes=[])).push(cur); cur=null; drawMarkupCanvas();
+      };
+      mcv.onmousedown=start; mcv.onmousemove=move; mcv.onmouseup=end; mcv.onmouseleave=end;
+      mcv.ontouchstart=start; mcv.ontouchmove=move; mcv.ontouchend=end;
+    }
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
