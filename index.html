@@ -119,6 +119,9 @@
 </style>
 </head>
 <body>
+<div id="updateBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:var(--blue,#5db8ff);color:#06101a;padding:10px 16px;text-align:center;font-size:13px;font-weight:600">
+  🔄 A new version of PitchIQ is available. <span id="updateBannerBtn" style="text-decoration:underline;cursor:pointer;margin-left:6px">Click to refresh</span>
+</div>
 <div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -131,6 +134,22 @@
 //  Demo accounts/paywall (NOT real payments). Metric/imperial. Grain along length.
 // ============================================================================
 // ---- Supabase connection ----
+// Bump this string on every deploy. Used only to detect when a newer version
+// is live, so people see a "click to refresh" banner instead of being silently
+// switched to new features mid-task.
+const APP_VERSION='2026-07-20-a';
+function checkForUpdate(){
+  fetch(window.location.href,{cache:'no-store'}).then(r=>r.text()).then(txt=>{
+    const m=txt.match(/APP_VERSION=['"]([^'"]+)['"]/);
+    if(m && m[1] && m[1]!==APP_VERSION){
+      const b=document.getElementById('updateBanner'); if(b)b.style.display='block';
+    }
+  }).catch(()=>{}); // offline or blocked — just skip silently, not worth alarming anyone
+}
+setTimeout(checkForUpdate,15000); // first check shortly after load
+setInterval(checkForUpdate,5*60*1000); // then every 5 minutes
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')checkForUpdate(); });
+{const ub=document.getElementById('updateBannerBtn'); if(ub)ub.onclick=()=>{location.reload();};}
 const SUPABASE_URL='https://nzpngtgvppcshjmlkmsl.supabase.co';
 const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im56cG5ndGd2cHBjc2hqbWxrbXNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MTYwMjUsImV4cCI6MjA5NTQ5MjAyNX0.A9LZLFb9qL3FBZox0nR1ytnjK8zlgLCHZFvZ0A3HFd8';
 let sb=null;
@@ -263,7 +282,7 @@ const store={
   projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
 };
 try{const s=localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;localStorage.setItem('pitchiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;localStorage.setItem('pitchiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -1132,6 +1151,16 @@ const PAL=['#FFB300','#3ddc84','#5db8ff','#ff8fb1','#c08bff','#ffd24d','#7ee8c0'
 function render(){persist();const root=document.getElementById('root');root.style.fontSize=((store.textScale||100)/100)+'em';root.innerHTML=store.account?(store.account.accountType==='supplier'?supplierHTML():store.account.accountType==='manager'?managerHTML():store.account.accountType==='site_engineer'?siteEngineerHTML():appHTML()):authHTML();wire();}
 
 function authHTML(){
+  if(store.showResetPassword){
+    return `<div class="auth"><div class="authCard">
+    <div class="authHead"><div class="logo">▰▰</div><div class="authTitle">PITCH&nbsp;IQ</div><div class="authSub">SET A NEW PASSWORD</div></div>
+    <div class="authBody">
+      <div class="demoBanner">Choose a new password for your account.</div>
+      <label class="lbl">NEW PASSWORD</label><input class="inp" id="f_newpass" type="password" placeholder="At least 6 characters">
+      <div class="err" id="authErr">${store.authMsg}</div>
+      <button class="cta" id="doSetNewPass" ${store.authBusy?'disabled':''}>${store.authBusy?'SAVING…':'SET NEW PASSWORD'}</button>
+    </div></div></div>`;
+  }
   const m=store.authMode;
   if(m==='signup' && !store.companyListLoaded){ loadCompanyList(); }
   const tab=(k,t)=>`<button class="tab ${m===k?'on':''}" data-authmode="${k}" style="flex:1">${t}</button>`;
@@ -1201,7 +1230,8 @@ function authHTML(){
       <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
       <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="Your password">
       <div class="err" id="authErr">${store.authMsg}</div>
-      <button class="cta" id="doSignin" ${store.authBusy?'disabled':''}>${store.authBusy?'SIGNING IN…':'SIGN IN'}</button>`}
+      <button class="cta" id="doSignin" ${store.authBusy?'disabled':''}>${store.authBusy?'SIGNING IN…':'SIGN IN'}</button>
+      <div style="text-align:center;margin-top:10px"><span id="doForgot" style="font-size:12px;color:var(--mut);text-decoration:underline;cursor:pointer">Forgot password?</span></div>`}
   </div></div></div>`;}
 
 
@@ -1402,8 +1432,8 @@ function managerHTML(){
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
   </div>`:store.managerTab==='production'?productionTabHTML():mgrSiteVisitsTabHTML()}
-  ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px" id="titleOverlay">
-    <div style="background:var(--panel);border:1px solid var(--amber);border-radius:10px;max-width:380px;width:100%;padding:20px">
+  ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
+    <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
       <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Select the role you're approving this order under. It will appear on the approval certificate.</div>
       ${['Manager','QS','Purchasing','Project Lead','Director','Other'].map(t=>`<button class="cta" data-approvetitle="${t}" style="width:100%;margin-bottom:8px;background:var(--steel);color:var(--ink);border:1px solid var(--line);text-align:left">${t}</button>`).join('')}
@@ -1781,6 +1811,7 @@ function siteEngineerHTML(){
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · SITE ENGINEER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="body">
+    <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
     <div class="card" style="border-color:var(--blue)">
       <div class="cardHead" style="color:var(--blue)"><span>➕ NEW SITE VISIT</span></div>
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -2112,8 +2143,8 @@ function exportPickerOverlay(){
         ${opts.map(([k,label])=>`<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px"><input type="checkbox" data-exp="${k}" ${sel[k]!==false?'checked':''} style="width:18px;height:18px"> ${label}</label>`).join('')}
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
-        <button id="expAll" class="zadd" style="flex:1;font-size:11px">Select all</button>
-        <button id="expNone" class="zadd" style="flex:1;font-size:11px">Clear all</button>
+        <button id="expAll" class="zadd" style="flex:1;font-size:11px">SELECT ALL</button>
+        <button id="expNone" class="zadd" style="flex:1;font-size:11px">CLEAR ALL</button>
       </div>
       <button id="expGo" class="add" style="margin-top:14px">⬇ DOWNLOAD EXCEL</button>
     </div></div>`;
@@ -2179,7 +2210,7 @@ function assemblyHTML(){
     <div class="card"><div class="cardHead"><span>${tpl?tpl.name:r.type} · ${zoneName(r.zone)}</span><span class="cost">${money(c.total)}</span></div>
       <div style="padding:14px 16px">
         <div class="settings">${tpl?tpl.inputs.map(i=>i.type==='select'?`<label class="field"><span class="fl">${i.label}</span><select class="sel" data-assy="${r.id}" data-k="${i.k}">${i.opts.map(o=>`<option value="${o}" ${r.params[i.k]===o?'selected':''}>${o}</option>`).join('')}</select></label>`:`<label class="field"><span class="fl">${i.label}</span><input class="fi" ${i.type==='text'?'':'type="number"'} style="width:${i.type==='text'?'130px':'110px'}" value="${r.params[i.k]!=null?r.params[i.k]:i.def}" data-assy="${r.id}" data-k="${i.k}"></label>`).join(''):''}
-        <label class="field"><span class="fl">Zone</span>${zoneSel(r.zone,'assy',r.id)}</label>
+        <label class="field"><span class="fl">ZONE</span>${zoneSel(r.zone,'assy',r.id)}</label>
         <button class="del" data-delassy="${r.id}" style="align-self:center;font-size:16px">✕</button></div>
         <div class="scroll" style="margin-top:14px"><table><thead><tr><th>Item</th><th class="r">Qty</th><th>Unit</th><th>Supplier</th><th class="r">Unit price</th><th class="r">Cost</th></tr></thead><tbody>
         ${c.items.map(it=>`<tr><td>${it.desc}${it.code?` <span class="bankMeta" style="color:var(--mut);font-size:9px">[${it.code}]</span>`:''}</td><td class="r">${it.qty}</td><td>${it.unit||''}</td><td>${it.supplier}</td><td class="r">${it.price>0?money(it.price):'—'}</td><td class="r">${it.cost>0?money(it.cost):'⚠ no price'}</td></tr>`).join('')}
@@ -2195,7 +2226,7 @@ function assemblyHTML(){
     return dl+customs.map(ca=>{const c=customCost(ca);return `
     <div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>◇ <input class="cell" style="width:200px;color:var(--blue);font-weight:700" value="${ca.name}" data-caname="${ca.id}"></span><span class="cost">${money(c.total)}</span></div>
       <div style="padding:8px 16px">
-        <div class="settings" style="margin-bottom:8px"><label class="field"><span class="fl">Zone</span>${zoneSel(ca.zone,'ca',ca.id)}</label><button class="del" data-delca="${ca.id}" style="align-self:center;font-size:16px">✕ delete</button></div>
+        <div class="settings" style="margin-bottom:8px"><label class="field"><span class="fl">ZONE</span>${zoneSel(ca.zone,'ca',ca.id)}</label><button class="del" data-delca="${ca.id}" style="align-self:center;font-size:16px">✕ DELETE</button></div>
         <div class="scroll"><table><thead><tr><th>Item (pick or type)</th><th class="r">Qty</th><th>Unit</th><th class="r">Unit price</th><th>Supplier</th><th class="r">Cost</th><th></th></tr></thead><tbody>
         ${(ca.lines||[]).map((ln,i)=>{const ci=customCost(ca).items[i];return `<tr>
           <td><input class="cell" list="knownItems" style="width:180px" value="${ln.code||ln.name||''}" data-caline="${ca.id}" data-li="${i}" data-k="code" placeholder="e.g. cabinet hinge"></td>
@@ -2711,6 +2742,33 @@ function wire(){
         await loadSession();
       }catch(ex){store.authBusy=false;sErr(ex.message||'Sign-in failed. Please try again.');}
     };
+    const dfg=document.getElementById('doForgot');
+    if(dfg)dfg.onclick=async()=>{
+      const e=val('f_email');
+      if(!e)return sErr('Enter your email above first, then click "Forgot password?" again.');
+      if(!sb)return sErr('No connection to Supabase.');
+      store.authBusy=true;store.authMsg='';render();
+      try{
+        const {error}=await withTimeout(sb.auth.resetPasswordForEmail(e,{redirectTo:window.location.origin+window.location.pathname}),12000,'Sending reset email');
+        store.authBusy=false;
+        if(error)return sErr(error.message);
+        sErr('Check your email for a password reset link.');
+      }catch(ex){store.authBusy=false;sErr(ex.message||'Could not send reset email.');}
+    };
+    const dsnp=document.getElementById('doSetNewPass');
+    if(dsnp)dsnp.onclick=async()=>{
+      const pw=(document.getElementById('f_newpass')||{}).value||'';
+      if(pw.length<6)return sErr('Password must be at least 6 characters.');
+      if(!sb)return sErr('No connection to Supabase.');
+      store.authBusy=true;store.authMsg='';render();
+      try{
+        const {error}=await withTimeout(sb.auth.updateUser({password:pw}),12000,'Updating password');
+        store.authBusy=false;
+        if(error)return sErr(error.message);
+        store.showResetPassword=false;
+        await loadSession();
+      }catch(ex){store.authBusy=false;sErr(ex.message||'Could not update password.');}
+    };
     const mg=document.getElementById('doMagic');
     if(mg)mg.onclick=async()=>{
       const e=val('f_email');
@@ -2724,7 +2782,7 @@ function wire(){
     return;}
   // ---- site engineer dashboard wiring ----
   if(store.account.accountType==='site_engineer'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
     const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_name=g('sv_project');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
@@ -2749,7 +2807,7 @@ function wire(){
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
@@ -2811,7 +2869,7 @@ function wire(){
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];store.incomingLoaded=false;store.incoming=[];store.threadOrderId=null;render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];store.incomingLoaded=false;store.incoming=[];store.threadOrderId=null;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
     const ca=document.getElementById('catAdd');if(ca)ca.onclick=catAdd;
     document.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>catDelete(b.dataset.delcat));
     document.querySelectorAll('[data-catup]').forEach(b=>b.onclick=()=>{
@@ -2853,7 +2911,7 @@ function wire(){
   document.getElementById('export').onclick=exportJob;
   document.getElementById('import').onchange=importJob;
   document.getElementById('share').onclick=shareLink;
-  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;_workspaceOwnerId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;render();}};
+  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;_workspaceOwnerId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
   const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
   document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
@@ -3203,7 +3261,7 @@ async function loadSession(){
   render();
 }
 // react to auth changes (magic-link return, token refresh)
-if(sb){ sb.auth.onAuthStateChange((_e,_s)=>{ loadSession(); }); }
+if(sb){ sb.auth.onAuthStateChange((event,_s)=>{ if(event==='PASSWORD_RECOVERY'){ store.showResetPassword=true; render(); } else { loadSession(); } }); }
 loadSession();
 </script>
 </body>
