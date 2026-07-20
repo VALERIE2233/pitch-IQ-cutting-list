@@ -1328,6 +1328,46 @@ function importProductionItemsExcel(file){
   };
   reader.readAsArrayBuffer(file);
 }
+function wireMarkupOverlay(){
+  document.querySelectorAll('[data-markup]').forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();
+    const [target,encUrl]=b.dataset.markup.split('|');
+    openMarkup(target,decodeURIComponent(encUrl));
+  });
+  document.querySelectorAll('[data-marktool]').forEach(b=>b.onclick=()=>{store.markupTool=b.dataset.marktool;render();});
+  document.querySelectorAll('[data-markcolor]').forEach(b=>b.onclick=()=>{store.markupColor=b.dataset.markcolor;render();});
+  const mUndo=document.getElementById('markUndo');if(mUndo)mUndo.onclick=()=>{(store.markupStrokes||[]).pop();drawMarkupCanvas();};
+  const mClear=document.getElementById('markClear');if(mClear)mClear.onclick=()=>{if(confirm('Clear all markup on this page?')){store.markupStrokes=[];drawMarkupCanvas();}};
+  const mCancel=document.getElementById('markCancel');if(mCancel)mCancel.onclick=()=>{store.markupTarget=null;render();};
+  const mSave=document.getElementById('markSave');if(mSave)mSave.onclick=()=>saveMarkup();
+  const mcv=document.getElementById('markupCanvas');
+  if(mcv){
+    drawMarkupCanvas();
+    const pos=(e)=>{const r=mcv.getBoundingClientRect();const p=e.touches?e.touches[0]:e;return {x:(p.clientX-r.left)*(mcv.width/r.width),y:(p.clientY-r.top)*(mcv.height/r.height)};};
+    let drawing=false, cur=null;
+    const start=(e)=>{
+      e.preventDefault(); const p=pos(e);
+      if(store.markupTool==='text'){
+        const t=prompt('Text to add:'); if(t&&t.trim()){(store.markupStrokes||(store.markupStrokes=[])).push({type:'text',color:store.markupColor,x:p.x,y:p.y,text:t.trim()});drawMarkupCanvas();}
+        return;
+      }
+      drawing=true;
+      if(store.markupTool==='pen')cur={type:'pen',color:store.markupColor,points:[p]};
+      else cur={type:'line',color:store.markupColor,x1:p.x,y1:p.y,x2:p.x,y2:p.y};
+    };
+    const move=(e)=>{
+      if(!drawing)return; e.preventDefault(); const p=pos(e);
+      if(cur.type==='pen')cur.points.push(p); else {cur.x2=p.x;cur.y2=p.y;}
+      drawMarkupCanvas(); const ctx=mcv.getContext('2d'); drawStroke(ctx,cur);
+    };
+    const end=(e)=>{
+      if(!drawing)return; drawing=false;
+      (store.markupStrokes||(store.markupStrokes=[])).push(cur); cur=null; drawMarkupCanvas();
+    };
+    mcv.onmousedown=start; mcv.onmousemove=move; mcv.onmouseup=end; mcv.onmouseleave=end;
+    mcv.ontouchstart=start; mcv.ontouchmove=move; mcv.ontouchend=end;
+  }
+}
 function managerHTML(){
   if(!store.apprLoaded){loadApprovals();}
   const all=store.approvals||[];
@@ -1354,13 +1394,14 @@ function managerHTML(){
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='approvals')?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
     <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production" style="color:var(--blue)">🏭 PRODUCTION</button>
+    <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="color:var(--amber)">👷 SITE VISITS</button>
   </div>
   ${(!store.managerTab||store.managerTab==='approvals')?`<div class="body">
     <div class="hint" style="padding-top:14px">Review cutting lists and orders your estimators submit. Approve to release them to suppliers, or reject with a reason. Only orders from <strong>${store.account.company}</strong> appear here.</div>
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`:productionTabHTML()}
+  </div>`:store.managerTab==='production'?productionTabHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:10px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -1369,6 +1410,78 @@ function managerHTML(){
       <button class="pbtn" id="cancelApprove" style="width:100%;margin-top:4px">CANCEL</button>
     </div></div>`:''}`;}
 
+// ---- Manager's SITE VISITS tab: request drawings for review, see what's pending/reviewed ----
+function mgrSiteVisitsTabHTML(){
+  if(!store.siteVisitsLoaded){loadSiteVisits();}
+  const visits=store.siteVisits||[];
+  const rd=store.reqDraft||{};
+  return `<div class="body">
+    <div class="hint" style="padding-top:14px">Send a drawing to the site team for review, and see their site visits, measurements, and marked-up documents come back here.</div>
+    <div class="card" style="border-color:var(--amber)">
+      <div class="cardHead" style="color:var(--amber)"><span>➕ REQUEST SITE REVIEW (send a drawing)</span></div>
+      <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label class="field"><span class="fl">PROJECT</span><input class="fi" id="req_project" value="${(rd.project_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. La Mer SC22"></label>
+        <label class="field"><span class="fl">LOCATION / ZONE</span><input class="fi" id="req_location" value="${(rd.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall"></label>
+        <label class="field" style="grid-column:1/3"><span class="fl">NOTE FOR SITE ENGINEER</span><input class="fi" id="req_note" value="${(rd.note||'').replace(/"/g,'&quot;')}" placeholder="What do you need confirmed?"></label>
+        <div style="grid-column:1/3;display:flex;align-items:center;gap:10px">
+          ${rd.fileName?`<span style="font-size:12px;color:var(--green)">📎 ${rd.fileName}</span>`:''}
+          <label class="zadd" style="cursor:pointer">📄 Attach drawing<input type="file" id="req_file" style="display:none"></label>
+        </div>
+        <button class="add" id="req_save" style="grid-column:1/3" ${store.reqBusy?'disabled':''}>${store.reqBusy?'SENDING…':'📤 SEND FOR REVIEW'}</button>
+        ${store.reqMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.reqErr?'var(--red)':'var(--green)'}">${store.reqMsg}</div>`:''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="cardHead"><span>👷 SITE VISITS (${visits.length})</span></div>
+      ${visits.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Site Engineer</th><th>Sent for review</th><th style="color:var(--green)">Marked-up (received)</th><th></th></tr></thead><tbody>
+      ${visits.map(v=>{
+        const fAtts=Array.isArray(v.factory_attachments)?v.factory_attachments:[];
+        const mAtts=Array.isArray(v.marked_attachments)?v.marked_attachments:[];
+        return `<tr>
+          <td style="font-size:11px;white-space:nowrap">${(v.created_at||'').slice(0,10)}</td>
+          <td>${v.project_name||'—'}</td>
+          <td>${v.location_name||'—'}</td>
+          <td class="r">${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'}</td>
+          <td style="font-size:11px">${v.site_engineer_name||'—'}</td>
+          <td style="white-space:nowrap">${fAtts.length?fAtts.map(a=>`<div style="position:relative;display:inline-block;margin:1px">${attachCell(a.url,32)}<span style="position:absolute;bottom:-4px;right:-4px;font-size:10px" title="${a.status==='reviewed'?'Reviewed':'Pending'}">${a.status==='reviewed'?'✓':'⏳'}</span></div>`).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
+          <td style="white-space:nowrap">${mAtts.length?mAtts.map(a=>attachCell(a.url,32)).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
+          <td><button class="zadd" data-sendmore="${v.id}" style="font-size:10px;padding:4px 8px">📤 Send another</button></td>
+        </tr>`;}).join('')}
+      </tbody></table></div>`:'<div class="empty">No site visits yet.</div>'}
+    </div>
+  </div>${markupOverlay()}`;
+}
+// ---- Manager: create a new site-visit review request, or attach another drawing
+// to an existing one — the "factory sends a drawing" half of the loop. ----
+async function saveReviewRequest(){
+  const rd=store.reqDraft||{};
+  if(!(rd.project_name||'').trim()){store.reqMsg='Please enter a project name.';store.reqErr=true;render();return;}
+  if(!rd.fileUrl){store.reqMsg='Please attach a drawing first.';store.reqErr=true;render();return;}
+  store.reqBusy=true;store.reqMsg='';store.reqErr=false;render();
+  const row={
+    company_id:store.account.companyId, site_engineer_id:store.account.uid, site_engineer_name:'Unassigned',
+    project_name:(rd.project_name||'').trim(), location_name:(rd.location_name||'').trim(),
+    notes:(rd.note||'').trim(), status:'open',
+    factory_attachments:[{url:rd.fileUrl, note:(rd.note||'').trim(), sent_by:store.account.name||store.account.email, sent_at:new Date().toISOString(), status:'pending'}]
+  };
+  try{
+    const {data,error}=await sb.from('site_visits').insert(row).select().single();
+    if(error)throw error;
+    store.siteVisits=[data,...(store.siteVisits||[])];
+    store.reqDraft={}; store.reqMsg='Sent for review.'; store.reqErr=false;
+  }catch(e){store.reqMsg='Could not send: '+(e.message||'error');store.reqErr=true;}
+  store.reqBusy=false; render();
+}
+async function sendMoreAttachment(visitId,file){
+  try{
+    const url=await uploadSiteVisitPhoto(file);
+    const visit=(store.siteVisits||[]).find(v=>v.id===visitId); if(!visit)return;
+    const fAtts=[...(Array.isArray(visit.factory_attachments)?visit.factory_attachments:[]),
+      {url, note:'', sent_by:store.account.name||store.account.email, sent_at:new Date().toISOString(), status:'pending'}];
+    visit.factory_attachments=fAtts; render();
+    try{await sb.from('site_visits').update({factory_attachments:fAtts}).eq('id',visitId);}catch(ex){}
+  }catch(ex){alert('Could not send: '+(ex.message||'error'));}
+}
 // ---- PRODUCTION tab (Coordinator features) ----
 // ---- Stage D rollups: by Project, by Project▸Zone, by Team — same aggregation
 // logic as the Excel's Projects / Project▸Zone / Team sheets ----
@@ -1692,13 +1805,21 @@ function siteEngineerHTML(){
     </div>
     <div class="card">
       <div class="cardHead"><span>👷 SITE VISITS (${visits.length})</span></div>
-      ${visits.length? `<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Documents</th><th>Notes</th><th>Status</th></tr></thead><tbody>
-        ${visits.map(v=>{const phs=Array.isArray(v.photos)?v.photos:[];return `<tr>
+      ${visits.length? `<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Documents</th><th style="color:var(--blue)">From Factory</th><th>Notes</th><th>Status</th></tr></thead><tbody>
+        ${visits.map(v=>{const phs=Array.isArray(v.photos)?v.photos:[]; const fAtts=Array.isArray(v.factory_attachments)?v.factory_attachments:[];
+          const pending=fAtts.filter(a=>a.status!=='reviewed');
+          return `<tr>
           <td style="font-size:11px;white-space:nowrap">${(v.created_at||'').slice(0,10)}</td>
           <td>${v.project_name||'—'}</td>
           <td>${v.location_name||'—'}</td>
           <td class="r">${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'}</td>
           <td style="white-space:nowrap">${phs.length?phs.map(u=>attachCell(u,32,v.id)).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
+          <td style="white-space:nowrap">${fAtts.length?fAtts.map((a,i)=>{
+            const ext=(a.url.split('.').pop()||'').split('?')[0].toLowerCase();
+            const isPdf=ext==='pdf';
+            const reviewed=a.status==='reviewed';
+            return `<div style="position:relative;display:inline-block;margin:1px">${attachCell(a.url,32)}${!reviewed?`<button data-markup="factory:${v.id}:${i}|${encodeURIComponent(a.url)}" title="Mark up & send back" style="position:absolute;bottom:-6px;right:-6px;background:var(--amber);color:#000;border:none;border-radius:50%;width:20px;height:20px;font-size:10px;cursor:pointer">✏</button>`:`<span style="position:absolute;bottom:-4px;right:-4px;font-size:11px" title="Reviewed">✓</span>`}</div>`;
+          }).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}${pending.length?`<div style="font-size:9px;color:var(--amber);margin-top:2px">${pending.length} to mark up</div>`:''}</td>
           <td style="font-size:11px;max-width:160px">${v.notes||''}</td>
           <td><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${v.status==='open'?'var(--amber)':'var(--green)'};color:#000">${(v.status||'open').toUpperCase()}</span></td>
         </tr>`;}).join('')}
@@ -1777,10 +1898,23 @@ async function saveMarkup(){
     const blob=await new Promise(res=>cv.toBlob(res,'image/png'));
     const file=new File([blob],'marked-'+Date.now()+'.png',{type:'image/png'});
     const url=await uploadSiteVisitPhoto(file);
-    const [target]=[store.markupTarget];
+    const target=store.markupTarget;
     if(target==='draft'){
       if(!store.svDraft)store.svDraft={};
       store.svDraft.photos=[...(store.svDraft.photos||[]),url];
+    }else if(target.startsWith('factory:')){
+      // marking up a drawing the factory sent — save the result to marked_attachments
+      // and flag the source factory_attachment as reviewed, so both sides see progress.
+      const [,visitId,idxStr]=target.split(':'); const idx=+idxStr;
+      const visit=(store.siteVisits||[]).find(v=>v.id===visitId);
+      if(visit){
+        const fAtts=Array.isArray(visit.factory_attachments)?[...visit.factory_attachments]:[];
+        const source=fAtts[idx]; if(source)fAtts[idx]={...source,status:'reviewed'};
+        const mAtts=[...(Array.isArray(visit.marked_attachments)?visit.marked_attachments:[]),
+          {url, source_url:source?source.url:null, marked_by:store.account.name||store.account.email, marked_at:new Date().toISOString()}];
+        visit.factory_attachments=fAtts; visit.marked_attachments=mAtts;
+        try{await sb.from('site_visits').update({factory_attachments:fAtts,marked_attachments:mAtts}).eq('id',visitId);}catch(ex){}
+      }
     }else{
       const visit=(store.siteVisits||[]).find(v=>v.id===target);
       if(visit){
@@ -2611,48 +2745,11 @@ function wire(){
       ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out';
       ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px">`;ov.onclick=()=>ov.remove();document.body.appendChild(ov);
     });
-    document.querySelectorAll('[data-markup]').forEach(b=>b.onclick=(e)=>{
-      e.stopPropagation();
-      const [target,encUrl]=b.dataset.markup.split('|');
-      openMarkup(target,decodeURIComponent(encUrl));
-    });
-    document.querySelectorAll('[data-marktool]').forEach(b=>b.onclick=()=>{store.markupTool=b.dataset.marktool;render();});
-    document.querySelectorAll('[data-markcolor]').forEach(b=>b.onclick=()=>{store.markupColor=b.dataset.markcolor;render();});
-    const mUndo=document.getElementById('markUndo');if(mUndo)mUndo.onclick=()=>{(store.markupStrokes||[]).pop();drawMarkupCanvas();};
-    const mClear=document.getElementById('markClear');if(mClear)mClear.onclick=()=>{if(confirm('Clear all markup on this page?')){store.markupStrokes=[];drawMarkupCanvas();}};
-    const mCancel=document.getElementById('markCancel');if(mCancel)mCancel.onclick=()=>{store.markupTarget=null;render();};
-    const mSave=document.getElementById('markSave');if(mSave)mSave.onclick=()=>saveMarkup();
-    const mcv=document.getElementById('markupCanvas');
-    if(mcv){
-      drawMarkupCanvas();
-      const pos=(e)=>{const r=mcv.getBoundingClientRect();const p=e.touches?e.touches[0]:e;return {x:(p.clientX-r.left)*(mcv.width/r.width),y:(p.clientY-r.top)*(mcv.height/r.height)};};
-      let drawing=false, cur=null;
-      const start=(e)=>{
-        e.preventDefault(); const p=pos(e);
-        if(store.markupTool==='text'){
-          const t=prompt('Text to add:'); if(t&&t.trim()){(store.markupStrokes||(store.markupStrokes=[])).push({type:'text',color:store.markupColor,x:p.x,y:p.y,text:t.trim()});drawMarkupCanvas();}
-          return;
-        }
-        drawing=true;
-        if(store.markupTool==='pen')cur={type:'pen',color:store.markupColor,points:[p]};
-        else cur={type:'line',color:store.markupColor,x1:p.x,y1:p.y,x2:p.x,y2:p.y};
-      };
-      const move=(e)=>{
-        if(!drawing)return; e.preventDefault(); const p=pos(e);
-        if(cur.type==='pen')cur.points.push(p); else {cur.x2=p.x;cur.y2=p.y;}
-        drawMarkupCanvas(); const ctx=mcv.getContext('2d'); drawStroke(ctx,cur);
-      };
-      const end=(e)=>{
-        if(!drawing)return; drawing=false;
-        (store.markupStrokes||(store.markupStrokes=[])).push(cur); cur=null; drawMarkupCanvas();
-      };
-      mcv.onmousedown=start; mcv.onmousemove=move; mcv.onmouseup=end; mcv.onmouseleave=end;
-      mcv.ontouchstart=start; mcv.ontouchmove=move; mcv.ontouchend=end;
-    }
+    wireMarkupOverlay();
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
@@ -2687,6 +2784,30 @@ function wire(){
     })();
     if(store.managerTab==='production' && (!store.prodView||store.prodView==='dashboard')){renderProdCharts(store.prodItems||[]);}
     const pix=document.getElementById('prodImportXlsx');if(pix)pix.onchange=(e)=>{const f=e.target.files[0];if(f)importProductionItemsExcel(f);e.target.value='';};
+    // Site Visits tab (factory-sends-drawing-for-review loop)
+    if(!store.reqDraft)store.reqDraft={};
+    const rkeep=()=>{const g=id=>(document.getElementById(id)||{}).value;Object.assign(store.reqDraft,{project_name:g('req_project'),location_name:g('req_location'),note:g('req_note')});};
+    ['req_project','req_location','req_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=rkeep;});
+    const rf=document.getElementById('req_file');if(rf)rf.onchange=async(e)=>{
+      const f=e.target.files[0];if(!f)return; rkeep();
+      store.reqBusy=true;render();
+      try{const url=await uploadSiteVisitPhoto(f);store.reqDraft.fileUrl=url;store.reqDraft.fileName=f.name;store.reqMsg='';store.reqErr=false;}
+      catch(ex){store.reqMsg='Upload failed: '+(ex.message||'error');store.reqErr=true;}
+      store.reqBusy=false;render();
+    };
+    const rsave=document.getElementById('req_save');if(rsave)rsave.onclick=()=>{rkeep();saveReviewRequest();};
+    document.querySelectorAll('[data-sendmore]').forEach(b=>b.onclick=()=>{
+      const visitId=b.dataset.sendmore;
+      const inp=document.createElement('input'); inp.type='file'; inp.style.display='none';
+      inp.onchange=()=>{if(inp.files[0])sendMoreAttachment(visitId,inp.files[0]);};
+      document.body.appendChild(inp); inp.click(); setTimeout(()=>inp.remove(),1000);
+    });
+    document.querySelectorAll('[data-bigphoto]').forEach(img=>img.onclick=()=>{
+      const url=img.dataset.bigphoto;const ov=document.createElement('div');
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out';
+      ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px">`;ov.onclick=()=>ov.remove();document.body.appendChild(ov);
+    });
+    wireMarkupOverlay();
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
