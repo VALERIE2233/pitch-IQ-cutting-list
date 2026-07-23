@@ -328,7 +328,7 @@ async function cloudSave(){
 async function loadProjects(){
   if(!sb||!store.account)return;
   try{
-    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id').order('updated_at',{ascending:false});
+    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id,open_for_site_visit').order('updated_at',{ascending:false});
     if(store.account.companyId){
       q=q.or(`owner_id.eq.${store.account.uid},company_id.eq.${store.account.companyId}`);
     }else{
@@ -338,6 +338,22 @@ async function loadProjects(){
     store.projects=data||[];
   }catch(e){store.projects=[];}
   store.projectsLoaded=true;render();
+}
+async function toggleProjectSiteVisit(id,val){
+  const p=(store.projects||[]).find(x=>x.id===id); if(!p)return;
+  p.open_for_site_visit=val; render();
+  try{await sb.from('jobs').update({open_for_site_visit:val}).eq('id',id);}catch(ex){}
+}
+// fetch a specific project's cut list and list the distinct Item names used in it —
+// so a site engineer can only pick a real item, not type something arbitrary.
+async function loadProjectItems(projectId){
+  if(!sb||!projectId)return [];
+  try{
+    const {data}=await sb.from('jobs').select('data').eq('id',projectId).maybeSingle();
+    const rows=(data&&data.data&&Array.isArray(data.data.sheetRows))?data.data.sheetRows:[];
+    const names=[...new Set(rows.map(r=>itemName(r)).filter(Boolean))];
+    return names;
+  }catch(e){return [];}
 }
 // open a specific project by id
 async function openProject(id){
@@ -1446,10 +1462,20 @@ function managerHTML(){
 // ---- Manager's SITE VISITS tab: request drawings for review, see what's pending/reviewed ----
 function mgrSiteVisitsTabHTML(){
   if(!store.siteVisitsLoaded){loadSiteVisits();}
+  if(!store.projectsLoaded){loadProjects();}
   const visits=store.siteVisits||[];
   const rd=store.reqDraft||{};
+  const projects=store.projects||[];
   return `<div class="body">
     <div class="hint" style="padding-top:14px">Send a drawing to the site team for review, and see their site visits, measurements, and marked-up documents come back here.</div>
+    <div class="card">
+      <div class="cardHead"><span>🔓 PROJECTS OPEN FOR SITE VISITS</span></div>
+      <div class="hint" style="padding:0 12px 8px">Only projects you open here can have site visits logged against them — this keeps site measurements tied to a real project.</div>
+      ${projects.length?`<div class="scroll"><table><thead><tr><th>Project</th><th>Last updated</th><th></th></tr></thead><tbody>
+      ${projects.map(p=>`<tr><td>${p.name}</td><td style="font-size:11px;color:var(--mut)">${new Date(p.updated_at).toLocaleDateString()}</td>
+        <td><button class="zadd" data-toggleopen="${p.id}" style="font-size:10px;padding:4px 10px;${p.open_for_site_visit?'background:var(--green);color:#000;border-color:var(--green)':''}">${p.open_for_site_visit?'🔓 OPEN':'🔒 CLOSED'}</button></td></tr>`).join('')}
+      </tbody></table></div>`:'<div class="empty">No projects yet — ask your contractor to save one.</div>'}
+    </div>
     <div class="card" style="border-color:var(--amber)">
       <div class="cardHead" style="color:var(--amber)"><span>➕ REQUEST SITE REVIEW (send a drawing)</span></div>
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1819,8 +1845,11 @@ async function catDelete(id){
 }
 function siteEngineerHTML(){
   if(!store.siteVisitsLoaded){loadSiteVisits();}
+  if(!store.projectsLoaded){loadProjects();}
   const visits=store.siteVisits||[];
   const d=store.svDraft||{};
+  const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
+  const itemOptions=store.svItemOptions||[];
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · SITE ENGINEER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="body">
@@ -1828,8 +1857,20 @@ function siteEngineerHTML(){
     <div class="card" style="border-color:var(--blue)">
       <div class="cardHead" style="color:var(--blue)"><span>➕ NEW SITE VISIT</span></div>
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <label class="field" style="grid-column:1/3"><span class="fl">PROJECT / JOB NAME</span><input class="fi" id="sv_project" value="${(d.project_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. 7th Floor Office Fit-Out"></label>
-        <label class="field" style="grid-column:1/3"><span class="fl">LOCATION / ROOM</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
+        <label class="field" style="grid-column:1/3"><span class="fl">PROJECT</span>
+          <select class="fi" id="sv_project">
+            <option value="">— pick a project —</option>
+            ${openProjects.map(p=>`<option value="${p.id}" ${d.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}
+          </select>
+          ${!openProjects.length?'<div class="hint" style="padding:4px 0 0;color:var(--amber)">No projects are open for site visits yet — ask your manager to open one.</div>':''}
+        </label>
+        <label class="field" style="grid-column:1/3"><span class="fl">ITEM MEASURED</span>
+          <select class="fi" id="sv_item" ${!d.project_id?'disabled':''}>
+            <option value="">${d.project_id?'— pick an item —':'pick a project first'}</option>
+            ${itemOptions.map(n=>`<option value="${n}" ${d.item_name===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </label>
+        <label class="field" style="grid-column:1/3"><span class="fl">LOCATION / NOTES ON WHERE</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
         <label class="field"><span class="fl">SITE WIDTH (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
         <label class="field"><span class="fl">SITE HEIGHT (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
         <label class="field"><span class="fl">SITE DEPTH (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
@@ -2011,25 +2052,29 @@ async function uploadSiteVisitPhoto(file){
 }
 async function saveSiteVisit(){
   const d=store.svDraft||{};
-  const project=(document.getElementById('sv_project')||{}).value||'';
+  const projectId=(document.getElementById('sv_project')||{}).value||'';
+  const itemName=(document.getElementById('sv_item')||{}).value||'';
   const location=(document.getElementById('sv_location')||{}).value||'';
   const w=+(document.getElementById('sv_w')||{}).value||null;
   const h=+(document.getElementById('sv_h')||{}).value||null;
   const dep=+(document.getElementById('sv_d')||{}).value||null;
   const notes=(document.getElementById('sv_notes')||{}).value||'';
-  if(!project.trim()){store.svMsg='Please enter a project name.';store.svErr=true;render();return;}
+  if(!projectId){store.svMsg='Please pick a project (ask your manager to open one for site visits if none show up).';store.svErr=true;render();return;}
+  if(!itemName){store.svMsg='Please pick which item you measured.';store.svErr=true;render();return;}
+  const proj=(store.projects||[]).find(p=>p.id===projectId);
   store.svBusy=true;store.svMsg='';store.svErr=false;render();
   const row={
     company_id:store.account.companyId, site_engineer_id:store.account.uid,
     site_engineer_name:store.account.name||store.account.email,
-    project_name:project, location_name:location, site_w:w, site_h:h, site_d:dep,
+    project_id:projectId, project_name:proj?proj.name:'', item_name:itemName,
+    location_name:location, site_w:w, site_h:h, site_d:dep,
     notes:notes, photos:d.photos||[], status:'open'
   };
   try{
     const {data,error}=await sb.from('site_visits').insert(row).select().single();
     if(error)throw error;
     store.siteVisits=[data,...(store.siteVisits||[])];
-    store.svDraft={}; store.svBusy=false; store.svMsg='Site visit saved.'; store.svErr=false;
+    store.svDraft={}; store.svItemOptions=[]; store.svBusy=false; store.svMsg='Site visit saved.'; store.svErr=false;
     render();
   }catch(e){store.svBusy=false;store.svMsg='Could not save: '+(e.message||'error');store.svErr=true;render();}
 }
@@ -2173,28 +2218,31 @@ async function forwardToContractor(visitId,idx){
 function sitePullOverlay(){
   if(!store.showSitePull)return '';
   if(!store.siteVisitsLoaded){loadSiteVisits();}
-  const visits=store.siteVisits||[];
-  const curZone=store.zoneFilter;
-  const zoneName=curZone==='all'?null:(store.zones.find(z=>z.id===+curZone)||{}).name;
+  const allVisits=store.siteVisits||[];
+  // only measurements taken for THIS saved project — and only ones tied to a
+  // specific item, so a contractor never accidentally pulls in someone else's numbers.
+  const visits=_workspaceId?allVisits.filter(v=>v.project_id===_workspaceId && v.item_name):[];
   return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:18px">
       <div style="display:flex;align-items:center;margin-bottom:10px"><strong style="color:var(--amber);font-size:14px">📍 PULL SITE MEASUREMENTS</strong><button id="sitePullClose" class="zadd" style="margin-left:auto;padding:4px 10px">✕ CLOSE</button></div>
-      ${zoneName?`<div class="hint" style="padding:0 0 10px">Applying to every panel in zone <strong style="color:#fff">${zoneName}</strong>.</div>`
-        :`<div class="hint" style="padding:0 0 10px;color:var(--amber)">⚠ Select a specific ZONE at the top of the Sheet tab first (not "All zones") — measurements apply to every panel in the zone you pick.</div>`}
+      ${!_workspaceId?`<div class="hint" style="padding:0 0 10px;color:var(--amber)">⚠ Save this project first — measurements are matched to your saved project.</div>`
+        :`<div class="hint" style="padding:0 0 10px">Only items your site engineer has actually measured for this project show up here — each one applies to just that item, wherever it appears.</div>`}
       ${visits.length?`<div style="display:flex;flex-direction:column;gap:6px">
-        ${visits.map(v=>`<button data-pullvisit="${v.id}" ${zoneName?'':'disabled'} style="text-align:left;padding:10px;border:1px solid var(--line);border-radius:5px;background:var(--steel);color:#fff;cursor:${zoneName?'pointer':'not-allowed'};opacity:${zoneName?'1':'.5'}">
-          <div style="font-weight:700">${v.project_name||'—'} — ${v.location_name||'—'}</div>
-          <div style="font-size:11px;color:var(--mut)">Site ${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'} · logged by ${v.site_engineer_name||'—'} · ${(v.created_at||'').slice(0,10)}</div>
+        ${visits.map(v=>`<button data-pullvisit="${v.id}" style="text-align:left;padding:10px;border:1px solid var(--line);border-radius:5px;background:var(--steel);color:#fff;cursor:pointer">
+          <div style="font-weight:700">${v.item_name}</div>
+          <div style="font-size:11px;color:var(--mut)">Site ${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'} · ${v.location_name?v.location_name+' · ':''}logged by ${v.site_engineer_name||'—'} · ${(v.created_at||'').slice(0,10)}</div>
         </button>`).join('')}
-      </div>`:'<div class="empty">No site visits recorded yet.</div>'}
+      </div>`:'<div class="empty">No measured items for this project yet.</div>'}
     </div></div>`;
 }
 async function applySiteVisitToZone(visitId){
-  const v=(store.siteVisits||[]).find(x=>x.id===visitId); if(!v)return;
-  if(store.zoneFilter==='all')return; // guarded in UI too, but double-check
-  const zid=+store.zoneFilter;
-  store.sheetRows.forEach(r=>{ if(r.zone===zid){ r.siteW=+v.site_w||r.siteW; r.siteH=+v.site_h||r.siteH; r.siteD=+v.site_d||r.siteD; } });
+  const v=(store.siteVisits||[]).find(x=>x.id===visitId); if(!v||!v.item_name)return;
+  let applied=0;
+  store.sheetRows.forEach(r=>{
+    if(itemName(r)===v.item_name){ r.siteW=+v.site_w||r.siteW; r.siteH=+v.site_h||r.siteH; r.siteD=+v.site_d||r.siteD; applied++; }
+  });
   store.showSitePull=false;
+  if(!applied)alert(`No panel rows found with Item "${v.item_name}" — check the Item field matches on the Sheet tab.`);
   render();
 }
 function exportPickerOverlay(){
@@ -2856,7 +2904,12 @@ function wire(){
     const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
-    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_name=g('sv_project');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
+    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
+    const svProj=document.getElementById('sv_project');if(svProj)svProj.onchange=async()=>{
+      keep(); store.svDraft.item_name=''; store.svItemOptions=[]; render();
+      const items=await loadProjectItems(svProj.value);
+      store.svItemOptions=items; render();
+    };
     const handlePhoto=async(e)=>{
       const f=e.target.files[0];if(!f)return;
       keep();
@@ -2934,6 +2987,10 @@ function wire(){
     document.querySelectorAll('[data-forward]').forEach(b=>b.onclick=()=>{
       const [visitId,idx]=b.dataset.forward.split(':');
       forwardToContractor(visitId,+idx);
+    });
+    document.querySelectorAll('[data-toggleopen]').forEach(b=>b.onclick=()=>{
+      const p=(store.projects||[]).find(x=>x.id===b.dataset.toggleopen);
+      if(p)toggleProjectSiteVisit(p.id,!p.open_for_site_visit);
     });
     document.querySelectorAll('[data-sendmore]').forEach(b=>b.onclick=()=>{
       const visitId=b.dataset.sendmore;
