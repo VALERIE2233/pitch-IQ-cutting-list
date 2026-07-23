@@ -996,16 +996,19 @@ function autoBankSheetOffcuts(res){
 
 // lip on an edge reduces the perpendicular dimension; perimeter trim adds oversize on all 4 edges
 // site-fit check: does the finished panel fit the site opening?
-// uses the panel's own siteW/siteH, OR the zone's site limit if set.
+// uses the panel's own siteW/siteH/siteD, OR the zone's site limit if set.
+// note: depth is stored and shown for reference (matches the site engineer's
+// W×H×D measurement) but isn't fit-checked — a flat panel's own W×H doesn't map
+// to a single "depth" dimension the way a 3D site opening does.
 function siteLimitFor(r){
-  let sw=+r.siteW||0, sh=+r.siteH||0;
+  let sw=+r.siteW||0, sh=+r.siteH||0, sd=+r.siteD||0;
   const zl=(store.zoneSiteLimits||{})[r.zone];
-  if(zl){ if(!sw&&zl.w)sw=zl.w; if(!sh&&zl.h)sh=zl.h; }
-  return {sw,sh};
+  if(zl){ if(!sw&&zl.w)sw=zl.w; if(!sh&&zl.h)sh=zl.h; if(!sd&&zl.d)sd=zl.d; }
+  return {sw,sh,sd};
 }
 function fitIndicator(r){
-  const {sw,sh}=siteLimitFor(r);
-  if(!sw&&!sh)return '<span style="color:var(--mut);font-size:10px">—</span>';
+  const {sw,sh,sd}=siteLimitFor(r);
+  if(!sw&&!sh&&!sd)return '<span style="color:var(--mut);font-size:10px">—</span>';
   const tol=+store.siteTol||0; // optional clearance: item should be this much smaller
   const overW = sw>0 && (r.w > sw - tol);
   const overH = sh>0 && (r.h > sh - tol);
@@ -2132,9 +2135,38 @@ function appHTML(){
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
   </div></div>
   <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,order:orderHTML}[store.tab])()}</div>
-  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}`;}
+  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}`;}
 
 // export picker: choose which sheets go into the Excel
+// pull real site measurements (from the site engineer's Site Visits) straight into
+// the Sheet tab, instead of retyping numbers someone already measured on site.
+function sitePullOverlay(){
+  if(!store.showSitePull)return '';
+  if(!store.siteVisitsLoaded){loadSiteVisits();}
+  const visits=store.siteVisits||[];
+  const curZone=store.zoneFilter;
+  const zoneName=curZone==='all'?null:(store.zones.find(z=>z.id===+curZone)||{}).name;
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px">
+    <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:18px">
+      <div style="display:flex;align-items:center;margin-bottom:10px"><strong style="color:var(--amber);font-size:14px">📍 PULL SITE MEASUREMENTS</strong><button id="sitePullClose" class="zadd" style="margin-left:auto;padding:4px 10px">✕ CLOSE</button></div>
+      ${zoneName?`<div class="hint" style="padding:0 0 10px">Applying to every panel in zone <strong style="color:#fff">${zoneName}</strong>.</div>`
+        :`<div class="hint" style="padding:0 0 10px;color:var(--amber)">⚠ Select a specific ZONE at the top of the Sheet tab first (not "All zones") — measurements apply to every panel in the zone you pick.</div>`}
+      ${visits.length?`<div style="display:flex;flex-direction:column;gap:6px">
+        ${visits.map(v=>`<button data-pullvisit="${v.id}" ${zoneName?'':'disabled'} style="text-align:left;padding:10px;border:1px solid var(--line);border-radius:5px;background:var(--steel);color:#fff;cursor:${zoneName?'pointer':'not-allowed'};opacity:${zoneName?'1':'.5'}">
+          <div style="font-weight:700">${v.project_name||'—'} — ${v.location_name||'—'}</div>
+          <div style="font-size:11px;color:var(--mut)">Site ${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'} · logged by ${v.site_engineer_name||'—'} · ${(v.created_at||'').slice(0,10)}</div>
+        </button>`).join('')}
+      </div>`:'<div class="empty">No site visits recorded yet.</div>'}
+    </div></div>`;
+}
+async function applySiteVisitToZone(visitId){
+  const v=(store.siteVisits||[]).find(x=>x.id===visitId); if(!v)return;
+  if(store.zoneFilter==='all')return; // guarded in UI too, but double-check
+  const zid=+store.zoneFilter;
+  store.sheetRows.forEach(r=>{ if(r.zone===zid){ r.siteW=+v.site_w||r.siteW; r.siteH=+v.site_h||r.siteH; r.siteD=+v.site_d||r.siteD; } });
+  store.showSitePull=false;
+  render();
+}
 function exportPickerOverlay(){
   if(!store.showExportPicker)return '';
   const opts=[
@@ -2316,14 +2348,16 @@ function sheetHTML(){
     <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label>
     <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label>
     <label class="field"><span class="fl">SITE CLEARANCE (${u()})</span><input class="fi" type="number" id="siteTol" value="${fmt(store.siteTol||0)}" title="Item must be this much smaller than the site opening to fit/install — warns if it's not"></label>
-    <label class="field" style="justify-content:center"><span class="fl">REUSE OFFCUTS</span><button class="zadd" id="reuseToggle" style="padding:8px 12px;${store.reuseSheetOffcuts?'background:var(--green);color:#000;border-color:var(--green)':''}">${store.reuseSheetOffcuts?'✓ ON':'OFF'}</button></label></div>
+    <label class="field" style="justify-content:center"><span class="fl">REUSE OFFCUTS</span><button class="zadd" id="reuseToggle" style="padding:8px 12px;${store.reuseSheetOffcuts?'background:var(--green);color:#000;border-color:var(--green)':''}">${store.reuseSheetOffcuts?'✓ ON':'OFF'}</button></label>
+    <label class="field" style="justify-content:center"><span class="fl">SITE VISITS</span><button class="zadd" id="pullSiteBtn" style="padding:8px 12px;border-color:var(--amber);color:var(--amber)">📍 PULL MEASUREMENTS</button></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
-    <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Site W</th><th class="r">Site H</th><th>Fit</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th>Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
+    <div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th>Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r">Site W</th><th class="r">Site H</th><th class="r">Site D</th><th>Fit</th><th class="r">Lip thk</th><th>Lip edge</th><th>Lip code</th><th>Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
     ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.partOther,r.id)}</td><td style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
       <td class="r"><input class="num numS" type="number" value="${r.siteW?fmt(r.siteW):''}" data-sheet="${r.id}" data-k="siteW" placeholder="—" title="Site opening width"></td>
       <td class="r"><input class="num numS" type="number" value="${r.siteH?fmt(r.siteH):''}" data-sheet="${r.id}" data-k="siteH" placeholder="—" title="Site opening height"></td>
+      <td class="r"><input class="num numS" type="number" value="${r.siteD?fmt(r.siteD):''}" data-sheet="${r.id}" data-k="siteD" placeholder="—" title="Site opening depth (reference only)"></td>
       <td>${fitIndicator(r)}</td>
       <td class="r">${lipSel(r.lip,r.id)}</td><td>${edgeSel(r.edge,r.id)}</td>
       <td><input class="cell" style="width:90px" value="${r.lipCode||''}" data-sheet="${r.id}" data-k="lipCode" placeholder="e.g. LIP-OAK"></td>
@@ -2925,7 +2959,7 @@ function wire(){
   document.getElementById('export').onclick=exportJob;
   document.getElementById('import').onchange=importJob;
   document.getElementById('share').onclick=shareLink;
-  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;_workspaceOwnerId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
+  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;_workspaceOwnerId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.siteVisitsLoaded=false;store.siteVisits=[];store.showSitePull=false;render();}};
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
   const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
   document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
@@ -2939,6 +2973,9 @@ function wire(){
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
   const rt=document.getElementById('reuseToggle');if(rt)rt.onclick=()=>{store.reuseSheetOffcuts=!store.reuseSheetOffcuts;render();};
+  const psb=document.getElementById('pullSiteBtn');if(psb)psb.onclick=()=>{store.showSitePull=true;render();};
+  const spClose=document.getElementById('sitePullClose');if(spClose)spClose.onclick=()=>{store.showSitePull=false;render();};
+  document.querySelectorAll('[data-pullvisit]').forEach(b=>b.onclick=()=>{if(!b.disabled)applySiteVisitToZone(b.dataset.pullvisit);});
   const arb=document.getElementById('accRulesBtn');if(arb)arb.onclick=()=>{store.showAccRules=true;render();};
   document.querySelectorAll('[data-accpick]').forEach(sel=>sel.onchange=()=>{
     if(!store.accSelections)store.accSelections={};
