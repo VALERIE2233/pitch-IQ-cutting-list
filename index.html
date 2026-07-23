@@ -1477,7 +1477,10 @@ function mgrSiteVisitsTabHTML(){
           <td class="r">${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'}</td>
           <td style="font-size:11px">${v.site_engineer_name||'—'}</td>
           <td style="white-space:nowrap">${fAtts.length?fAtts.map((a,i)=>`<div style="position:relative;display:inline-block;margin:1px">${attachCell(a.url,32)}<span style="position:absolute;bottom:-4px;right:-4px;font-size:10px" title="${a.status==='reviewed'?'Reviewed':'Pending'}">${a.status==='reviewed'?'✓':'⏳'}</span>${a.status!=='reviewed'?`<button data-cancelsend="${v.id}:${i}" title="Cancel this send" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:1">✕</button>`:''}</div>`).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
-          <td style="white-space:nowrap">${mAtts.length?mAtts.map(a=>attachCell(a.url,32)).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
+          <td style="white-space:nowrap">${mAtts.length?mAtts.map((a,i)=>{
+            const already=(Array.isArray(v.forwarded_attachments)?v.forwarded_attachments:[]).some(f=>f.url===a.url);
+            return `<div style="position:relative;display:inline-block;margin:1px">${attachCell(a.url,32)}${already?`<span style="position:absolute;bottom:-4px;right:-4px;font-size:11px" title="Forwarded to contractor">➡✓</span>`:`<button data-forward="${v.id}:${i}" title="Forward to contractor" style="position:absolute;bottom:-6px;right:-6px;background:var(--amber);color:#000;border:none;border-radius:50%;width:20px;height:20px;font-size:10px;cursor:pointer">➡</button>`}</div>`;
+          }).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
           <td><button class="zadd" data-sendmore="${v.id}" style="font-size:10px;padding:4px 8px">📤 Send another</button></td>
         </tr>`;}).join('')}
       </tbody></table></div>`:'<div class="empty">No site visits yet.</div>'}
@@ -2132,13 +2135,40 @@ function appHTML(){
     <button class="tab ${store.tab==='bank'?'on':''}" data-tab="bank">♻ OFFCUT BANK</button>
     <button class="tab ${store.tab==='prices'?'on':''}" data-tab="prices">PRICE BOOK</button>
     <button class="tab ${store.tab==='catalogue'?'on':''}" data-tab="catalogue" style="color:var(--blue)">⊕ CATALOGUE</button>
+    <button class="tab ${store.tab==='sitedrawings'?'on':''}" data-tab="sitedrawings" style="color:var(--amber)">📐 SITE DRAWINGS</button>
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
   </div></div>
-  <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,order:orderHTML}[store.tab])()}</div>
+  <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab])()}</div>
   <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}`;}
 
 // export picker: choose which sheets go into the Excel
-// pull real site measurements (from the site engineer's Site Visits) straight into
+// ---- Contractor: SITE DRAWINGS tab — marked-up drawings the manager forwarded on ----
+function siteDrawingsHTML(){
+  if(!store.siteVisitsLoaded){loadSiteVisits();}
+  const visits=(store.siteVisits||[]).filter(v=>Array.isArray(v.forwarded_attachments)&&v.forwarded_attachments.length);
+  return `<div class="card">
+    <div class="cardHead"><span>📐 SITE DRAWINGS (${visits.length})</span><button class="zadd" id="sdRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
+    <div class="hint" style="padding:12px 12px 0">Marked-up drawings the manager has forwarded from the site engineer, with the corrections and dimensions from their site visit.</div>
+    ${visits.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Marked-up drawing</th></tr></thead><tbody>
+    ${visits.map(v=>`<tr>
+      <td style="font-size:11px;white-space:nowrap">${(v.created_at||'').slice(0,10)}</td>
+      <td>${v.project_name||'—'}</td>
+      <td>${v.location_name||'—'}</td>
+      <td class="r">${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'}</td>
+      <td style="white-space:nowrap">${v.forwarded_attachments.map(a=>attachCell(a.url,44)).join('')}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">No drawings have been forwarded to you yet.</div>'}
+  </div>`;
+}
+async function forwardToContractor(visitId,idx){
+  const visit=(store.siteVisits||[]).find(v=>v.id===visitId); if(!visit)return;
+  const mAtts=Array.isArray(visit.marked_attachments)?visit.marked_attachments:[];
+  const src=mAtts[idx]; if(!src)return;
+  const fAtts=[...(Array.isArray(visit.forwarded_attachments)?visit.forwarded_attachments:[]),
+    {url:src.url, forwarded_by:store.account.name||store.account.email, forwarded_at:new Date().toISOString()}];
+  visit.forwarded_attachments=fAtts; render();
+  try{await sb.from('site_visits').update({forwarded_attachments:fAtts}).eq('id',visitId);}catch(ex){}
+}
 // the Sheet tab, instead of retyping numbers someone already measured on site.
 function sitePullOverlay(){
   if(!store.showSitePull)return '';
@@ -2901,6 +2931,10 @@ function wire(){
       const [visitId,idx]=b.dataset.cancelsend.split(':');
       cancelSentAttachment(visitId,+idx);
     });
+    document.querySelectorAll('[data-forward]').forEach(b=>b.onclick=()=>{
+      const [visitId,idx]=b.dataset.forward.split(':');
+      forwardToContractor(visitId,+idx);
+    });
     document.querySelectorAll('[data-sendmore]').forEach(b=>b.onclick=()=>{
       const visitId=b.dataset.sendmore;
       const inp=document.createElement('input'); inp.type='file'; inp.style.display='none';
@@ -2976,6 +3010,7 @@ function wire(){
   const psb=document.getElementById('pullSiteBtn');if(psb)psb.onclick=()=>{store.showSitePull=true;render();};
   const spClose=document.getElementById('sitePullClose');if(spClose)spClose.onclick=()=>{store.showSitePull=false;render();};
   document.querySelectorAll('[data-pullvisit]').forEach(b=>b.onclick=()=>{if(!b.disabled)applySiteVisitToZone(b.dataset.pullvisit);});
+  const sdr=document.getElementById('sdRefresh');if(sdr)sdr.onclick=()=>{store.siteVisitsLoaded=false;loadSiteVisits();};
   const arb=document.getElementById('accRulesBtn');if(arb)arb.onclick=()=>{store.showAccRules=true;render();};
   document.querySelectorAll('[data-accpick]').forEach(sel=>sel.onchange=()=>{
     if(!store.accSelections)store.accSelections={};
