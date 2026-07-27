@@ -596,6 +596,72 @@ function threadPanel(order){
 }
 
 // Contractor submits an order (one supplier or all) for manager approval
+// ---- Procurement requests: an alternate path alongside the direct order flow —
+// Contractor -> Procurement (reviews/edits) -> Contractor confirms -> (Pass 2: Manager
+// approval -> LPO to supplier -> supplier response -> Manager final approval). ----
+async function loadProcurementRequests(){
+  store.procReqLoaded=true;
+  if(!sb||!store.account){store.procReqs=[];render();return;}
+  try{const {data}=await sb.from('procurement_requests').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});store.procReqs=data||[];}
+  catch(e){store.procReqs=[];}
+  render();
+}
+async function submitToProcurement(items,total){
+  if(!items.length){alert('Nothing to send — add items to your cut list first.');return;}
+  if(!_workspaceId){alert('Save this project first.');return;}
+  const row={
+    company_id:store.account.companyId, project_id:_workspaceId, project_name:store.projectName||'Untitled project',
+    contractor_id:store.account.uid, contractor_name:store.account.name||store.account.email,
+    items, currency:store.currency, total, status:'submitted'
+  };
+  try{
+    const {error}=await sb.from('procurement_requests').insert(row);
+    if(error){alert('Could not send: '+error.message);return;}
+    alert('✓ Sent to Procurement for review.');
+    store.procReqLoaded=false; loadProcurementRequests();
+  }catch(e){alert('Could not send: '+(e.message||'error'));}
+}
+async function saveProcurementEdit(items){
+  const r=(store.procReqs||[]).find(x=>x.id===store.procReqOpenId); if(!r)return;
+  r.items_edited=items; render();
+  try{await sb.from('procurement_requests').update({items_edited:items,updated_at:new Date().toISOString()}).eq('id',r.id);}catch(ex){}
+}
+async function sendToContractorForConfirm(reqId){
+  const r=(store.procReqs||[]).find(x=>x.id===reqId); if(!r)return;
+  const patch={status:'sent_to_contractor', procurement_id:store.account.uid, procurement_name:store.account.name||store.account.email, updated_at:new Date().toISOString()};
+  Object.assign(r,patch); render();
+  try{await sb.from('procurement_requests').update(patch).eq('id',reqId);}catch(ex){}
+}
+async function confirmProcurementRequest(reqId){
+  if(!confirm('Confirm this version? It will move forward for manager approval.'))return;
+  const r=(store.procReqs||[]).find(x=>x.id===reqId); if(!r)return;
+  const patch={contractor_confirmed:true, contractor_confirmed_at:new Date().toISOString(), status:'contractor_confirmed'};
+  Object.assign(r,patch); render();
+  try{await sb.from('procurement_requests').update(patch).eq('id',reqId);}catch(ex){}
+}
+// printable view of a procurement request's items — same browser-print-to-PDF pattern
+// already used for the approval certificate elsewhere in the app.
+function printProcurementRequest(req){
+  const items=req.items_edited||req.items||[];
+  const rows=items.map(it=>`<tr><td>${it.item||''}</td><td class="r">${it.qty||''}</td><td class="r">${(it.cost||0).toFixed(2)}</td></tr>`).join('');
+  const total=items.reduce((s,it)=>s+(+it.cost||0),0);
+  const w=window.open('','_blank');
+  if(!w){alert('Please allow pop-ups to view the material list.');return;}
+  w.document.write(`<html><head><title>Material List — ${req.project_name}</title><style>
+    body{font-family:Arial,sans-serif;padding:30px;color:#222}
+    h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
+    th{text-align:left;background:#f4f4f4;padding:8px;border-bottom:2px solid #ccc;font-size:11px}
+    td{padding:8px;border-bottom:1px solid #eee}.total{text-align:right;font-weight:800;margin-top:12px;font-size:15px}
+    @media print{button{display:none}}</style></head><body>
+    <h1>PITCH IQ · Material List for Confirmation</h1>
+    <div>Project: <b>${req.project_name}</b></div>
+    <div>Prepared by: ${req.procurement_name||store.account.name||store.account.email}</div>
+    <table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Cost (${req.currency||'$'})</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="total">Total: ${req.currency||'$'}${total.toFixed(2)}</div>
+    <button onclick="window.print()" style="margin-top:20px;padding:10px 20px">🖨 Print / Save as PDF</button>
+    </body></html>`);
+  w.document.close();
+}
 async function submitOrderForApproval(lines, total, supplierName){
   if(!sb||!store.account){alert('Not connected.');return;}
   if(!store.account.companyId){alert('Your account has no company set, so there is no manager to approve. Ask your admin to set your company.');return;}
@@ -2709,6 +2775,22 @@ function catalogueHTML(){
   </tbody></table></div></div>
   <div class="hint">Tip: "+ USE" copies the item into your Price Book under the right section. You can then edit the price to match what you actually pay — your version always overrides the catalogue.</div>`}`;}
 
+function procReqViewOverlay(){
+  if(!store.procReqViewId)return '';
+  const r=(store.procReqs||[]).find(x=>x.id===store.procReqViewId); if(!r)return '';
+  const items=r.items_edited||r.items||[];
+  const total=items.reduce((s,it)=>s+(+it.cost||0),0);
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px">
+    <div style="background:var(--panel);border:1px solid var(--blue);border-radius:6px;max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:18px">
+      <div style="display:flex;align-items:center;margin-bottom:10px"><strong style="color:var(--blue);font-size:14px">📦 MATERIAL LIST — ${r.project_name}</strong><button id="procViewClose" class="zadd" style="margin-left:auto;padding:4px 10px">✕ CLOSE</button></div>
+      <div class="hint" style="padding:0 0 10px">Prepared by ${r.procurement_name||'Procurement'}. Review and confirm to send it forward for manager approval.</div>
+      <table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Item</th><th class="r">Qty</th><th class="r">Cost</th></tr></thead><tbody>
+        ${items.map(it=>`<tr><td>${it.item||''}</td><td class="r">${it.qty||''}</td><td class="r">${(r.currency||'$')}${(+it.cost||0).toFixed(2)}</td></tr>`).join('')}
+      </tbody></table>
+      <div style="text-align:right;font-weight:800;margin-top:10px">Total: ${r.currency||'$'}${total.toFixed(2)}</div>
+      <button class="add" id="procReqConfirm" data-id="${r.id}" style="width:100%;margin-top:14px">✓ CONFIRM THIS VERSION</button>
+    </div></div>`;
+}
 function priceHTML(){
   const sups=allSuppliers();
   // unique materials = {code, thk, kind, suppliers[]}
@@ -2846,11 +2928,42 @@ function orderHTML(){
     <div class="orderTotal"><span>TOTAL INC. TAX</span><span>${money(grand*(1+(store.taxPct||0)/100))}</span></div>
   </div></div>`;
 
+  const flatItems=supEntries.flatMap(([,d])=>d.lines);
+  if(!store.procReqLoaded){loadProcurementRequests();}
+  const myProcReqs=(store.procReqs||[]).filter(r=>r.project_id===_workspaceId);
+  const procSection=store.account.accountType==='contractor'?`<div class="card" style="border-color:var(--blue)">
+    <div class="cardHead" style="color:var(--blue)"><span>📦 PROCUREMENT</span></div>
+    <div class="hint" style="padding:0 12px 8px">Send this project's material list to Procurement for review before it goes to your manager — separate from the direct order flow above.</div>
+    <div style="padding:0 12px 12px"><button class="zadd" id="sendToProc" style="border-color:var(--blue);color:var(--blue)">📦 SEND TO PROCUREMENT (${flatItems.length} items)</button></div>
+    ${myProcReqs.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Status</th><th></th></tr></thead><tbody>
+    ${myProcReqs.map(r=>`<tr><td style="font-size:11px">${(r.created_at||'').slice(0,10)}</td>
+      <td><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${r.status==='contractor_confirmed'?'var(--green)':r.status==='sent_to_contractor'?'var(--amber)':'var(--mut)'};color:#000">${(r.status||'').replace(/_/g,' ').toUpperCase()}</span></td>
+      <td>${r.status==='sent_to_contractor'?`<button class="zadd" data-viewprocreq="${r.id}" style="font-size:10px;padding:4px 8px">👁 VIEW & CONFIRM</button>`:''}</td>
+    </tr>`).join('')}</tbody></table>`:''}
+  </div>`:store.account.accountType==='procurement'?`<div class="card" style="border-color:var(--blue)">
+    <div class="cardHead" style="color:var(--blue)"><span>📦 MATERIAL REQUESTS FOR THIS PROJECT</span></div>
+    ${myProcReqs.length?myProcReqs.map(r=>{
+      const items=r.items_edited||r.items||[];
+      const editedTag=r.items_edited?'<span style="font-size:10px;color:var(--amber)">(edited)</span>':'';
+      return `<div style="padding:12px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span>From <strong>${r.contractor_name}</strong> · ${(r.created_at||'').slice(0,10)} · ${items.length} items ${editedTag}</span>
+          <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${r.status==='contractor_confirmed'?'var(--green)':r.status==='sent_to_contractor'?'var(--amber)':'var(--mut)'};color:#000">${(r.status||'').replace(/_/g,' ').toUpperCase()}</span>
+        </div>
+        ${r.status==='submitted'||r.status==='sent_to_contractor'?`<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="zadd" data-procexport="${r.id}" style="font-size:10px;padding:4px 8px">⊞ EXPORT TO EXCEL</button>
+          <label class="zadd" style="font-size:10px;padding:4px 8px;cursor:pointer">↑ IMPORT EDITED<input type="file" data-procimport="${r.id}" accept=".xlsx,.xls" style="display:none"></label>
+          <button class="add" data-sendtocontractor="${r.id}" style="font-size:10px;padding:4px 8px">📤 SEND TO CONTRACTOR</button>
+        </div>`:r.status==='contractor_confirmed'?`<div style="font-size:11px;color:var(--green);margin-top:6px">✓ Confirmed by contractor — ready for manager approval (Pass 2).</div>`:''}
+      </div>`;
+    }).join(''):'<div class="empty">No material requests for this project yet.</div>'}
+  </div>`:'';
   return `<div class="hint" style="padding-top:14px">Each supplier's order is its own card below — submit it for approval, track its status, message about it, and get its certificate all in one place. Choose a different supplier per card if you want to send the same items elsewhere.</div>
-    ${supplierCards}
-    ${wholeOrderCard}
-    <button class="bigPrint" id="printOrder">⊞ EXPORT FULL ESTIMATE TO EXCEL</button>
-    ${costSummary}`;}
+    ${procSection}
+    ${store.account.accountType==='procurement'?'':supplierCards}
+    ${store.account.accountType==='procurement'?'':wholeOrderCard}
+    ${store.account.accountType==='procurement'?'':`<button class="bigPrint" id="printOrder">⊞ EXPORT FULL ESTIMATE TO EXCEL</button>`}
+    ${store.account.accountType==='procurement'?'':costSummary}${procReqViewOverlay()}`;}
 
 function zoneSel(val,kind,id){return `<select class="sel" data-${kind}="${id}" data-k="zone">${store.zones.map(z=>`<option value="${z.id}" ${z.id===val?'selected':''}>${z.name}</option>`).join('')}</select>`;}
 function partSel(val,other,id){
@@ -3217,13 +3330,33 @@ function wire(){
   const expb=document.getElementById('export');if(expb)expb.onclick=exportJob;
   const impb=document.getElementById('import');if(impb)impb.onchange=importJob;
   const shrb=document.getElementById('share');if(shrb)shrb.onclick=shareLink;
-  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;_workspaceOwnerId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.siteVisitsLoaded=false;store.siteVisits=[];store.showSitePull=false;render();}};
+  const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;_workspaceOwnerId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.siteVisitsLoaded=false;store.siteVisits=[];store.showSitePull=false;store.procReqLoaded=false;store.procReqs=[];store.procReqViewId=null;render();}};
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
   const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
   document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{store.tab=b.dataset.tab;render();});
   document.querySelectorAll('[data-openprocproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openprocproj));
   const pcp=document.getElementById('procChangeProject');if(pcp)pcp.onclick=()=>{_workspaceId=null;_workspaceOwnerId=null;store.projectName='';render();};
+  const stp=document.getElementById('sendToProc');if(stp)stp.onclick=()=>{
+    const sh=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,store.sheetRows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)})));
+    const lin=optimiseLinear(store.stockLen,store.linKerf,store.linRows.filter(r=>r.len>0&&r.qty>0));
+    const linOff=offerLinear(store.linCode,store.linThk,store.stockLen), shOff=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH);
+    const items=[];
+    if(sh.sheetCount>0)items.push({item:`Sheet ${store.sheetCode} ${store.sheetThk}mm`,qty:sh.sheetCount+' sheets',cost:sh.sheetCount*shOff.price});
+    if(lin.barCount>0)items.push({item:`Linear ${store.linCode} ${store.linThk}mm`,qty:lin.barCount+' bars',cost:lin.barCount*linOff.price});
+    const total=items.reduce((s,it)=>s+it.cost,0);
+    submitToProcurement(items,total);
+  };
+  document.querySelectorAll('[data-viewprocreq]').forEach(b=>b.onclick=()=>{store.procReqViewId=b.dataset.viewprocreq;render();});
+  const pvc=document.getElementById('procViewClose');if(pvc)pvc.onclick=()=>{store.procReqViewId=null;render();};
+  const prc=document.getElementById('procReqConfirm');if(prc)prc.onclick=()=>{const id=prc.dataset.id;store.procReqViewId=null;confirmProcurementRequest(id);};
+  document.querySelectorAll('[data-procexport]').forEach(b=>b.onclick=()=>{const r=(store.procReqs||[]).find(x=>x.id===b.dataset.procexport);if(r)exportProcReqExcel(r);});
+  document.querySelectorAll('[data-procimport]').forEach(inp=>inp.onchange=(e)=>{const f=e.target.files[0];if(f){store.procReqOpenId=inp.dataset.procimport;importProcReqExcel(f);}e.target.value='';});
+  document.querySelectorAll('[data-sendtocontractor]').forEach(b=>b.onclick=()=>{
+    const r=(store.procReqs||[]).find(x=>x.id===b.dataset.sendtocontractor);
+    sendToContractorForConfirm(b.dataset.sendtocontractor);
+    if(r)setTimeout(()=>printProcurementRequest(r),300);
+  });
   document.querySelectorAll('[data-zone]').forEach(b=>b.onclick=()=>{store.zoneFilter=b.dataset.zone;render();});
   document.querySelectorAll('[data-delzone]').forEach(b=>b.onclick=()=>{const id=+b.dataset.delzone;if(store.zones.length<=1)return;store.zones=store.zones.filter(z=>z.id!==id);store.linRows=store.linRows.filter(r=>r.zone!==id);store.sheetRows=store.sheetRows.filter(r=>r.zone!==id);store.paintRows=store.paintRows.filter(r=>r.zone!==id);store.assemblyRows=store.assemblyRows.filter(r=>r.zone!==id);if(+store.zoneFilter===id)store.zoneFilter='all';render();});
   const nz=document.getElementById('newZone');if(nz){nz.oninput=e=>store.newZone=e.target.value;nz.onkeydown=e=>{if(e.key==='Enter')addZone();};}
@@ -3369,6 +3502,30 @@ function bindRow(el,kind,arr){const id=+el.dataset[kind],k=el.dataset.k;el.oncha
 
 // ---- round-trip Excel import: reads the app's OWN export format back in, so people
 // can export → edit in Excel → re-import, rather than retyping everything. ----
+function exportProcReqExcel(req){
+  if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  const items=req.items_edited||req.items||[];
+  const aoa=[['Item','Qty','Cost'], ...items.map(it=>[it.item||'',it.qty||'',it.cost||0])];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Materials');
+  XLSX.writeFile(wb,`materials-${(req.project_name||'project').replace(/[^a-z0-9]/gi,'_')}.xlsx`);
+}
+function importProcReqExcel(file){
+  if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''}).slice(1).filter(r=>r.some(c=>c!==''));
+      const items=rows.map(r=>({item:String(r[0]||''), qty:+r[1]||0, cost:+r[2]||0})).filter(it=>it.item);
+      if(!items.length){alert('No usable rows found in that file.');return;}
+      if(!confirm(`Import found ${items.length} items. Replace the current list with this edited version?`))return;
+      saveProcurementEdit(items);
+    }catch(ex){alert('Could not read that file: '+(ex.message||'error'));}
+  };
+  reader.readAsArrayBuffer(file);
+}
 function importCutListExcel(file){
   if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
   const reader=new FileReader();
