@@ -1511,6 +1511,7 @@ function mgrSiteVisitsTabHTML(){
         </tr>`;}).join('')}
       </tbody></table></div>`:'<div class="empty">No site visits yet.</div>'}
     </div>
+    ${snagListHTML()}
   </div>${markupOverlay()}`;
 }
 // ---- Manager: create a new site-visit review request, or attach another drawing
@@ -1911,6 +1912,7 @@ function siteEngineerHTML(){
       </tbody></table></div>`
       : '<div style="padding:16px;text-align:center;color:var(--mut)">No site visits yet. Create your first one above.</div>'}
     </div>
+    ${snagListHTML()}
   </div>
   <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${markupOverlay()}`;
 }
@@ -2036,6 +2038,102 @@ function markupOverlay(){
     </div></div>`;
 }
 
+// ---- Snag list: before/after photo comparison, shared between Manager and Site
+// Engineer — either can log a snag, either can resolve it with an after photo. ----
+async function loadSnags(){
+  store.snagsLoaded=true;
+  if(!sb||!store.account){store.snags=[];render();return;}
+  try{const {data}=await sb.from('snags').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});store.snags=data||[];}
+  catch(e){store.snags=[];}
+  render();
+}
+async function addSnag(){
+  const d=store.snagDraft||{};
+  if(!d.project_id){store.snagMsg='Please pick a project.';store.snagErr=true;render();return;}
+  if(!(d.description||'').trim()){store.snagMsg='Please describe the snag.';store.snagErr=true;render();return;}
+  if(!d.beforeUrl){store.snagMsg='Please add a "before" photo.';store.snagErr=true;render();return;}
+  store.snagBusy=true;store.snagMsg='';store.snagErr=false;render();
+  const row={
+    company_id:store.account.companyId, project_id:d.project_id, description:d.description.trim(),
+    before_photo_url:d.beforeUrl, before_by:store.account.name||store.account.email, status:'open'
+  };
+  try{
+    const {data,error}=await sb.from('snags').insert(row).select().single();
+    if(error)throw error;
+    store.snags=[data,...(store.snags||[])];
+    store.snagDraft={}; store.snagMsg='Snag logged.'; store.snagErr=false;
+  }catch(e){store.snagMsg='Could not save: '+(e.message||'error');store.snagErr=true;}
+  store.snagBusy=false; render();
+}
+async function resolveSnag(snagId,url){
+  const s=(store.snags||[]).find(x=>x.id===snagId); if(!s)return;
+  const patch={after_photo_url:url, after_by:store.account.name||store.account.email, after_at:new Date().toISOString(), status:'resolved'};
+  Object.assign(s,patch); render();
+  try{await sb.from('snags').update(patch).eq('id',snagId);}catch(ex){}
+}
+// shared render — used on both the Manager's Site Visits tab and the Site Engineer's
+// dashboard, so the two sides see and act on exactly the same list.
+function snagListHTML(){
+  if(!store.snagsLoaded){loadSnags();}
+  if(!store.projectsLoaded){loadProjects();}
+  const snags=store.snags||[];
+  const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
+  const d=store.snagDraft||{};
+  const projName=(id)=>{const p=(store.projects||[]).find(x=>x.id===id);return p?p.name:'—';};
+  return `<div class="card" style="border-color:var(--red)">
+    <div class="cardHead" style="color:var(--red)"><span>🔧 SNAG LIST</span><button class="zadd" id="snagRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
+    <div class="hint" style="padding:0 12px 8px">Log a snag with a "before" photo — either side can log one, either side can close it out with an "after" photo once fixed.</div>
+    <div style="padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <label class="field" style="grid-column:1/3"><span class="fl">PROJECT</span>
+        <select class="fi" id="snag_project">
+          <option value="">— pick a project —</option>
+          ${openProjects.map(p=>`<option value="${p.id}" ${d.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field" style="grid-column:1/3"><span class="fl">DESCRIPTION</span><input class="fi" id="snag_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Scratched laminate on vanity door"></label>
+      <div style="grid-column:1/3;display:flex;align-items:center;gap:10px">
+        ${d.beforeUrl?`<span style="font-size:12px;color:var(--green)">📎 Before photo attached <button id="snagBeforeRemove" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px" title="Remove">✕</button></span>`:''}
+        <label class="zadd" style="cursor:pointer">📷 ${d.beforeUrl?'Retake':'Take'} before photo<input type="file" id="snag_before_photo" accept="image/*" capture="environment" style="display:none"></label>
+        <label class="zadd" style="cursor:pointer">🖼 Choose photo<input type="file" id="snag_before_choose" accept="image/*" style="display:none"></label>
+      </div>
+      <button class="add" id="snag_save" style="grid-column:1/3" ${store.snagBusy?'disabled':''}>${store.snagBusy?'SAVING…':'+ LOG SNAG'}</button>
+      ${store.snagMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.snagErr?'var(--red)':'var(--green)'}">${store.snagMsg}</div>`:''}
+    </div>
+    ${snags.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Description</th><th>Before</th><th>After</th><th>Status</th></tr></thead><tbody>
+    ${snags.map(s=>`<tr>
+      <td style="font-size:11px;white-space:nowrap">${(s.created_at||'').slice(0,10)}</td>
+      <td style="font-size:11px">${projName(s.project_id)}</td>
+      <td style="font-size:11px;max-width:180px">${s.description||''}</td>
+      <td>${s.before_photo_url?attachCell(s.before_photo_url,44):'—'}</td>
+      <td>${s.after_photo_url?attachCell(s.after_photo_url,44):(s.status!=='resolved'?`<label class="zadd" style="cursor:pointer;font-size:10px">📷 Add after<input type="file" data-snagafter="${s.id}" accept="image/*" capture="environment" style="display:none"></label>`:'—')}</td>
+      <td><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${s.status==='resolved'?'var(--green)':'var(--amber)'};color:#000">${(s.status||'open').toUpperCase()}</span></td>
+    </tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">No snags logged yet.</div>'}
+  </div>`;
+}
+function wireSnagList(){
+  if(!store.snagDraft)store.snagDraft={};
+  const sp=document.getElementById('snag_project');if(sp)sp.onchange=()=>{store.snagDraft.project_id=sp.value;};
+  const sd=document.getElementById('snag_desc');if(sd)sd.onchange=()=>{store.snagDraft.description=sd.value;};
+  const handleBefore=async(e)=>{
+    const f=e.target.files[0];if(!f)return;
+    store.snagBusy=true;render();
+    try{const url=await uploadSiteVisitPhoto(f);store.snagDraft.beforeUrl=url;}
+    catch(ex){store.snagMsg='Upload failed: '+(ex.message||'error');store.snagErr=true;}
+    store.snagBusy=false;render();
+  };
+  const sbp=document.getElementById('snag_before_photo');if(sbp)sbp.onchange=handleBefore;
+  const sbc=document.getElementById('snag_before_choose');if(sbc)sbc.onchange=handleBefore;
+  const sbr=document.getElementById('snagBeforeRemove');if(sbr)sbr.onclick=(e)=>{e.preventDefault();store.snagDraft.beforeUrl=null;render();};
+  const ssave=document.getElementById('snag_save');if(ssave)ssave.onclick=()=>addSnag();
+  const sref=document.getElementById('snagRefresh');if(sref)sref.onclick=()=>{store.snagsLoaded=false;loadSnags();};
+  document.querySelectorAll('[data-snagafter]').forEach(inp=>inp.onchange=async(e)=>{
+    const f=e.target.files[0];if(!f)return;
+    const snagId=inp.dataset.snagafter;
+    try{const url=await uploadSiteVisitPhoto(f);resolveSnag(snagId,url);}
+    catch(ex){alert('Upload failed: '+(ex.message||'error'));}
+  });
+}
 async function loadSiteVisits(){
   store.siteVisitsLoaded=true;
   try{const {data}=await sb.from('site_visits').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});store.siteVisits=data||[];}
@@ -2901,7 +2999,7 @@ function wire(){
     return;}
   // ---- site engineer dashboard wiring ----
   if(store.account.accountType==='site_engineer'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};render();}};
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
     const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
@@ -2928,11 +3026,12 @@ function wire(){
       ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px">`;ov.onclick=()=>ov.remove();document.body.appendChild(ov);
     });
     const svr=document.getElementById('svRefresh');if(svr)svr.onclick=()=>{store.siteVisitsLoaded=false;loadSiteVisits();};
+    wireSnagList();
     wireMarkupOverlay();
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
@@ -3004,6 +3103,7 @@ function wire(){
       ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px">`;ov.onclick=()=>ov.remove();document.body.appendChild(ov);
     });
     const svr=document.getElementById('svRefresh');if(svr)svr.onclick=()=>{store.siteVisitsLoaded=false;loadSiteVisits();};
+    wireSnagList();
     wireMarkupOverlay();
     return;}
   // ---- supplier dashboard wiring ----
