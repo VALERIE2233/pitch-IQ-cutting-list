@@ -424,7 +424,7 @@ function viewCertificate(orderId){
   <h1>MATERIAL ORDER — APPROVAL CERTIFICATE</h1>
   <div class="grid">
     <div><b>Project:</b> ${o.project_name||'—'}</div><div><b>Revision:</b> ${o.revision||1}</div>
-    <div><b>Contractor:</b> ${o.contractor_name||'—'}</div><div><b>Company:</b> ${o.contractor_company||'—'}</div>
+    <div><b>Supervisor:</b> ${o.contractor_name||'—'}</div><div><b>Company:</b> ${o.contractor_company||'—'}</div>
     <div><b>Supplier:</b> ${o.supplier_name||'—'}</div><div><b>Submitted:</b> ${o.created_at?new Date(o.created_at).toLocaleDateString():'—'}</div>
   </div>
   <table><thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Cost</th></tr></thead><tbody>${rows}</tbody></table>
@@ -1256,7 +1256,7 @@ function authHTML(){
     ${!sb?`<div class="demoBanner" style="border-color:var(--red);color:var(--red)">⚠ Can't reach Supabase — check your internet connection and reload.</div>`:''}
     ${m==='signup'?`
       <div class="tabs" style="display:flex;gap:4px;margin-bottom:14px">
-        <button class="tab ${store.signupType==='contractor'?'on':''}" data-signuptype="contractor" style="flex:1;font-size:10px">CONTRACTOR</button>
+        <button class="tab ${store.signupType==='contractor'?'on':''}" data-signuptype="contractor" style="flex:1;font-size:10px">SUPERVISOR</button>
         <button class="tab ${store.signupType==='manager'?'on':''}" data-signuptype="manager" style="flex:1;font-size:10px">MANAGER</button>
         <button class="tab ${store.signupType==='siteEngineer'?'on':''}" data-signuptype="siteEngineer" style="flex:1;font-size:9px">SITE ENGINEER</button>
         <button class="tab ${store.signupType==='procurement'?'on':''}" data-signuptype="procurement" style="flex:1;font-size:9px">PROCUREMENT</button>
@@ -2270,7 +2270,7 @@ function supplierHTML(){
         </tbody></table></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           ${o.status==='sent'?`<button class="cta" data-ackorder="${o.id}" style="flex:1;background:var(--green);color:#06210f">✓ ACKNOWLEDGE</button>`:`<span style="flex:1;color:var(--green);font-size:11px;align-self:center">✓ Acknowledged</span>`}
-          <button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue)">💬 MESSAGE CONTRACTOR${unreadBadge(o.id)}</button>
+          <button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue)">💬 MESSAGE SUPERVISOR${unreadBadge(o.id)}</button>
         </div>
         ${threadPanel(o)}
       </div></div>`;};
@@ -2279,7 +2279,7 @@ function supplierHTML(){
   <div class="body">
     <div class="card" style="margin-top:14px"><div class="cardHead" style="color:var(--amber)"><span>📥 INCOMING ORDERS — ${inc.length}</span></div></div>
     ${inc.length?inc.map(incCard).join(''):'<div class="empty">No orders received yet. When a contractor sends you an approved order, it appears here.</div>'}
-    <div class="hint" style="padding-top:14px">List the materials you supply. Contractors using PitchIQ across the network will see these in their Catalogue and can price jobs with them. Keep codes and prices accurate — this is your shopfront.</div>
+    <div class="hint" style="padding-top:14px">List the materials you supply. Supervisors using PitchIQ across the network will see these in their Catalogue and can price jobs with them. Keep codes and prices accurate — this is your shopfront.</div>
     <div class="card"><div class="cardHead"><span>MY CATALOGUE — ${rows.length} item${rows.length===1?'':'s'}</span></div>
       <div class="scroll"><table><thead><tr><th>Category / type</th><th>Code</th><th>Description</th><th class="r">Thk</th><th class="r">W</th><th class="r">H</th><th class="r">Length</th><th class="r">Litres</th><th>Container</th><th>Unit</th><th class="r">Price</th><th>Cur</th><th>Photos</th><th></th></tr></thead><tbody>
       ${rows.map(r=>{const phs=Array.isArray(r.photos)?r.photos:[];return `<tr>
@@ -2869,13 +2869,16 @@ function orderHTML(){
   const supplierCard=([sup,d],si)=>{
     // the supplier this card actually sends to (reassigned target if chosen, else its own name)
     const target=(store._supReassign&&store._supReassign[si])||sup;
+    const toProcurement = target==='__PROCUREMENT__';
     // match a prior order by EITHER the card's own name or the reassigned target,
     // so a reassigned order still shows its status/buttons on this card
-    const priorO=(store.myOrders||[]).filter(o=>(o.supplier_name===target||o.supplier_name===sup) && o.project_id===_workspaceId).sort((a,b)=>(b.revision||1)-(a.revision||1))[0];
+    const priorO=toProcurement?null:(store.myOrders||[]).filter(o=>(o.supplier_name===target||o.supplier_name===sup) && o.project_id===_workspaceId).sort((a,b)=>(b.revision||1)-(a.revision||1))[0];
     const status=priorO?priorO.status:null;
     const pending=status==='pending_approval';
     let actionRow='';
-    if(pending){
+    if(toProcurement){
+      actionRow=`<button class="zadd" data-submitsupplier="${si}" style="margin-top:10px;border-color:var(--blue);color:var(--blue);width:100%">📦 SEND TO PROCUREMENT</button>`;
+    }else if(pending){
       actionRow=`<div style="margin-top:10px;padding:9px;border:1px solid var(--amber);color:var(--amber);text-align:center;font-size:11px;letter-spacing:1px;border-radius:4px">⏳ REVISION ${priorO.revision||1} — PENDING MANAGER APPROVAL</div>`;
     }else{
       actionRow=`<button class="zadd" data-submitsupplier="${si}" style="margin-top:10px;border-color:var(--amber);color:var(--amber);width:100%">▲ ${priorO?`SUBMIT REVISION ${(priorO.revision||1)+1}`:'SUBMIT THIS ORDER FOR APPROVAL'}</button>`;
@@ -2901,6 +2904,7 @@ function orderHTML(){
         <select class="sel" data-reassign="${si}" style="margin-left:6px;padding:6px">
           <option value="">${sup}${knownSuppliers.includes(sup)?'':' (current)'}</option>
           ${knownSuppliers.filter(s=>s!==sup).map(s=>`<option value="${s}">${s}</option>`).join('')}
+          <option value="__PROCUREMENT__" ${toProcurement?'selected':''} style="color:#5db8ff">📦 Procurement (review before it goes to your manager)</option>
         </select></div>
       ${actionRow}
       ${statusLine}
@@ -2928,18 +2932,16 @@ function orderHTML(){
     <div class="orderTotal"><span>TOTAL INC. TAX</span><span>${money(grand*(1+(store.taxPct||0)/100))}</span></div>
   </div></div>`;
 
-  const flatItems=supEntries.flatMap(([,d])=>d.lines);
   if(!store.procReqLoaded){loadProcurementRequests();}
   const myProcReqs=(store.procReqs||[]).filter(r=>r.project_id===_workspaceId);
-  const procSection=store.account.accountType==='contractor'?`<div class="card" style="border-color:var(--blue)">
-    <div class="cardHead" style="color:var(--blue)"><span>📦 PROCUREMENT</span></div>
-    <div class="hint" style="padding:0 12px 8px">Send this project's material list to Procurement for review before it goes to your manager — separate from the direct order flow above.</div>
-    <div style="padding:0 12px 12px"><button class="zadd" id="sendToProc" style="border-color:var(--blue);color:var(--blue)">📦 SEND TO PROCUREMENT (${flatItems.length} items)</button></div>
-    ${myProcReqs.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Status</th><th></th></tr></thead><tbody>
+  const procSection=store.account.accountType==='contractor' && myProcReqs.length?`<div class="card" style="border-color:var(--blue)">
+    <div class="cardHead" style="color:var(--blue)"><span>📦 PROCUREMENT SUBMISSIONS</span></div>
+    <div class="hint" style="padding:0 12px 8px">Pick "📦 Procurement" from the "Send this order to" dropdown on any card below to route it for review before it goes to your manager.</div>
+    <div class="scroll"><table><thead><tr><th>Date</th><th>Status</th><th></th></tr></thead><tbody>
     ${myProcReqs.map(r=>`<tr><td style="font-size:11px">${(r.created_at||'').slice(0,10)}</td>
       <td><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${r.status==='contractor_confirmed'?'var(--green)':r.status==='sent_to_contractor'?'var(--amber)':'var(--mut)'};color:#000">${(r.status||'').replace(/_/g,' ').toUpperCase()}</span></td>
       <td>${r.status==='sent_to_contractor'?`<button class="zadd" data-viewprocreq="${r.id}" style="font-size:10px;padding:4px 8px">👁 VIEW & CONFIRM</button>`:''}</td>
-    </tr>`).join('')}</tbody></table>`:''}
+    </tr>`).join('')}</tbody></table>
   </div>`:store.account.accountType==='procurement'?`<div class="card" style="border-color:var(--blue)">
     <div class="cardHead" style="color:var(--blue)"><span>📦 MATERIAL REQUESTS FOR THIS PROJECT</span></div>
     ${myProcReqs.length?myProcReqs.map(r=>{
@@ -2953,7 +2955,7 @@ function orderHTML(){
         ${r.status==='submitted'||r.status==='sent_to_contractor'?`<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
           <button class="zadd" data-procexport="${r.id}" style="font-size:10px;padding:4px 8px">⊞ EXPORT TO EXCEL</button>
           <label class="zadd" style="font-size:10px;padding:4px 8px;cursor:pointer">↑ IMPORT EDITED<input type="file" data-procimport="${r.id}" accept=".xlsx,.xls" style="display:none"></label>
-          <button class="add" data-sendtocontractor="${r.id}" style="font-size:10px;padding:4px 8px">📤 SEND TO CONTRACTOR</button>
+          <button class="add" data-sendtocontractor="${r.id}" style="font-size:10px;padding:4px 8px">📤 SEND TO SUPERVISOR</button>
         </div>`:r.status==='contractor_confirmed'?`<div style="font-size:11px;color:var(--green);margin-top:6px">✓ Confirmed by contractor — ready for manager approval (Pass 2).</div>`:''}
       </div>`;
     }).join(''):'<div class="empty">No material requests for this project yet.</div>'}
@@ -3314,7 +3316,7 @@ function wire(){
   const exb=document.getElementById('excel');if(exb)exb.onclick=exportExcel;
   const ixl=document.getElementById('importXlsx');if(ixl)ixl.onchange=(e)=>{const f=e.target.files[0];if(f)importCutListExcel(f);e.target.value='';};
   const po=document.getElementById('printOrder');if(po)po.onclick=exportExcel;
-  document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const i=+b.dataset.submitsupplier;const e=se[i];if(!e)return;const [sup,d]=e;const target=(store._supReassign&&store._supReassign[i])||sup;submitOrderForApproval(d.lines,d.total,target);});
+  document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const i=+b.dataset.submitsupplier;const e=se[i];if(!e)return;const [sup,d]=e;const target=(store._supReassign&&store._supReassign[i])||sup;if(target==='__PROCUREMENT__'){submitToProcurement(d.lines,d.total);}else{submitOrderForApproval(d.lines,d.total,target);}});
   document.querySelectorAll('[data-reassign]').forEach(el=>el.onchange=()=>{const i=+el.dataset.reassign;if(!store._supReassign)store._supReassign={};store._supReassign[i]=el.value||null;render();});
   document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
   document.querySelectorAll('[data-sendsup]').forEach(b=>b.onclick=()=>{if(confirm('Send this approved order to the supplier'+"'"+'s PitchIQ inbox?'))sendToSupplier(b.dataset.sendsup);});
@@ -3337,16 +3339,6 @@ function wire(){
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{store.tab=b.dataset.tab;render();});
   document.querySelectorAll('[data-openprocproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openprocproj));
   const pcp=document.getElementById('procChangeProject');if(pcp)pcp.onclick=()=>{_workspaceId=null;_workspaceOwnerId=null;store.projectName='';render();};
-  const stp=document.getElementById('sendToProc');if(stp)stp.onclick=()=>{
-    const sh=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,store.sheetRows.filter(r=>r.w>0&&r.h>0&&r.qty>0).map(r=>({...r,...cutSize(r)})));
-    const lin=optimiseLinear(store.stockLen,store.linKerf,store.linRows.filter(r=>r.len>0&&r.qty>0));
-    const linOff=offerLinear(store.linCode,store.linThk,store.stockLen), shOff=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH);
-    const items=[];
-    if(sh.sheetCount>0)items.push({item:`Sheet ${store.sheetCode} ${store.sheetThk}mm`,qty:sh.sheetCount+' sheets',cost:sh.sheetCount*shOff.price});
-    if(lin.barCount>0)items.push({item:`Linear ${store.linCode} ${store.linThk}mm`,qty:lin.barCount+' bars',cost:lin.barCount*linOff.price});
-    const total=items.reduce((s,it)=>s+it.cost,0);
-    submitToProcurement(items,total);
-  };
   document.querySelectorAll('[data-viewprocreq]').forEach(b=>b.onclick=()=>{store.procReqViewId=b.dataset.viewprocreq;render();});
   const pvc=document.getElementById('procViewClose');if(pvc)pvc.onclick=()=>{store.procReqViewId=null;render();};
   const prc=document.getElementById('procReqConfirm');if(prc)prc.onclick=()=>{const id=prc.dataset.id;store.procReqViewId=null;confirmProcurementRequest(id);};
