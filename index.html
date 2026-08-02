@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PITCH IQ CUT LIST — Fit-Out Estimator</title>
+<title>FIT-OUT IQ — Production Platform for Fit-Out</title>
 <style>
   :root{--amber:#FFB300;--steel:#1c1f24;--panel:#24282f;--line:#363b44;--green:#3ddc84;--blue:#5db8ff;--red:#ff5d5d;--txt:#e7e9ec;--mut:#8b929c;--mono:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
@@ -117,7 +117,7 @@
   footer{max-width:1600px;margin:0 auto;padding:0 26px;font-size:10px;color:#6b7280;line-height:1.6}
   .hint{font-size:10px;color:var(--mut);padding:0 16px 12px}
   /* ---- RAL Paint Mixer tool (Procurement) — all rules scoped under .ralTool
-     to avoid colliding with PitchIQ's own .card/.note/etc classes ---- */
+     to avoid colliding with Fit-Out IQ's own .card/.note/etc classes ---- */
   .ralTool .rlayout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:640px){.ralTool .rlayout{grid-template-columns:1fr}}
   .ralTool .rcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -144,7 +144,7 @@
 </head>
 <body>
 <div id="updateBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:var(--blue,#5db8ff);color:#06101a;padding:10px 16px;text-align:center;font-size:13px;font-weight:600">
-  🔄 A new version of PitchIQ is available. <span id="updateBannerBtn" style="text-decoration:underline;cursor:pointer;margin-left:6px">Click to refresh</span>
+  🔄 A new version of Fit-Out IQ is available. <span id="updateBannerBtn" style="text-decoration:underline;cursor:pointer;margin-left:6px">Click to refresh</span>
 </div>
 <div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -153,7 +153,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ============================================================================
-//  PITCH IQ CUT LIST — fit-out estimator (single-file, hostable)
+//  FIT-OUT IQ CUT LIST — fit-out estimator (single-file, hostable)
 //  Guillotine nester · Offcut Bank · Paint calculator · Price Book auto-costing
 //  Demo accounts/paywall (NOT real payments). Metric/imperial. Grain along length.
 // ============================================================================
@@ -309,8 +309,9 @@ const store={
   myOrders:[], myOrdersLoaded:false,
   projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
 };
-try{const s=localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;localStorage.setItem('pitchiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
+  const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;Object.assign(store,j);}}catch(e){}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -447,7 +448,7 @@ function viewCertificate(orderId){
   .stamp .big{font-size:15px;font-weight:800;color:#2e7d32;letter-spacing:1px}
   .foot{margin-top:24px;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:10px}
   @media print{button{display:none}}</style></head><body>
-  <div class="head"><div class="brand">PITCH IQ<small>CUT LIST · FIT-OUT ESTIMATOR</small></div>
+  <div class="head"><div class="brand">FIT-OUT IQ<small>ESTIMATE · PRODUCE · FIT OUT</small></div>
     <div class="ref">APPROVAL REFERENCE<br><b>${o.approval_ref||'—'}</b></div></div>
   <h1>MATERIAL ORDER — APPROVAL CERTIFICATE</h1>
   <div class="grid">
@@ -460,8 +461,8 @@ function viewCertificate(orderId){
   <div class="stamp"><div class="big">✓ APPROVED</div>
     <div style="font-size:13px;margin-top:6px">Approved by <b>${o.approver_name||'Approver'}</b>${o.approver_title?` <span style="color:#555">(${o.approver_title})</span>`:''} on <b>${when.toLocaleDateString()} at ${when.toLocaleTimeString()}</b></div>
     ${o.approver_note?`<div style="font-size:12px;margin-top:4px;color:#555">Note: ${o.approver_note}</div>`:''}
-    <div style="font-size:11px;margin-top:8px;color:#666">Reference ${o.approval_ref||'—'} · This certificate confirms the above order was reviewed and approved within PITCH IQ.</div></div>
-  <div class="foot">Generated ${new Date().toLocaleString()} · PITCH IQ · This is a system-generated approval record. Verify the reference number against the company's PITCH IQ account.</div>
+    <div style="font-size:11px;margin-top:8px;color:#666">Reference ${o.approval_ref||'—'} · This certificate confirms the above order was reviewed and approved within FIT-OUT IQ.</div></div>
+  <div class="foot">Generated ${new Date().toLocaleString()} · FIT-OUT IQ · This is a system-generated approval record. Verify the reference number against the company's FIT-OUT IQ account.</div>
   <button onclick="window.print()" style="margin-top:20px;padding:10px 18px;background:#FFB300;border:none;border-radius:6px;font-weight:700;cursor:pointer">⎙ PRINT / SAVE AS PDF</button>
   </body></html>`;
   const w=window.open('','_blank');
@@ -651,7 +652,7 @@ async function sendLPO(reqId, supplierName){
   Object.assign(r,patch); render();
   try{await sb.from('procurement_requests').update(patch).eq('id',reqId);}catch(e){}
   printLPO(r);
-  if(!supplierId) alert(`LPO generated. Note: "${supplierName}" isn't a PitchIQ supplier account, so nothing landed in an inbox - send the printed LPO across yourself.`);
+  if(!supplierId) alert(`LPO generated. Note: "${supplierName}" isn't a Fit-Out IQ supplier account, so nothing landed in an inbox - send the printed LPO across yourself.`);
 }
 async function uploadSupplierResponse(reqId,file){
   const r=(store.procReqs||[]).find(x=>x.id===reqId); if(!r)return;
@@ -677,7 +678,7 @@ function printLPO(req){
     .total{text-align:right;font-weight:800;margin-top:12px;font-size:15px}
     @media print{button{display:none}}</style></head><body>
     <h1>LOCAL PURCHASE ORDER</h1>
-    <div style="font-size:11px;color:#666">Generated by PITCH IQ</div>
+    <div style="font-size:11px;color:#666">Generated by FIT-OUT IQ</div>
     <div class="grid">
       <div><b>Project:</b> ${req.project_name||'-'}</div><div><b>Supplier:</b> ${req.supplier_name||'-'}</div>
       <div><b>Raised by:</b> ${req.procurement_name||'-'}</div><div><b>Date:</b> ${new Date().toLocaleDateString()}</div>
@@ -773,7 +774,7 @@ function printProcurementRequest(req){
     th{text-align:left;background:#f4f4f4;padding:8px;border-bottom:2px solid #ccc;font-size:11px}
     td{padding:8px;border-bottom:1px solid #eee}.total{text-align:right;font-weight:800;margin-top:12px;font-size:15px}
     @media print{button{display:none}}</style></head><body>
-    <h1>PITCH IQ · Material List for Confirmation</h1>
+    <h1>FIT-OUT IQ · Material List for Confirmation</h1>
     <div>Project: <b>${req.project_name}</b></div>
     <div>Prepared by: ${req.procurement_name||store.account.name||store.account.email}</div>
     <table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Cost (${req.currency||'$'})</th></tr></thead><tbody>${rows}</tbody></table>
@@ -844,13 +845,13 @@ async function sendToSupplier(orderId){
     return;
   }
   if(!supplierId){
-    alert(`Can't send: "${o.supplier_name}" isn't a PitchIQ supplier account, so there's no inbox to send to. This works for suppliers on PitchIQ (items pulled from the Catalogue carry their account).`);
+    alert(`Can't send: "${o.supplier_name}" isn't a Fit-Out IQ supplier account, so there's no inbox to send to. This works for suppliers on Fit-Out IQ (items pulled from the Catalogue carry their account).`);
     return;
   }
   try{
     const {error}=await sb.from('orders').update({status:'sent',supplier_id:supplierId}).eq('id',orderId);
     if(error){alert('Could not send: '+error.message);return;}
-    alert(`✓ Sent to ${o.supplier_name}. They'll see it in their PitchIQ inbox.`);
+    alert(`✓ Sent to ${o.supplier_name}. They'll see it in their Fit-Out IQ inbox.`);
     store.myOrdersLoaded=false; loadMyOrders();
   }catch(e){alert('Could not send: '+e.message);}
 }
@@ -1358,7 +1359,7 @@ function render(){persist();const root=document.getElementById('root');root.styl
 function authHTML(){
   if(store.showResetPassword){
     return `<div class="auth"><div class="authCard">
-    <div class="authHead"><div class="logo">▰▰</div><div class="authTitle">PITCH&nbsp;IQ</div><div class="authSub">SET A NEW PASSWORD</div></div>
+    <div class="authHead"><div class="logo">▰▰</div><div class="authTitle">FIT-OUT&nbsp;IQ</div><div class="authSub">SET A NEW PASSWORD</div></div>
     <div class="authBody">
       <div class="demoBanner">Choose a new password for your account.</div>
       <label class="lbl">NEW PASSWORD</label><input class="inp" id="f_newpass" type="password" placeholder="At least 6 characters">
@@ -1370,7 +1371,7 @@ function authHTML(){
   if(m==='signup' && !store.companyListLoaded){ loadCompanyList(); }
   const tab=(k,t)=>`<button class="tab ${m===k?'on':''}" data-authmode="${k}" style="flex:1">${t}</button>`;
   return `<div class="auth"><div class="authCard">
-  <div class="authHead"><div class="logo">▰▰</div><div class="authTitle">PITCH&nbsp;IQ</div><div class="authSub">CUT LIST · FIT-OUT ESTIMATOR</div></div>
+  <div class="authHead"><div class="logo">▰▰</div><div class="authTitle">FIT-OUT&nbsp;IQ</div><div class="authSub">ESTIMATE · PRODUCE · FIT OUT</div></div>
   <div class="authBody">
     <div class="tabs" style="display:flex;gap:4px;margin-bottom:18px">${tab('signin','SIGN IN')}${tab('signup','CREATE ACCOUNT')}${tab('magic','MAGIC LINK')}</div>
     ${!sb?`<div class="demoBanner" style="border-color:var(--red);color:var(--red)">⚠ Can't reach Supabase — check your internet connection and reload.</div>`:''}
@@ -1384,7 +1385,7 @@ function authHTML(){
       </div>
       ${store.signupType==='contractor'?`
         <label class="lbl">COMPANY NAME</label><input class="inp" id="f_company" list="companyOptions" placeholder="Type your company — pick if it exists" autocomplete="off"><datalist id="companyOptions">${(store.companyList||[]).map(nm=>`<option value="${nm.replace(/"/g,'&quot;')}">`).join('')}</datalist>
-        <div style="font-size:10px;color:var(--mut);margin:-4px 0 8px">If your company is already on PitchIQ, pick it from the list so your team links correctly. Otherwise type a new name.</div>
+        <div style="font-size:10px;color:var(--mut);margin:-4px 0 8px">If your company is already on Fit-Out IQ, pick it from the list so your team links correctly. Otherwise type a new name.</div>
         <label class="lbl">YOUR NAME</label><input class="inp" id="f_name" placeholder="Your full name">
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
         <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+44 7700 900000">
@@ -1427,7 +1428,7 @@ function authHTML(){
         <button class="cta" id="doSignupProcurement" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE PROCUREMENT ACCOUNT'}</button>
         <div class="trial">Enter the exact company name your factory team uses.</div>`
       :`
-        <div class="demoBanner" style="border-color:var(--blue);color:var(--blue)">Supplier account: list your materials in the shared catalogue so contractors across PitchIQ can find and price them.</div>
+        <div class="demoBanner" style="border-color:var(--blue);color:var(--blue)">Supplier account: list your materials in the shared catalogue so contractors across Fit-Out IQ can find and price them.</div>
         <label class="lbl">SUPPLIER / BUSINESS NAME</label><input class="inp" id="f_company" placeholder="Gulf Gypsum Trading LLC">
         <label class="lbl">CONTACT NAME</label><input class="inp" id="f_name" placeholder="Your full name">
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="sales@business.com">
@@ -1636,7 +1637,7 @@ function managerHTML(){
         <div style="margin-top:8px"><button class="zadd" data-thread="${o.id}" style="border-color:var(--blue);color:var(--blue);width:100%">💬 MESSAGES${unreadBadge(o.id)}</button></div>
         ${threadPanel(o)}
       </div></div>`;};
-  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
+  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='approvals')?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
@@ -2082,7 +2083,7 @@ function siteEngineerHTML(){
   const d=store.svDraft||{};
   const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
   const itemOptions=store.svItemOptions||[];
-  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · SITE ENGINEER</div><div class="bs">${store.account.company}</div></div></div>
+  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · SITE ENGINEER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="body">
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
@@ -2427,12 +2428,12 @@ function supplierHTML(){
         </div>
         ${threadPanel(o)}
       </div></div>`;};
-  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · SUPPLIER</div><div class="bs">${store.account.company}</div></div></div>
+  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · SUPPLIER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="body">
     <div class="card" style="margin-top:14px"><div class="cardHead" style="color:var(--amber)"><span>📥 INCOMING ORDERS — ${inc.length}</span></div></div>
     ${inc.length?inc.map(incCard).join(''):'<div class="empty">No orders received yet. When a contractor sends you an approved order, it appears here.</div>'}
-    <div class="hint" style="padding-top:14px">List the materials you supply. Supervisors using PitchIQ across the network will see these in their Catalogue and can price jobs with them. Keep codes and prices accurate — this is your shopfront.</div>
+    <div class="hint" style="padding-top:14px">List the materials you supply. Supervisors using Fit-Out IQ across the network will see these in their Catalogue and can price jobs with them. Keep codes and prices accurate — this is your shopfront.</div>
     <div class="card"><div class="cardHead"><span>MY CATALOGUE — ${rows.length} item${rows.length===1?'':'s'}</span></div>
       <div class="scroll"><table><thead><tr><th>Category / type</th><th>Code</th><th>Description</th><th class="r">Thk</th><th class="r">W</th><th class="r">H</th><th class="r">Length</th><th class="r">Litres</th><th>Container</th><th>Unit</th><th class="r">Price</th><th>Cur</th><th>Photos</th><th></th></tr></thead><tbody>
       ${rows.map(r=>{const phs=Array.isArray(r.photos)?r.photos:[];return `<tr>
@@ -2481,7 +2482,7 @@ function b64ToUtf8(b64){
 // Loaded via srcdoc rather than a data: URL. A data: URL has an opaque origin,
 // which means localStorage throws inside it - so the mixer could never remember
 // your calibration. srcdoc runs same-origin while still being its own document,
-// so the tool stays isolated from PitchIQ's CSS/JS but can save its settings.
+// so the tool stays isolated from Fit-Out IQ's CSS/JS but can save its settings.
 function ralMixerHTML(){
   return `<div style="margin:0 -16px -16px;height:calc(100vh - 130px);min-height:500px">
     <iframe id="ralFrame" style="width:100%;height:100%;border:none;background:#1c1c1e"></iframe>
@@ -2492,7 +2493,7 @@ function procurementHTML(){
   if(!store.projectsLoaded){loadProjects();}
   const projects=store.projects||[];
   if(!_workspaceId){
-    return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · PROCUREMENT</div><div class="bs">${store.account.company}</div></div></div>
+    return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.account.company}</div></div></div>
       <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
     <div class="tabs" style="padding:10px 16px 0">
       <button class="tab ${store.tab!=='ralmixer'?'on':''}" data-noprojtab="projects">📁 PROJECTS</button>
@@ -2509,7 +2510,7 @@ function procurementHTML(){
     </div>`}
     <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>`;
   }
-  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">PITCH IQ · PROCUREMENT</div><div class="bs">${store.projectName||'Untitled project'}</div></div></div>
+  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.projectName||'Untitled project'}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="pbtn" id="procChangeProject" style="margin-right:12px">← CHANGE PROJECT</button>
@@ -2534,7 +2535,7 @@ function appHTML(){
     <div style="font-size:11px;color:var(--mut);margin-bottom:8px">YOUR SAVED PROJECTS — tap to open</div>
     ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px;cursor:pointer" data-openproj="${p.id}"><span>${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut)">${new Date(p.updated_at).toLocaleDateString()}</span></div>`).join('')||'<div class="empty">No projects yet.</div>'}
   </div>`:''}
-  <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">PITCH&nbsp;IQ</div><div class="sub">CUT LIST · FIT-OUT ESTIMATOR</div></div></div>
+  <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">FIT-OUT&nbsp;IQ</div><div class="sub">ESTIMATE · PRODUCE · FIT OUT</div></div></div>
     <div class="headBtns">
       <div class="unit"><button class="${store.unit==='mm'?'on':''}" data-unit="mm">mm</button><button class="${store.unit==='in'?'on':''}" data-unit="in">in</button></div>
       <select class="sel" id="currencySel" title="Currency" style="padding:8px">${CURRENCIES.map(c=>`<option ${store.currency===c?'selected':''}>${c}</option>`).join('')}</select>
@@ -2928,7 +2929,7 @@ function catalogueHTML(){
   const all=store.catalogueAll||[];
   const rows=q?all.filter(r=>(`${r.kind} ${r.code} ${r.description} ${r.supplier_name}`).toLowerCase().includes(q)):all;
   const suppliers=[...new Set(all.map(r=>r.supplier_name).filter(Boolean))];
-  return `<div class="hint" style="padding-top:14px">Materials listed by suppliers across PitchIQ. Browse, search, and pull any item straight into your Price Book — then it's available when you build cut lists and estimates. Catalogue prices are a starting point; your own Price Book prices always take priority.</div>
+  return `<div class="hint" style="padding-top:14px">Materials listed by suppliers across Fit-Out IQ. Browse, search, and pull any item straight into your Price Book — then it's available when you build cut lists and estimates. Catalogue prices are a starting point; your own Price Book prices always take priority.</div>
   <div class="settings">
     <label class="field" style="flex:1"><span class="fl">SEARCH</span><input class="fi" style="width:100%" id="catSearch" placeholder="e.g. gypsum, hinge, paint, supplier name" value="${store.catSearch||''}"></label>
     <div class="stat" style="align-self:flex-end"><div class="sv" style="color:var(--blue);font-size:18px">${all.length}</div><div class="sl">ITEMS · ${suppliers.length} SUPPLIER${suppliers.length===1?'':'S'}</div></div>
@@ -3035,7 +3036,7 @@ function orderHTML(){
   const projOrders=(store.myOrders||[]).filter(o=>o.project_id===_workspaceId);
   const statusColor=s=>s==='approved'?'var(--green)':s==='sent'?'var(--blue)':s==='rejected'?'var(--red)':s==='pending_approval'?'var(--amber)':'var(--mut)';
   const statusLabel=s=>(s||'').replace('_',' ').toUpperCase();
-  // list of selectable suppliers: my pinned/known + all PitchIQ suppliers
+  // list of selectable suppliers: my pinned/known + all Fit-Out IQ suppliers
   const knownSuppliers=Array.from(new Set([
     ...supEntries.map(([s])=>s),
     ...((store.catalogueAll||[]).map(c=>c.supplier_name).filter(Boolean))
@@ -3522,7 +3523,7 @@ function wire(){
   document.querySelectorAll('[data-submitsupplier]').forEach(b=>b.onclick=()=>{const se=store._supEntries||[];const i=+b.dataset.submitsupplier;const e=se[i];if(!e)return;const [sup,d]=e;const target=(store._supReassign&&store._supReassign[i])||sup;if(target==='__PROCUREMENT__'){submitToProcurement(d.lines,d.total);}else{submitOrderForApproval(d.lines,d.total,target);}});
   document.querySelectorAll('[data-reassign]').forEach(el=>el.onchange=()=>{const i=+el.dataset.reassign;if(!store._supReassign)store._supReassign={};store._supReassign[i]=el.value||null;render();});
   document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
-  document.querySelectorAll('[data-sendsup]').forEach(b=>b.onclick=()=>{if(confirm('Send this approved order to the supplier'+"'"+'s PitchIQ inbox?'))sendToSupplier(b.dataset.sendsup);});
+  document.querySelectorAll('[data-sendsup]').forEach(b=>b.onclick=()=>{if(confirm('Send this approved order to the supplier'+"'"+'s Fit-Out IQ inbox?'))sendToSupplier(b.dataset.sendsup);});
   document.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>{if(store.threadOrderId===b.dataset.thread){closeThread();}else{openThread(b.dataset.thread);}});
   document.querySelectorAll('[data-closethread]').forEach(b=>b.onclick=()=>closeThread());
   document.querySelectorAll('[data-sendmsg]').forEach(b=>b.onclick=()=>sendMessage(b.dataset.sendmsg));
@@ -3743,7 +3744,7 @@ function importCutListExcel(file){
       const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
       const findSheet=(name)=>wb.SheetNames.find(n=>n.toLowerCase()===name.toLowerCase());
       const panelName=findSheet('Panel Cut List'), linName=findSheet('Linear Cut List');
-      if(!panelName && !linName){alert("Could not find a 'Panel Cut List' or 'Linear Cut List' sheet in this file. Make sure you're re-importing a file that was exported from PitchIQ.");return;}
+      if(!panelName && !linName){alert("Could not find a 'Panel Cut List' or 'Linear Cut List' sheet in this file. Make sure you're re-importing a file that was exported from Fit-Out IQ.");return;}
       const zoneIdFor=(name)=>{
         const n=(name||'').trim(); if(!n||n==='—')return store.zones[0]?store.zones[0].id:1;
         let z=store.zones.find(z=>z.name.toLowerCase()===n.toLowerCase());
@@ -3804,7 +3805,7 @@ function exportExcel(sel){
   let lipTotalLM=0,lipCost=0;lipAllX.forEach(l=>{lipTotalLM+=l.totalMM/1000;lipCost+=l.cost;});
   const linOff=offerLinear(store.linCode,store.linThk,store.stockLen),shOff=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH);
   const linC=lin.barCount*linOff.price,shC=sh.sheetCount*shOff.price;
-  const sum=[['PITCH IQ CUT LIST — ESTIMATE'],['Company',store.account.company],['Date',new Date().toLocaleDateString()],['Supplier policy','Per-material — '+(Object.keys(store.supplierPrefs).filter(k=>store.supplierPrefs[k]).length||'0')+' pinned, rest cheapest'],[],
+  const sum=[['FIT-OUT IQ CUT LIST — ESTIMATE'],['Company',store.account.company],['Date',new Date().toLocaleDateString()],['Supplier policy','Per-material — '+(Object.keys(store.supplierPrefs).filter(k=>store.supplierPrefs[k]).length||'0')+' pinned, rest cheapest'],[],
     ['Item','Qty','Spec','Supplier','Cost','Waste %'],
     ['Linear stock',lin.barCount,`${fmt(store.stockLen)}${unit} bars`,linOff.supplier||'—',money(linC),lin.wastePct.toFixed(1)+'%'],
     ['Sheet board',sh.sheetCount,`${fmt(store.sheetW)}×${fmt(store.sheetH)}${unit}, grain ${store.grain}`,shOff.supplier||'—',money(shC),sh.wastePct.toFixed(1)+'%'],
@@ -3844,9 +3845,9 @@ function exportExcel(sel){
   if(inc('pos')){const w6=XLSX.utils.aoa_to_sheet(po);w6['!cols']=[{wch:42},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,w6,'POs by Supplier');}
   // guard: if nothing was selected, warn instead of exporting an empty file
   if(!wb.SheetNames.length){alert('Select at least one sheet to export.');return;}
-  XLSX.writeFile(wb,`PitchIQ-Estimate-${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb,`Fit-Out IQ-Estimate-${new Date().toISOString().slice(0,10)}.xlsx`);
 }
-function exportJob(){const job={...store};delete job.account;const blob=new Blob([JSON.stringify(job,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pitchiq-'+new Date().toISOString().slice(0,10)+'.json';a.click();}
+function exportJob(){const job={...store};delete job.account;const blob=new Blob([JSON.stringify(job,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fitoutiq-'+new Date().toISOString().slice(0,10)+'.json';a.click();}
 function importJob(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);const a=store.account;Object.assign(store,j);store.account=a;render();}catch{alert('Could not read that file.');}};r.readAsText(f);e.target.value='';}
 function shareLink(){const job={...store};delete job.account;const data=encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(job)))));const url=location.origin+location.pathname+'#job='+data;navigator.clipboard?navigator.clipboard.writeText(url).then(()=>alert('Share link copied!\n\nOnce hosted, anyone who opens it loads this exact job.'),()=>prompt('Copy link:',url)):prompt('Copy link:',url);}
 (function(){if(location.hash.startsWith('#job=')){try{const j=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(location.hash.slice(5))))));const a=store.account;Object.assign(store,j);store.account=a;}catch(e){}}})();
