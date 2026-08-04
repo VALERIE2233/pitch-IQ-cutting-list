@@ -2087,6 +2087,7 @@ function siteEngineerHTML(){
     <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="body">
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
+    ${attendanceHTML()}
     <div class="card" style="border-color:var(--blue)">
       <div class="cardHead" style="color:var(--blue)"><span>➕ NEW SITE VISIT</span></div>
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -2270,6 +2271,190 @@ function markupOverlay(){
     </div></div>`;
 }
 
+// ============ SITE ATTENDANCE ============
+// Fingerprint here means WebAuthn: the phone's own sensor confirms its owner is
+// present. The browser never sees the print itself, and this only works on the
+// device where the engineer registered - which is exactly what we want for
+// attendance. GPS is captured too, and is the stronger anti-fraud signal.
+function b64urlFromBuf(buf){
+  const b=new Uint8Array(buf); let str='';
+  for(let i=0;i<b.length;i++) str+=String.fromCharCode(b[i]);
+  return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function bufFromB64url(s){
+  const pad='='.repeat((4-(s.length%4))%4);
+  const b=atob((s+pad).replace(/-/g,'+').replace(/_/g,'/'));
+  const arr=new Uint8Array(b.length);
+  for(let i=0;i<b.length;i++) arr[i]=b.charCodeAt(i);
+  return arr.buffer;
+}
+function biometricSupported(){
+  return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create);
+}
+async function loadBioCreds(){
+  store.bioLoaded=true;
+  if(!sb||!store.account){store.bioCreds=[];return;}
+  try{const {data}=await sb.from('biometric_credentials').select('*').eq('user_id',store.account.uid);store.bioCreds=data||[];}
+  catch(e){store.bioCreds=[];}
+  render();
+}
+async function registerBiometric(){
+  if(!biometricSupported()){alert("This device or browser doesn't support fingerprint sign-in.");return;}
+  try{
+    const challenge=new Uint8Array(32); crypto.getRandomValues(challenge);
+    const userId=new Uint8Array(16); crypto.getRandomValues(userId);
+    const cred=await navigator.credentials.create({publicKey:{
+      challenge,
+      rp:{name:'FIT-OUT IQ'},
+      user:{id:userId, name:store.account.email, displayName:store.account.name||store.account.email},
+      pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+      authenticatorSelection:{authenticatorAttachment:'platform', userVerification:'required'},
+      timeout:60000, attestation:'none'
+    }});
+    if(!cred){alert('Registration cancelled.');return;}
+    const row={user_id:store.account.uid, company_id:store.account.companyId,
+      credential_id:b64urlFromBuf(cred.rawId), device_label:(navigator.platform||'this device')};
+    const {error}=await sb.from('biometric_credentials').insert(row);
+    if(error){alert('Could not save: '+error.message);return;}
+    store.bioLoaded=false; await loadBioCreds();
+    alert('Fingerprint registered on this device. You can now sign in and out with it.');
+  }catch(e){
+    alert(e.name==='NotAllowedError' ? 'Fingerprint registration was cancelled or timed out.'
+         : 'Could not register fingerprint: '+(e.message||e.name));
+  }
+}
+async function verifyBiometric(){
+  const creds=store.bioCreds||[];
+  if(!creds.length || !biometricSupported()) return false;
+  try{
+    const challenge=new Uint8Array(32); crypto.getRandomValues(challenge);
+    const assertion=await navigator.credentials.get({publicKey:{
+      challenge,
+      allowCredentials:creds.map(c=>({type:'public-key', id:bufFromB64url(c.credential_id)})),
+      userVerification:'required', timeout:60000
+    }});
+    return !!assertion;
+  }catch(e){ return false; }
+}
+// Best-effort location. Never block a punch on it - a refused permission or a
+// basement with no signal shouldn't stop someone recording their hours.
+function getPosition(){
+  return new Promise(res=>{
+    if(!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p=>res({lat:p.coords.latitude, lng:p.coords.longitude}),
+      ()=>res(null), {enableHighAccuracy:true, timeout:8000, maximumAge:60000});
+  });
+}
+async function loadAttendance(){
+  store.attLoaded=true;
+  if(!sb||!store.account){store.attendance=[];render();return;}
+  try{const {data}=await sb.from('attendance').select('*').eq('company_id',store.account.companyId)
+    .order('sign_in_at',{ascending:false});store.attendance=data||[];}
+  catch(e){store.attendance=[];}
+  render();
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function myOpenShift(){
+  return (store.attendance||[]).find(a=>a.user_id===store.account.uid && a.sign_out_at==null);
+}
+async function attendanceSignIn(){
+  const projSel=document.getElementById('att_project');
+  const projectId=projSel?projSel.value:'';
+  if(!projectId){alert('Pick the project you are working on.');return;}
+  const proj=(store.projects||[]).find(p=>p.id===projectId);
+  store.attBusy=true; render();
+  let method='basic';
+  if((store.bioCreds||[]).length){
+    const ok=await verifyBiometric();
+    if(!ok){store.attBusy=false;render();alert('Fingerprint not recognised - sign-in cancelled.');return;}
+    method='fingerprint';
+  }
+  const pos=await getPosition();
+  const row={company_id:store.account.companyId, project_id:projectId, project_name:proj?proj.name:'',
+    user_id:store.account.uid, user_name:store.account.name||store.account.email,
+    work_date:todayStr(), sign_in_at:new Date().toISOString(),
+    sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, sign_in_method:method};
+  try{
+    const {data,error}=await sb.from('attendance').insert(row).select().single();
+    if(error)throw error;
+    store.attendance=[data,...(store.attendance||[])];
+  }catch(e){alert('Could not sign in: '+(e.message||'error'));}
+  store.attBusy=false; render();
+}
+async function attendanceSignOut(){
+  const open=myOpenShift(); if(!open)return;
+  store.attBusy=true; render();
+  let method='basic';
+  if((store.bioCreds||[]).length){
+    const ok=await verifyBiometric();
+    if(!ok){store.attBusy=false;render();alert('Fingerprint not recognised - sign-out cancelled.');return;}
+    method='fingerprint';
+  }
+  const pos=await getPosition();
+  const patch={sign_out_at:new Date().toISOString(), sign_out_lat:pos?pos.lat:null,
+    sign_out_lng:pos?pos.lng:null, sign_out_method:method};
+  Object.assign(open,patch); render();
+  try{await sb.from('attendance').update(patch).eq('id',open.id);}catch(e){}
+  store.attBusy=false; render();
+}
+function shiftHours(a){
+  if(!a.sign_in_at||!a.sign_out_at)return '';
+  const ms=new Date(a.sign_out_at)-new Date(a.sign_in_at);
+  if(ms<=0)return '';
+  const h=Math.floor(ms/3600000), m=Math.round((ms%3600000)/60000);
+  return h+'h '+String(m).padStart(2,'0')+'m';
+}
+function attendanceHTML(){
+  if(!store.attLoaded){loadAttendance();}
+  if(!store.bioLoaded){loadBioCreds();}
+  if(!store.projectsLoaded){loadProjects();}
+  const open=myOpenShift();
+  const mine=(store.attendance||[]).filter(a=>a.user_id===store.account.uid).slice(0,10);
+  const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
+  const hasBio=(store.bioCreds||[]).length>0;
+  const since=open?new Date(open.sign_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'';
+  return `<div class="card" style="border-color:var(--green)">
+    <div class="cardHead" style="color:var(--green)"><span>🕐 SITE ATTENDANCE</span>
+      <button class="zadd" id="attRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
+    <div style="padding:12px">
+      ${open?`<div style="background:var(--steel);border:1px solid var(--green);border-radius:6px;padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;color:var(--green);font-weight:700">● ON SITE since ${since}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:3px">${open.project_name||''}${open.sign_in_method==='fingerprint'?' · 👆 fingerprint verified':''}${open.sign_in_lat?' · 📍 location recorded':' · ⚠ no location'}</div>
+          <button class="add" id="attSignOut" style="width:100%;margin-top:10px" ${store.attBusy?'disabled':''}>${store.attBusy?'…':'SIGN OUT'}</button>
+        </div>`
+      :`<label class="field" style="margin-bottom:8px"><span class="fl">PROJECT</span>
+          <select class="fi" id="att_project">
+            <option value="">— pick a project —</option>
+            ${openProjects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+          </select></label>
+        ${!openProjects.length?'<div class="hint" style="padding:0 0 8px;color:var(--amber)">No projects are open for site work yet — ask your manager to open one.</div>':''}
+        <button class="add" id="attSignIn" style="width:100%" ${store.attBusy?'disabled':''}>${store.attBusy?'…':'SIGN IN'}</button>`}
+      <div style="margin-top:10px;font-size:11px;color:var(--mut);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        ${hasBio?'<span style="color:var(--green)">👆 Fingerprint active on this device</span>'
+                :`<span>Fingerprint not set up on this device.</span>
+                  <button class="zadd" id="attRegBio" style="font-size:10px;padding:4px 8px">👆 SET UP FINGERPRINT</button>`}
+      </div>
+      ${hasBio?'':'<div class="hint" style="padding:6px 0 0">Without it you can still sign in, but the record won\'t be fingerprint-verified.</div>'}
+    </div>
+    ${mine.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>In</th><th>Out</th><th class="r">Hours</th><th></th></tr></thead><tbody>
+      ${mine.map(a=>`<tr>
+        <td style="font-size:11px;white-space:nowrap">${a.work_date||''}</td>
+        <td style="font-size:11px">${a.project_name||'—'}</td>
+        <td style="font-size:11px">${a.sign_in_at?new Date(a.sign_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):''}</td>
+        <td style="font-size:11px">${a.sign_out_at?new Date(a.sign_out_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'<span style="color:var(--amber)">open</span>'}</td>
+        <td class="r" style="font-size:11px">${shiftHours(a)}</td>
+        <td style="font-size:10px;color:var(--mut)">${a.sign_in_method==='fingerprint'?'👆':''}${a.sign_in_lat?'📍':''}</td>
+      </tr>`).join('')}
+    </tbody></table></div>`:''}
+  </div>`;
+}
+function wireAttendance(){
+  const si=document.getElementById('attSignIn'); if(si)si.onclick=()=>attendanceSignIn();
+  const so=document.getElementById('attSignOut'); if(so)so.onclick=()=>attendanceSignOut();
+  const rb=document.getElementById('attRegBio'); if(rb)rb.onclick=()=>registerBiometric();
+  const rf=document.getElementById('attRefresh'); if(rf)rf.onclick=()=>{store.attLoaded=false;loadAttendance();};
+}
 // ---- Snag list: before/after photo comparison, shared between Manager and Site
 // Engineer — either can log a snag, either can resolve it with an after photo. ----
 async function loadSnags(){
@@ -3378,7 +3563,7 @@ function wire(){
     return;}
   // ---- site engineer dashboard wiring ----
   if(store.account.accountType==='site_engineer'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};store.attLoaded=false;store.attendance=[];store.bioLoaded=false;store.bioCreds=[];render();}};
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
     const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
@@ -3405,12 +3590,13 @@ function wire(){
       ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px">`;ov.onclick=()=>ov.remove();document.body.appendChild(ov);
     });
     const svr=document.getElementById('svRefresh');if(svr)svr.onclick=()=>{store.siteVisitsLoaded=false;loadSiteVisits();};
+    wireAttendance();
     wireSnagList();
     wireMarkupOverlay();
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};store.attLoaded=false;store.attendance=[];store.bioLoaded=false;store.bioCreds=[];render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
