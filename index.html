@@ -2088,6 +2088,7 @@ function siteEngineerHTML(){
   <div class="body">
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
     ${attendanceHTML()}
+    ${crewAttendanceHTML()}
     <div class="card" style="border-color:var(--blue)">
       <div class="cardHead" style="color:var(--blue)"><span>➕ NEW SITE VISIT</span></div>
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -2411,7 +2412,9 @@ function attendanceHTML(){
   if(!store.projectsLoaded){loadProjects();}
   const open=myOpenShift();
   const mine=(store.attendance||[]).filter(a=>a.user_id===store.account.uid).slice(0,10);
-  const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
+  // Any company project - the manager's "open for site visits" gate governs
+  // measurement authority, not where someone is allowed to work.
+  const openProjects=(store.projects||[]);
   const hasBio=(store.bioCreds||[]).length>0;
   const since=open?new Date(open.sign_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="card" style="border-color:var(--green)">
@@ -2428,7 +2431,7 @@ function attendanceHTML(){
             <option value="">— pick a project —</option>
             ${openProjects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
           </select></label>
-        ${!openProjects.length?'<div class="hint" style="padding:0 0 8px;color:var(--amber)">No projects are open for site work yet — ask your manager to open one.</div>':''}
+        ${!openProjects.length?'<div class="hint" style="padding:0 0 8px;color:var(--amber)">No projects visible yet — ask your supervisor to save one.</div>':''}
         <button class="add" id="attSignIn" style="width:100%" ${store.attBusy?'disabled':''}>${store.attBusy?'…':'SIGN IN'}</button>`}
       <div style="margin-top:10px;font-size:11px;color:var(--mut);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         ${hasBio?'<span style="color:var(--green)">👆 Fingerprint active on this device</span>'
@@ -2454,6 +2457,161 @@ function wireAttendance(){
   const so=document.getElementById('attSignOut'); if(so)so.onclick=()=>attendanceSignOut();
   const rb=document.getElementById('attRegBio'); if(rb)rb.onclick=()=>registerBiometric();
   const rf=document.getElementById('attRefresh'); if(rf)rf.onclick=()=>{store.attLoaded=false;loadAttendance();};
+}
+// ============ CREW ATTENDANCE ============
+// Labourers don't have their own accounts or phones, so they can't self-punch.
+// The engineer marks the crew against a roster; their own fingerprint-verified
+// sign-in is what makes that record trustworthy.
+async function loadCrew(){
+  store.crewLoaded=true;
+  if(!sb||!store.account){store.crew=[];render();return;}
+  try{const {data}=await sb.from('crew_members').select('*').eq('company_id',store.account.companyId).order('name');
+    store.crew=(data||[]).filter(c=>c.active!==false);}
+  catch(e){store.crew=[];}
+  render();
+}
+async function loadCrewAttendance(){
+  store.crewAttLoaded=true;
+  if(!sb||!store.account){store.crewAtt=[];render();return;}
+  try{const {data}=await sb.from('crew_attendance').select('*').eq('company_id',store.account.companyId)
+    .order('work_date',{ascending:false});store.crewAtt=data||[];}
+  catch(e){store.crewAtt=[];}
+  render();
+}
+async function addCrewMember(){
+  const nm=(document.getElementById('crew_name')||{}).value||'';
+  const tr=(document.getElementById('crew_trade')||{}).value||'';
+  if(!nm.trim()){alert('Enter the worker\'s name.');return;}
+  const row={company_id:store.account.companyId, name:nm.trim(), trade:tr.trim(), active:true};
+  try{
+    const {data,error}=await sb.from('crew_members').insert(row).select().single();
+    if(error)throw error;
+    store.crew=[...(store.crew||[]),data].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    render();
+  }catch(e){alert('Could not add: '+(e.message||'error'));}
+}
+async function removeCrewMember(id){
+  if(!confirm('Remove this worker from the roster? Past attendance records are kept.'))return;
+  store.crew=(store.crew||[]).filter(c=>c.id!==id); render();
+  try{await sb.from('crew_members').update({active:false}).eq('id',id);}catch(e){}
+}
+function crewKey(){ return (store.crewProject||'')+'|'+(store.crewDate||todayStr()); }
+function crewRecordFor(memberId){
+  const pid=store.crewProject, d=store.crewDate||todayStr();
+  return (store.crewAtt||[]).find(a=>a.crew_member_id===memberId && a.project_id===pid && a.work_date===d);
+}
+function setCrewStatus(memberId,status){
+  if(!store.crewDraft)store.crewDraft={};
+  const k=crewKey()+'|'+memberId;
+  store.crewDraft[k] = (store.crewDraft[k]===status) ? null : status;
+  render();
+}
+function crewStatusOf(memberId){
+  const k=crewKey()+'|'+memberId;
+  if(store.crewDraft && store.crewDraft[k]!==undefined && store.crewDraft[k]!==null) return store.crewDraft[k];
+  if(store.crewDraft && store.crewDraft[k]===null) return null;
+  const rec=crewRecordFor(memberId);
+  return rec?rec.status:null;
+}
+async function saveCrewAttendance(){
+  const pid=store.crewProject, d=store.crewDate||todayStr();
+  if(!pid){alert('Pick a project first.');return;}
+  const proj=(store.projects||[]).find(p=>p.id===pid);
+  const marked=(store.crew||[]).map(c=>({c, st:crewStatusOf(c.id)})).filter(x=>x.st);
+  if(!marked.length){alert('Mark at least one worker present or absent.');return;}
+  store.crewBusy=true; render();
+  const pos=await getPosition();
+  let ok=0, fail=0;
+  for(const {c,st} of marked){
+    const existing=crewRecordFor(c.id);
+    if(existing){
+      const patch={status:st, recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
+        recorded_at:new Date().toISOString(), lat:pos?pos.lat:null, lng:pos?pos.lng:null};
+      Object.assign(existing,patch);
+      try{await sb.from('crew_attendance').update(patch).eq('id',existing.id); ok++; }catch(e){ fail++; }
+    }else{
+      const row={company_id:store.account.companyId, project_id:pid, project_name:proj?proj.name:'',
+        crew_member_id:c.id, worker_name:c.name, trade:c.trade, work_date:d, status:st,
+        recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
+        lat:pos?pos.lat:null, lng:pos?pos.lng:null};
+      try{
+        const {data,error}=await sb.from('crew_attendance').insert(row).select().single();
+        if(error)throw error;
+        store.crewAtt=[data,...(store.crewAtt||[])]; ok++;
+      }catch(e){ fail++; }
+    }
+  }
+  store.crewDraft={}; store.crewBusy=false; render();
+  alert(`Saved ${ok} record${ok===1?'':'s'}${fail?`, ${fail} failed`:''}.`);
+}
+function crewAttendanceHTML(){
+  if(!store.crewLoaded){loadCrew();}
+  if(!store.crewAttLoaded){loadCrewAttendance();}
+  if(!store.projectsLoaded){loadProjects();}
+  const projects=store.projects||[];
+  const d=store.crewDate||todayStr();
+  const crew=store.crew||[];
+  const counts=crew.reduce((a,c)=>{const st=crewStatusOf(c.id); if(st)a[st]=(a[st]||0)+1; return a;},{});
+  const btn=(cid,st,label,col)=>{
+    const on=crewStatusOf(cid)===st;
+    return `<button data-crewst="${cid}:${st}" style="font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid ${col};background:${on?col:'transparent'};color:${on?'#000':col}">${label}</button>`;
+  };
+  return `<div class="card" style="border-color:var(--amber)">
+    <div class="cardHead" style="color:var(--amber)"><span>👷 CREW ATTENDANCE</span>
+      <button class="zadd" id="crewRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
+    <div class="hint" style="padding:0 12px 8px">Mark your labour present or absent for the day. Their names come from your company roster, so you only type them once.</div>
+    <div style="padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <label class="field"><span class="fl">PROJECT</span>
+        <select class="fi" id="crew_project">
+          <option value="">— pick a project —</option>
+          ${projects.map(p=>`<option value="${p.id}" ${store.crewProject===p.id?'selected':''}>${p.name}</option>`).join('')}
+        </select></label>
+      <label class="field"><span class="fl">DATE</span><input class="fi" type="date" id="crew_date" value="${d}"></label>
+    </div>
+    ${!store.crewProject?'<div class="empty">Pick a project to mark attendance.</div>':`
+      <div style="padding:0 12px 8px;font-size:12px;color:var(--mut)">
+        <strong style="color:var(--green)">${counts.present||0} present</strong> ·
+        ${counts.half||0} half day · ${counts.absent||0} absent · ${crew.length} on roster
+      </div>
+      ${crew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th></th></tr></thead><tbody>
+        ${crew.map(c=>{
+          const rec=crewRecordFor(c.id);
+          return `<tr>
+            <td style="font-size:12px">${c.name}</td>
+            <td style="font-size:11px;color:var(--mut)">${c.trade||'—'}</td>
+            <td style="white-space:nowrap;display:flex;gap:4px">
+              ${btn(c.id,'present','P','var(--green)')}
+              ${btn(c.id,'half','½','var(--amber)')}
+              ${btn(c.id,'absent','A','var(--red)')}
+            </td>
+            <td style="font-size:10px;color:var(--mut);white-space:nowrap">${rec?'saved':''}
+              <button data-crewdel="${c.id}" title="Remove from roster" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">×</button></td>
+          </tr>`;}).join('')}
+      </tbody></table></div>`:'<div class="empty">No workers on the roster yet — add them below.</div>'}
+      <div style="padding:12px"><button class="add" id="crewSave" style="width:100%" ${store.crewBusy?'disabled':''}>${store.crewBusy?'SAVING…':'✓ SAVE ATTENDANCE'}</button></div>
+    `}
+    <div style="padding:0 12px 12px;border-top:1px solid var(--line)">
+      <div style="font-size:11px;color:var(--mut);margin:10px 0 6px">ADD A WORKER TO THE ROSTER</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input class="fi" id="crew_name" placeholder="Worker name" style="flex:2;min-width:130px">
+        <input class="fi" id="crew_trade" placeholder="Trade (e.g. carpenter)" style="flex:2;min-width:130px">
+        <button class="zadd" id="crewAdd" style="padding:8px 14px">+ ADD</button>
+      </div>
+    </div>
+  </div>`;
+}
+function wireCrewAttendance(){
+  const pj=document.getElementById('crew_project');
+  if(pj)pj.onchange=()=>{store.crewProject=pj.value;store.crewDraft={};render();};
+  const dt=document.getElementById('crew_date');
+  if(dt)dt.onchange=()=>{store.crewDate=dt.value;store.crewDraft={};render();};
+  document.querySelectorAll('[data-crewst]').forEach(b=>b.onclick=()=>{
+    const [cid,st]=b.dataset.crewst.split(':'); setCrewStatus(cid,st);
+  });
+  document.querySelectorAll('[data-crewdel]').forEach(b=>b.onclick=()=>removeCrewMember(b.dataset.crewdel));
+  const ad=document.getElementById('crewAdd'); if(ad)ad.onclick=()=>addCrewMember();
+  const sv=document.getElementById('crewSave'); if(sv)sv.onclick=()=>saveCrewAttendance();
+  const rf=document.getElementById('crewRefresh'); if(rf)rf.onclick=()=>{store.crewLoaded=false;store.crewAttLoaded=false;loadCrew();loadCrewAttendance();};
 }
 // ---- Snag list: before/after photo comparison, shared between Manager and Site
 // Engineer — either can log a snag, either can resolve it with an after photo. ----
@@ -3563,7 +3721,7 @@ function wire(){
     return;}
   // ---- site engineer dashboard wiring ----
   if(store.account.accountType==='site_engineer'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};store.attLoaded=false;store.attendance=[];store.bioLoaded=false;store.bioCreds=[];render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};store.attLoaded=false;store.attendance=[];store.bioLoaded=false;store.bioCreds=[];store.crewLoaded=false;store.crew=[];store.crewAttLoaded=false;store.crewAtt=[];store.crewDraft={};store.crewProject=null;render();}};
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
     const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
@@ -3591,12 +3749,13 @@ function wire(){
     });
     const svr=document.getElementById('svRefresh');if(svr)svr.onclick=()=>{store.siteVisitsLoaded=false;loadSiteVisits();};
     wireAttendance();
+    wireCrewAttendance();
     wireSnagList();
     wireMarkupOverlay();
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
-    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};store.attLoaded=false;store.attendance=[];store.bioLoaded=false;store.bioCreds=[];render();}};
+    const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();if(_prodCharts.status)_prodCharts.status.destroy();if(_prodCharts.release)_prodCharts.release.destroy();_prodCharts={status:null,release:null};store.account=null;store.apprLoaded=false;store.approvals=[];store.prodItemsLoaded=false;store.prodItems=[];store.siteVisitsLoaded=false;store.siteVisits=[];store.reqDraft={};store.managerTab='approvals';store.prodView='dashboard';store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};store.attLoaded=false;store.attendance=[];store.bioLoaded=false;store.bioCreds=[];store.crewLoaded=false;store.crew=[];store.crewAttLoaded=false;store.crewAtt=[];store.crewDraft={};store.crewProject=null;render();}};
     document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>setApproval(b.dataset.approve,'approved'));
     document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>setApproval(b.dataset.reject,'rejected'));
     document.querySelectorAll('[data-cert]').forEach(b=>b.onclick=()=>viewCertificate(b.dataset.cert));
