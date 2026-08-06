@@ -161,18 +161,34 @@
 // Bump this string on every deploy. Used only to detect when a newer version
 // is live, so people see a "click to refresh" banner instead of being silently
 // switched to new features mid-task.
-const APP_VERSION='2026-07-20-a';
-function checkForUpdate(){
-  fetch(window.location.href,{cache:'no-store'}).then(r=>r.text()).then(txt=>{
-    const m=txt.match(/APP_VERSION=['"]([^'"]+)['"]/);
-    if(m && m[1] && m[1]!==APP_VERSION){
-      const b=document.getElementById('updateBanner'); if(b)b.style.display='block';
-    }
-  }).catch(()=>{}); // offline or blocked — just skip silently, not worth alarming anyone
+// ---- Update detection ----
+// This used to rely on bumping a version string by hand on every deploy, which
+// meant one forgotten edit silently disabled it for everyone. Now it asks the
+// server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
+// request and compares it to the one we loaded with. Any redeploy changes the
+// fingerprint, so it works whether or not anyone remembers to update anything.
+const APP_VERSION='2026-08-04-a';   // display only - not what triggers the banner
+let _appFingerprint=null;
+function fingerprintOf(res){
+  return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
 }
-setTimeout(checkForUpdate,15000); // first check shortly after load
-setInterval(checkForUpdate,5*60*1000); // then every 5 minutes
+async function checkForUpdate(){
+  try{
+    const res=await fetch(window.location.href,{method:'HEAD',cache:'no-store'});
+    if(!res.ok)return;
+    const fp=fingerprintOf(res);
+    if(!fp||fp==='|')return;                 // server gave us nothing usable
+    if(_appFingerprint===null){_appFingerprint=fp;return;}   // first run: remember it
+    if(fp!==_appFingerprint){
+      const b=document.getElementById('updateBanner');
+      if(b)b.style.display='block';
+    }
+  }catch(e){}   // offline or blocked - never bother the user about it
+}
+checkForUpdate();                       // record the fingerprint we loaded with
+setInterval(checkForUpdate,3*60*1000);  // then re-check every 3 minutes
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')checkForUpdate(); });
+window.addEventListener('online',checkForUpdate);
 {const ub=document.getElementById('updateBannerBtn'); if(ub)ub.onclick=()=>{location.reload();};}
 // RAL Paint Mixer tool, embedded as a self-contained base64 data-URL iframe —
 // keeps its own JS/CSS scope fully isolated from the main app, avoiding any
