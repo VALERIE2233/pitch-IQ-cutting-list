@@ -2037,6 +2037,119 @@ function photoCell(id,phs){
   </div>`:'';
   return `<div style="min-width:90px">${thumbs}${controls}</div>`;
 }
+// ============ PDF CATALOGUE BOOKLETS ============
+// A supplier's catalogue is a booklet: pictures and words together on a page.
+// So we keep the page intact. For each page we render an image AND pull out its
+// text layer. Searching then works like searching a PDF - find the word, and the
+// whole page opens so you see the product, its code and its photo in context.
+async function uploadPdfCatalogue(file){
+  if(typeof pdfjsLib==='undefined'){alert('PDF reader failed to load — check your connection and try again.');return;}
+  store.pdfUp={name:file.name, done:0, total:0, noText:0}; render();
+  try{
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    store.pdfUp.total=pdf.numPages; render();
+    const rows=[];
+    for(let n=1;n<=pdf.numPages;n++){
+      const page=await pdf.getPage(n);
+      // text layer - this is what makes the booklet searchable
+      let text='';
+      try{
+        const tc=await page.getTextContent();
+        text=tc.items.map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
+      }catch(e){}
+      if(!text) store.pdfUp.noText++;
+      // render the page to an image so we can show it as it was designed
+      const viewport=page.getViewport({scale:1.6});
+      const cv=document.createElement('canvas');
+      cv.width=viewport.width; cv.height=viewport.height;
+      await page.render({canvasContext:cv.getContext('2d'),viewport}).promise;
+      const blob=await new Promise(res=>cv.toBlob(res,'image/jpeg',0.82));
+      const imgFile=new File([blob],`page-${n}.jpg`,{type:'image/jpeg'});
+      let url='';
+      try{ url=await uploadCataloguePhoto(imgFile); }catch(e){}
+      rows.push({supplier_id:store.account.uid, supplier_name:store.account.company,
+        doc_name:file.name, page_no:n, image_url:url, text_content:text});
+      store.pdfUp.done=n; render();
+    }
+    for(let i=0;i<rows.length;i+=20){
+      try{ await sb.from('catalogue_pages').insert(rows.slice(i,i+20)); }catch(e){}
+    }
+    const noText=store.pdfUp.noText, total=rows.length;
+    store.pdfUp=null; store.catPagesLoaded=false; loadCataloguePages();
+    alert(`Uploaded ${total} page${total>1?'s':''}.`+
+      (noText? `\n\nNote: ${noText} page${noText>1?'s have':' has'} no text layer — likely scanned images. `+
+               `Those pages will show in the booklet but won't be found by searching, because there are no words to search.`
+            : `\n\nAll pages are searchable.`));
+  }catch(e){
+    store.pdfUp=null; render();
+    alert('Could not read that PDF: '+(e.message||'error'));
+  }
+}
+async function loadCataloguePages(){
+  store.catPagesLoaded=true;
+  if(!sb){store.catPages=[];render();return;}
+  try{const {data}=await sb.from('catalogue_pages').select('*').order('supplier_name').order('doc_name').order('page_no');
+    store.catPages=data||[];}
+  catch(e){store.catPages=[];}
+  render();
+}
+async function deleteBooklet(docName){
+  if(!confirm(`Remove "${docName}" and all its pages from the catalogue?`))return;
+  store.catPages=(store.catPages||[]).filter(p=>!(p.doc_name===docName&&p.supplier_id===store.account.uid));
+  render();
+  try{await sb.from('catalogue_pages').delete().eq('supplier_id',store.account.uid).eq('doc_name',docName);}catch(e){}
+}
+function snippetAround(text,term,len){
+  if(!text)return '';
+  const i=text.toLowerCase().indexOf(term.toLowerCase());
+  if(i<0)return text.slice(0,len)+(text.length>len?'…':'');
+  const start=Math.max(0,i-Math.floor(len/3));
+  const raw=text.slice(start,start+len);
+  const safe=raw.replace(/[<>]/g,'');
+  const re=new RegExp('('+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');
+  return (start>0?'…':'')+safe.replace(re,'<mark style="background:var(--amber);color:#000">$1</mark>')+'…';
+}
+function bookletPageOverlay(){
+  const v=store.pageView; if(!v)return '';
+  const list=store.pageViewList||[];
+  const idx=list.findIndex(p=>p.id===v.id);
+  const prev=idx>0?list[idx-1]:null, next=idx>=0&&idx<list.length-1?list[idx+1]:null;
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;flex-direction:column;z-index:9999">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)">
+      <span style="font-size:12px;color:#fff"><strong>${v.supplier_name||''}</strong> · ${v.doc_name||''} · page ${v.page_no}</span>
+      <span style="flex:1"></span>
+      <button class="zadd" data-pageto="${prev?prev.id:''}" style="font-size:11px;padding:5px 10px" ${prev?'':'disabled'}>← Prev</button>
+      <button class="zadd" data-pageto="${next?next.id:''}" style="font-size:11px;padding:5px 10px" ${next?'':'disabled'}>Next →</button>
+      <button class="pbtn" id="pageViewClose" style="padding:5px 12px">✕ CLOSE</button>
+    </div>
+    <div style="flex:1;overflow:auto;display:flex;justify-content:center;padding:14px;background:#111">
+      ${v.image_url?`<img src="${v.image_url}" style="max-width:100%;height:auto;align-self:flex-start;background:#fff;border-radius:4px">`
+                   :'<div style="color:var(--mut);align-self:center">Page image unavailable</div>'}
+    </div>
+  </div>`;
+}
+function catalogueBookletHTML(){
+  if(!store.catPagesLoaded){loadCataloguePages();}
+  const q=(store.catSearch||'').trim();
+  const pages=store.catPages||[];
+  const docs=[...new Set(pages.map(p=>p.doc_name))];
+  const hits=q?pages.filter(p=>(p.text_content||'').toLowerCase().includes(q.toLowerCase())):pages;
+  store.pageViewList=hits;
+  if(!pages.length)return `<div class="empty" style="margin-top:20px">No supplier booklets uploaded yet. Suppliers can upload their PDF catalogue and every page becomes searchable here.</div>`;
+  return `<div class="hint" style="padding:0 16px 8px">${docs.length} booklet${docs.length===1?'':'s'} · ${pages.length} pages${q?` · ${hits.length} page${hits.length===1?'':'s'} containing "${q}"`:''}. Search finds the word inside the booklet, then opens the page so you can see the product and its code in context.</div>
+  ${!hits.length?`<div class="empty">No page contains "${q}". Try a shorter word, or a product code.</div>`:`
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;padding:4px 16px 16px">
+    ${hits.slice(0,60).map(p=>`<div data-openpage="${p.id}" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel);cursor:pointer">
+      ${p.image_url?`<img src="${p.image_url}" style="width:100%;height:200px;object-fit:cover;object-position:top;background:#fff">`
+                   :'<div style="height:200px;display:flex;align-items:center;justify-content:center;background:var(--steel);color:var(--mut);font-size:11px">no image</div>'}
+      <div style="padding:8px">
+        <div style="font-size:11px;color:var(--blue)">${p.supplier_name||''} · p${p.page_no}</div>
+        <div style="font-size:10px;color:var(--mut);margin-top:3px;line-height:1.4">${q?snippetAround(p.text_content,q,110):(p.doc_name||'')}</div>
+      </div></div>`).join('')}
+  </div>
+  ${hits.length>60?`<div class="hint">Showing the first 60 of ${hits.length} pages — narrow your search to see fewer.</div>`:''}`}`;
+}
 // Bulk photo upload. Suppliers keep product shots named by product code, so we
 // match filename -> code automatically. "MEL-18-WHT.jpg", "MEL-18-WHT_2.jpg" and
 // "mel 18 wht.png" all land on the right item. Anything unmatched can become a
@@ -2299,6 +2412,9 @@ function wireCatImport(){
   const t=document.getElementById('catTemplate'); if(t)t.onclick=()=>downloadCatTemplate();
   const bp=document.getElementById('bulkPhotoFile');
   if(bp)bp.onchange=e=>{const fl=e.target.files; if(fl&&fl.length)bulkPhotoUpload(fl); e.target.value='';};
+  const pf=document.getElementById('pdfCatFile');
+  if(pf)pf.onchange=e=>{const f=e.target.files[0]; if(f)uploadPdfCatalogue(f); e.target.value='';};
+  document.querySelectorAll('[data-delbooklet]').forEach(b=>b.onclick=()=>deleteBooklet(b.dataset.delbooklet));
   const c=document.getElementById('catImpClose'); if(c)c.onclick=()=>{store.catImp=null;render();};
   const r=document.getElementById('catImpRun'); if(r)r.onclick=()=>runCatImport();
   const sh=document.getElementById('catImpSheet'); if(sh)sh.onchange=()=>catImportSwitchSheet(sh.value);
@@ -3044,8 +3160,14 @@ function supplierHTML(){
         <label class="zadd" style="cursor:pointer;border-color:var(--blue);color:var(--blue)">📥 IMPORT CATALOGUE FILE<input type="file" id="catImpFile" accept=".xlsx,.xls,.csv" style="display:none"></label>
         <button class="zadd" id="catTemplate" style="font-size:11px">⬇ Download template</button>
         <label class="zadd" style="cursor:pointer;border-color:var(--green);color:var(--green)">🖼 UPLOAD PHOTOS IN BULK<input type="file" id="bulkPhotoFile" accept="image/*" multiple style="display:none"></label>
+        <label class="zadd" style="cursor:pointer;border-color:var(--amber);color:var(--amber)">📕 UPLOAD PDF CATALOGUE<input type="file" id="pdfCatFile" accept="application/pdf" style="display:none"></label>
         <span style="font-size:11px;color:var(--mut)">Upload your price list (Excel/CSV, any layout), or drop in a folder of product photos named by code.</span>
         ${store.bulkPhoto?`<div style="width:100%;font-size:11px;color:var(--amber);margin-top:6px">Uploading photos… ${store.bulkPhoto.done}/${store.bulkPhoto.total}</div>`:''}
+        ${store.pdfUp?`<div style="width:100%;font-size:11px;color:var(--amber);margin-top:6px">Reading ${store.pdfUp.name}… page ${store.pdfUp.done}${store.pdfUp.total?' of '+store.pdfUp.total:''}</div>`:''}
+        ${(()=>{const mine=(store.catPages||[]).filter(p=>p.supplier_id===store.account.uid);
+          const docs=[...new Set(mine.map(p=>p.doc_name))];
+          if(!store.catPagesLoaded)loadCataloguePages();
+          return docs.length?`<div style="width:100%;margin-top:8px;font-size:11px;color:var(--mut)">My booklets: ${docs.map(dn=>`<span style="display:inline-block;margin:2px 6px 2px 0;padding:3px 8px;border:1px solid var(--line);border-radius:4px">📕 ${dn} (${mine.filter(p=>p.doc_name===dn).length}p) <button data-delbooklet="${dn}" style="background:none;border:none;color:var(--red);cursor:pointer">×</button></span>`).join('')}</div>`:'';})()}
       </div>
     </div>
     <div class="hint">Tip: use clear codes (e.g. GYP-12.5-STD, STUD-92-3.6) and fill thickness/size where relevant — it helps contractors match your products to their cut lists.</div>
@@ -3523,7 +3645,7 @@ function catalogueHTML(){
   const all=store.catalogueAll||[];
   const rows=q?all.filter(r=>(`${r.kind} ${r.code} ${r.description} ${r.supplier_name}`).toLowerCase().includes(q)):all;
   const suppliers=[...new Set(all.map(r=>r.supplier_name).filter(Boolean))];
-  const gallery = store.catView!=='list';   // picture booklet is the default
+  const gallery = !store.catView || store.catView==='gallery';   // pictures by default
   const card = r => {
     const spec=[r.thk?`${r.thk}mm`:'',r.width&&r.height?`${r.width}×${r.height}`:'',r.length?`L${r.length}`:'',r.litres?`${r.litres}L`:'',r.container||''].filter(Boolean).join(' · ');
     const phs=Array.isArray(r.photos)?r.photos:[];
@@ -3549,9 +3671,11 @@ function catalogueHTML(){
     <div class="stat" style="align-self:flex-end"><div class="sv" style="color:var(--blue);font-size:18px">${rows.length}</div><div class="sl">SHOWING${q?' OF '+all.length:''} · ${suppliers.length} SUPPLIER${suppliers.length===1?'':'S'}</div></div>
     <div style="align-self:flex-end;display:flex;gap:4px">
       <button class="zadd" data-catview="gallery" style="font-size:11px;padding:7px 10px;${gallery?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">🖼 PICTURES</button>
-      <button class="zadd" data-catview="list" style="font-size:11px;padding:7px 10px;${!gallery?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">☰ LIST</button>
+      <button class="zadd" data-catview="list" style="font-size:11px;padding:7px 10px;${store.catView==='list'?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">☰ LIST</button>
+      <button class="zadd" data-catview="booklet" style="font-size:11px;padding:7px 10px;${store.catView==='booklet'?'background:var(--amber);color:#000;border-color:var(--amber)':''}">📕 BOOKLETS</button>
     </div>
   </div>
+  ${store.catView==='booklet'?catalogueBookletHTML():`
   ${!all.length?`<div class="empty" style="margin-top:20px">The catalogue is empty so far. As suppliers list their materials, they'll appear here for you to use.</div>`
    :!rows.length?`<div class="empty" style="margin-top:20px">Nothing matches "${store.catSearch}". Try a shorter word — a material, a colour, or a supplier name.</div>`
    :gallery?`
@@ -3573,7 +3697,7 @@ function catalogueHTML(){
       <td class="r"><span class="cost">${r.currency||'$'}${(r.price||0).toFixed(2)}</span><br><span style="font-size:10px;color:var(--mut)">/${r.unit||'unit'}</span></td>
       <td><button class="zadd" data-usecat="${r.id}" style="padding:7px 10px;font-size:11px">+ USE</button></td></tr>`;}).join('')}
   </tbody></table></div></div>`}
-  <div class="hint">Tip: "+ USE" copies the item into your Price Book under the right section. You can then edit the price to match what you actually pay — your version always overrides the catalogue.</div>`;}
+  <div class="hint">Tip: "+ USE" copies the item into your Price Book under the right section. You can then edit the price to match what you actually pay — your version always overrides the catalogue.</div>`}${bookletPageOverlay()}`;}
 
 function procReqViewOverlay(){
   if(!store.procReqViewId)return '';
@@ -4284,6 +4408,14 @@ function wire(){
   const cse=document.getElementById('catSearch');if(cse){cse.oninput=()=>{store.catSearch=cse.value;render();const f=document.getElementById('catSearch');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}};}
   document.querySelectorAll('[data-usecat]').forEach(b=>b.onclick=()=>useCatalogueItem(b.dataset.usecat));
   document.querySelectorAll('[data-catview]').forEach(b=>b.onclick=()=>{store.catView=b.dataset.catview;render();});
+  document.querySelectorAll('[data-openpage]').forEach(el=>el.onclick=()=>{
+    store.pageView=(store.catPages||[]).find(p=>p.id===el.dataset.openpage); render();
+  });
+  document.querySelectorAll('[data-pageto]').forEach(b=>b.onclick=()=>{
+    if(!b.dataset.pageto)return;
+    store.pageView=(store.catPages||[]).find(p=>p.id===b.dataset.pageto); render();
+  });
+  {const pc=document.getElementById('pageViewClose'); if(pc)pc.onclick=()=>{store.pageView=null;render();};}
   document.querySelectorAll('[data-bigphoto]').forEach(img=>img.onclick=()=>{
     const url=img.dataset.bigphoto;
     const ov=document.createElement('div');
