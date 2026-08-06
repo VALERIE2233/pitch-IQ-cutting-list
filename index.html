@@ -2066,6 +2066,199 @@ async function catAdd(){
   try{const {data}=await sb.from('catalogue').insert(row).select().single();if(data)store.myCatalogue.push(data);}catch(e){alert('Could not add: '+e.message);}
   render();
 }
+// ============ SUPPLIER CATALOGUE BULK IMPORT ============
+// Suppliers already have their catalogue in a spreadsheet, and every supplier's
+// spreadsheet is laid out differently. So instead of forcing them onto our
+// template, we read whatever they have, guess which column is which, and let
+// them correct the guesses before anything is saved.
+const CAT_FIELDS=[
+  {k:'kind',        label:'Category / type', hints:['category','type','kind','group','product type','classification','family']},
+  {k:'code',        label:'Code / SKU',      hints:['code','item code','sku','part no','part number','ref','reference','article','model','item no']},
+  {k:'description', label:'Description',     hints:['description','desc','name','item','product','details','particulars','material']},
+  {k:'thk',         label:'Thickness',       hints:['thickness','thk','thick']},
+  {k:'width',       label:'Width',           hints:['width','w','wide']},
+  {k:'height',      label:'Height',          hints:['height','h','high']},
+  {k:'length',      label:'Length',          hints:['length','len','long','l']},
+  {k:'litres',      label:'Litres',          hints:['litres','liters','litre','liter','volume','ltr','ltrs']},
+  {k:'container',   label:'Container / pack',hints:['container','pack','packaging','pack size','packing']},
+  {k:'unit',        label:'Unit',            hints:['unit','uom','per','measure','unit of measure']},
+  {k:'price',       label:'Price',           hints:['price','rate','cost','unit price','unit rate','amount','value','selling price','list price']},
+  {k:'currency',    label:'Currency',        hints:['currency','cur','ccy']},
+];
+const CAT_NUMERIC=['thk','width','height','length','litres','price'];
+function normHdr(h){ return String(h||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+function guessMapping(headers){
+  const map={}; const used={};
+  CAT_FIELDS.forEach(f=>{
+    let best=-1, bestScore=0;
+    headers.forEach((h,i)=>{
+      if(used[i])return;
+      const n=normHdr(h); if(!n)return;
+      let score=0;
+      f.hints.forEach(hint=>{
+        if(n===hint) score=Math.max(score,100);
+        else if(n.replace(/ /g,'')===hint.replace(/ /g,'')) score=Math.max(score,95);
+        else if(n.startsWith(hint+' ')||n.endsWith(' '+hint)) score=Math.max(score,80);
+        else if(hint.length>2 && n.includes(hint)) score=Math.max(score,60);
+      });
+      if(score>bestScore){bestScore=score;best=i;}
+    });
+    if(best>=0 && bestScore>=60){ map[f.k]=best; used[best]=true; }
+  });
+  return map;
+}
+function downloadCatTemplate(){
+  if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  const aoa=[CAT_FIELDS.map(f=>f.label),
+    ['Board','MEL-18-WHT','White melamine faced MDF',18,1220,2440,'','','','sheet',52,'AED'],
+    ['Paint','PU-CLR-5L','PU clear lacquer','','','','',5,'5L tin','tin',180,'AED']];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Catalogue');
+  XLSX.writeFile(wb,'fit-out-iq-catalogue-template.xlsx');
+}
+function openCatImport(file){
+  if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const sheetNames=wb.SheetNames;
+      const pick=(name)=>{
+        const raw=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:''});
+        // find the first row that looks like a header: several non-empty text cells
+        let hdrIdx=0;
+        for(let i=0;i<Math.min(raw.length,15);i++){
+          const filled=raw[i].filter(c=>String(c).trim()!=='').length;
+          if(filled>=3){hdrIdx=i;break;}
+        }
+        const headers=(raw[hdrIdx]||[]).map(h=>String(h||'').trim());
+        const rows=raw.slice(hdrIdx+1).filter(r=>r.some(c=>String(c).trim()!==''));
+        return {headers,rows};
+      };
+      store.catImp={file:file.name, wb, sheetNames, sheet:sheetNames[0], ...pick(sheetNames[0]), skipDupes:true};
+      store.catImp.map=guessMapping(store.catImp.headers);
+      render();
+    }catch(ex){alert('Could not read that file: '+(ex.message||'error'));}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function catImportSwitchSheet(name){
+  const imp=store.catImp; if(!imp)return;
+  const raw=XLSX.utils.sheet_to_json(imp.wb.Sheets[name],{header:1,defval:''});
+  let hdrIdx=0;
+  for(let i=0;i<Math.min(raw.length,15);i++){
+    if(raw[i].filter(c=>String(c).trim()!=='').length>=3){hdrIdx=i;break;}
+  }
+  imp.sheet=name;
+  imp.headers=(raw[hdrIdx]||[]).map(h=>String(h||'').trim());
+  imp.rows=raw.slice(hdrIdx+1).filter(r=>r.some(c=>String(c).trim()!==''));
+  imp.map=guessMapping(imp.headers);
+  render();
+}
+function catImportRowToItem(r){
+  const imp=store.catImp, m=imp.map, out={};
+  CAT_FIELDS.forEach(f=>{
+    const idx=m[f.k];
+    if(idx===undefined||idx===null||idx===''){ out[f.k] = CAT_NUMERIC.indexOf(f.k)>=0?0:''; return; }
+    let v=r[idx];
+    if(CAT_NUMERIC.indexOf(f.k)>=0){
+      // tolerate "18mm", "AED 52.00", "1,220"
+      const num=parseFloat(String(v).replace(/[^0-9.\-]/g,''));
+      out[f.k]=isNaN(num)?0:num;
+    }else{
+      out[f.k]=String(v==null?'':v).trim();
+    }
+  });
+  return out;
+}
+async function runCatImport(){
+  const imp=store.catImp; if(!imp)return;
+  if(imp.map.code===undefined && imp.map.description===undefined){
+    alert('Map at least a Code or a Description column — otherwise the items have no name.');return;
+  }
+  const items=imp.rows.map(catImportRowToItem).filter(it=>(it.code||it.description));
+  if(!items.length){alert('No usable rows found.');return;}
+  if(!confirm(`Import ${items.length} items into your catalogue?`))return;
+  store.catImpBusy=true; render();
+  const existing={}; (store.myCatalogue||[]).forEach(c=>{ if(c.code) existing[String(c.code).toLowerCase()]=c; });
+  let added=0, updated=0, failed=0;
+  const toInsert=[];
+  for(const it of items){
+    const key=String(it.code||'').toLowerCase();
+    const dupe=key?existing[key]:null;
+    if(dupe && imp.skipDupes){
+      try{ await catUpdate(dupe.id,{price:it.price, description:it.description||dupe.description}); updated++; }
+      catch(e){ failed++; }
+    }else{
+      toInsert.push({supplier_id:store.account.uid, supplier_name:store.account.company,
+        kind:it.kind, code:it.code||'(no code)', description:it.description,
+        thk:it.thk, width:it.width, height:it.height, length:it.length,
+        litres:it.litres, container:it.container, unit:it.unit||'each',
+        price:it.price, currency:it.currency||store.currency,
+        region:store.account.location||''});
+    }
+  }
+  for(let i=0;i<toInsert.length;i+=100){
+    const batch=toInsert.slice(i,i+100);
+    try{
+      const {data,error}=await sb.from('catalogue').insert(batch).select();
+      if(error)throw error;
+      store.myCatalogue=[...(store.myCatalogue||[]),...(data||[])];
+      added+=batch.length;
+    }catch(e){ failed+=batch.length; }
+  }
+  store.catImp=null; store.catImpBusy=false; render();
+  alert(`Import complete: ${added} added${updated?`, ${updated} price-updated`:''}${failed?`, ${failed} failed`:''}.`);
+}
+function catImportOverlay(){
+  const imp=store.catImp; if(!imp)return '';
+  const mapped=CAT_FIELDS.filter(f=>imp.map[f.k]!==undefined).length;
+  const preview=imp.rows.slice(0,4).map(catImportRowToItem);
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9998;padding:16px">
+    <div style="background:var(--panel);border:1px solid var(--blue);border-radius:8px;max-width:820px;width:100%;max-height:90vh;overflow:auto;padding:18px">
+      <div style="display:flex;align-items:center;margin-bottom:6px">
+        <strong style="color:var(--blue);font-size:14px">📥 IMPORT CATALOGUE — ${imp.file}</strong>
+        <button class="zadd" id="catImpClose" style="margin-left:auto;padding:4px 10px">✕ CANCEL</button>
+      </div>
+      <div class="hint" style="padding:0 0 10px">${imp.rows.length} rows found. We've guessed which column is which — check them below and correct anything wrong. Nothing is saved until you press Import.</div>
+      ${imp.sheetNames.length>1?`<label class="field" style="margin-bottom:10px"><span class="fl">SHEET</span>
+        <select class="fi" id="catImpSheet">${imp.sheetNames.map(n=>`<option value="${n}" ${n===imp.sheet?'selected':''}>${n}</option>`).join('')}</select></label>`:''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${CAT_FIELDS.map(f=>`<label class="field"><span class="fl">${f.label}${f.k==='code'||f.k==='description'?' *':''}</span>
+          <select class="fi" data-catmap="${f.k}">
+            <option value="">— not in my file —</option>
+            ${imp.headers.map((h,i)=>`<option value="${i}" ${imp.map[f.k]===i?'selected':''}>${h||('Column '+(i+1))}</option>`).join('')}
+          </select></label>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-bottom:6px">${mapped} of ${CAT_FIELDS.length} columns matched · preview of first rows:</div>
+      <div class="scroll" style="margin-bottom:12px"><table><thead><tr><th>Category</th><th>Code</th><th>Description</th><th class="r">Thk</th><th class="r">W</th><th class="r">H</th><th>Unit</th><th class="r">Price</th></tr></thead><tbody>
+        ${preview.map(it=>`<tr><td style="font-size:11px">${it.kind||'—'}</td><td style="font-size:11px"><strong>${it.code||'—'}</strong></td>
+          <td style="font-size:11px">${it.description||'—'}</td><td class="r" style="font-size:11px">${it.thk||''}</td>
+          <td class="r" style="font-size:11px">${it.width||''}</td><td class="r" style="font-size:11px">${it.height||''}</td>
+          <td style="font-size:11px">${it.unit||''}</td><td class="r" style="font-size:11px">${it.price||0}</td></tr>`).join('')}
+      </tbody></table></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);margin-bottom:12px">
+        <input type="checkbox" id="catImpDupes" ${imp.skipDupes?'checked':''}>
+        If a code is already in my catalogue, update its price instead of adding a duplicate
+      </label>
+      <button class="add" id="catImpRun" style="width:100%" ${store.catImpBusy?'disabled':''}>${store.catImpBusy?'IMPORTING…':`✓ IMPORT ${imp.rows.length} ITEMS`}</button>
+    </div></div>`;
+}
+function wireCatImport(){
+  const f=document.getElementById('catImpFile');
+  if(f)f.onchange=e=>{const file=e.target.files[0]; if(file)openCatImport(file); e.target.value='';};
+  const t=document.getElementById('catTemplate'); if(t)t.onclick=()=>downloadCatTemplate();
+  const c=document.getElementById('catImpClose'); if(c)c.onclick=()=>{store.catImp=null;render();};
+  const r=document.getElementById('catImpRun'); if(r)r.onclick=()=>runCatImport();
+  const sh=document.getElementById('catImpSheet'); if(sh)sh.onchange=()=>catImportSwitchSheet(sh.value);
+  const dp=document.getElementById('catImpDupes'); if(dp)dp.onchange=()=>{store.catImp.skipDupes=dp.checked;};
+  document.querySelectorAll('[data-catmap]').forEach(sel=>sel.onchange=()=>{
+    const k=sel.dataset.catmap;
+    if(sel.value==='') delete store.catImp.map[k];
+    else store.catImp.map[k]=+sel.value;
+    render();
+  });
+}
 async function catUpdate(id,patch){
   if(!sb)return;
   const r=store.myCatalogue.find(x=>x.id===id);if(r)Object.assign(r,patch);
@@ -2796,9 +2989,14 @@ function supplierHTML(){
         <td><button class="del" data-delcat="${r.id}">✕</button></td></tr>`;}).join('')}
       </tbody></table></div>
       <button class="add" id="catAdd">+ ADD MATERIAL</button>
+      <div style="padding:10px 16px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label class="zadd" style="cursor:pointer;border-color:var(--blue);color:var(--blue)">📥 IMPORT CATALOGUE FILE<input type="file" id="catImpFile" accept=".xlsx,.xls,.csv" style="display:none"></label>
+        <button class="zadd" id="catTemplate" style="font-size:11px">⬇ Download template</button>
+        <span style="font-size:11px;color:var(--mut)">Upload your existing price list — Excel or CSV, any column layout.</span>
+      </div>
     </div>
     <div class="hint">Tip: use clear codes (e.g. GYP-12.5-STD, STUD-92-3.6) and fill thickness/size where relevant — it helps contractors match your products to their cut lists.</div>
-  </div>`;}
+  </div>${catImportOverlay()}`;}
 
 // Supplier: load orders sent to them
 async function loadIncoming(){
@@ -3841,6 +4039,7 @@ function wire(){
   if(store.account.accountType==='supplier'){
     const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];store.incomingLoaded=false;store.incoming=[];store.threadOrderId=null;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
     const ca=document.getElementById('catAdd');if(ca)ca.onclick=catAdd;
+    wireCatImport();
     document.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>catDelete(b.dataset.delcat));
     document.querySelectorAll('[data-catup]').forEach(b=>b.onclick=()=>{
       const id=b.dataset.catup;
