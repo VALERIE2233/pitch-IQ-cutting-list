@@ -2037,6 +2037,55 @@ function photoCell(id,phs){
   </div>`:'';
   return `<div style="min-width:90px">${thumbs}${controls}</div>`;
 }
+// Bulk photo upload. Suppliers keep product shots named by product code, so we
+// match filename -> code automatically. "MEL-18-WHT.jpg", "MEL-18-WHT_2.jpg" and
+// "mel 18 wht.png" all land on the right item. Anything unmatched can become a
+// new catalogue entry, so a supplier can build a picture catalogue by dropping
+// in a folder of photos.
+function normCode(t){ return String(t||'').toLowerCase().replace(/\.[a-z0-9]+$/,'').replace(/[^a-z0-9]/g,''); }
+function baseName(fn){ return String(fn||'').replace(/\.[^.]+$/,'').replace(/[ _-]*\(?\d+\)?$/,''); }
+async function bulkPhotoUpload(files){
+  const list=Array.from(files||[]); if(!list.length)return;
+  store.bulkPhoto={total:list.length, done:0, matched:0, created:0, failed:0, unmatched:[]};
+  render();
+  const byCode={};
+  (store.myCatalogue||[]).forEach(c=>{ if(c.code) byCode[normCode(c.code)]=c; });
+  const createMissing=confirm(
+    `Upload ${list.length} photo${list.length>1?'s':''}?\n\n`+
+    `Photos are matched to items by filename (e.g. MEL-18-WHT.jpg matches code MEL-18-WHT).\n\n`+
+    `OK = also create new catalogue items for filenames that don't match anything\n`+
+    `Cancel = only attach to items that already exist`);
+  for(const f of list){
+    try{
+      const key=normCode(baseName(f.name));
+      let item=byCode[key];
+      if(!item && !createMissing){ store.bulkPhoto.unmatched.push(f.name); store.bulkPhoto.done++; render(); continue; }
+      const url=await uploadCataloguePhoto(f);
+      if(!item){
+        const row={supplier_id:store.account.uid, supplier_name:store.account.company,
+          kind:'', code:baseName(f.name), description:'', unit:'each', litres:0, container:'',
+          price:0, currency:store.currency, region:store.account.location||'', photos:[url]};
+        const {data,error}=await sb.from('catalogue').insert(row).select().single();
+        if(error)throw error;
+        store.myCatalogue.push(data); byCode[key]=data; store.bulkPhoto.created++;
+      }else{
+        const phs=Array.isArray(item.photos)?item.photos.slice():[];
+        if(phs.length<2){
+          phs.push(url); item.photos=phs;
+          await sb.from('catalogue').update({photos:phs}).eq('id',item.id);
+        }
+        store.bulkPhoto.matched++;
+      }
+    }catch(e){ store.bulkPhoto.failed++; }
+    store.bulkPhoto.done++; render();
+  }
+  const b=store.bulkPhoto;
+  alert(`Photos done.\n${b.matched} attached to existing items`+
+        (b.created?`\n${b.created} new items created from filenames`:'')+
+        (b.unmatched.length?`\n${b.unmatched.length} skipped (no matching code)`:'')+
+        (b.failed?`\n${b.failed} failed`:''));
+  store.bulkPhoto=null; render();
+}
 async function uploadCataloguePhoto(file){
   const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
   const path=store.account.uid+'/'+Date.now()+'.'+ext;
@@ -2248,6 +2297,8 @@ function wireCatImport(){
   const f=document.getElementById('catImpFile');
   if(f)f.onchange=e=>{const file=e.target.files[0]; if(file)openCatImport(file); e.target.value='';};
   const t=document.getElementById('catTemplate'); if(t)t.onclick=()=>downloadCatTemplate();
+  const bp=document.getElementById('bulkPhotoFile');
+  if(bp)bp.onchange=e=>{const fl=e.target.files; if(fl&&fl.length)bulkPhotoUpload(fl); e.target.value='';};
   const c=document.getElementById('catImpClose'); if(c)c.onclick=()=>{store.catImp=null;render();};
   const r=document.getElementById('catImpRun'); if(r)r.onclick=()=>runCatImport();
   const sh=document.getElementById('catImpSheet'); if(sh)sh.onchange=()=>catImportSwitchSheet(sh.value);
@@ -2992,7 +3043,9 @@ function supplierHTML(){
       <div style="padding:10px 16px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <label class="zadd" style="cursor:pointer;border-color:var(--blue);color:var(--blue)">📥 IMPORT CATALOGUE FILE<input type="file" id="catImpFile" accept=".xlsx,.xls,.csv" style="display:none"></label>
         <button class="zadd" id="catTemplate" style="font-size:11px">⬇ Download template</button>
-        <span style="font-size:11px;color:var(--mut)">Upload your existing price list — Excel or CSV, any column layout.</span>
+        <label class="zadd" style="cursor:pointer;border-color:var(--green);color:var(--green)">🖼 UPLOAD PHOTOS IN BULK<input type="file" id="bulkPhotoFile" accept="image/*" multiple style="display:none"></label>
+        <span style="font-size:11px;color:var(--mut)">Upload your price list (Excel/CSV, any layout), or drop in a folder of product photos named by code.</span>
+        ${store.bulkPhoto?`<div style="width:100%;font-size:11px;color:var(--amber);margin-top:6px">Uploading photos… ${store.bulkPhoto.done}/${store.bulkPhoto.total}</div>`:''}
       </div>
     </div>
     <div class="hint">Tip: use clear codes (e.g. GYP-12.5-STD, STUD-92-3.6) and fill thickness/size where relevant — it helps contractors match your products to their cut lists.</div>
@@ -3470,12 +3523,41 @@ function catalogueHTML(){
   const all=store.catalogueAll||[];
   const rows=q?all.filter(r=>(`${r.kind} ${r.code} ${r.description} ${r.supplier_name}`).toLowerCase().includes(q)):all;
   const suppliers=[...new Set(all.map(r=>r.supplier_name).filter(Boolean))];
-  return `<div class="hint" style="padding-top:14px">Materials listed by suppliers across Fit-Out IQ. Browse, search, and pull any item straight into your Price Book — then it's available when you build cut lists and estimates. Catalogue prices are a starting point; your own Price Book prices always take priority.</div>
+  const gallery = store.catView!=='list';   // picture booklet is the default
+  const card = r => {
+    const spec=[r.thk?`${r.thk}mm`:'',r.width&&r.height?`${r.width}×${r.height}`:'',r.length?`L${r.length}`:'',r.litres?`${r.litres}L`:'',r.container||''].filter(Boolean).join(' · ');
+    const phs=Array.isArray(r.photos)?r.photos:[];
+    const img=phs.length
+      ? `<img src="${phs[0]}" data-bigphoto="${phs[0]}" style="width:100%;height:150px;object-fit:cover;cursor:zoom-in">`
+      : `<div style="width:100%;height:150px;display:flex;align-items:center;justify-content:center;background:var(--steel);color:var(--mut);font-size:11px">no photo</div>`;
+    return `<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel);display:flex;flex-direction:column">
+      ${img}
+      <div style="padding:10px;display:flex;flex-direction:column;gap:4px;flex:1">
+        <div style="font-size:12px;font-weight:700">${r.description||r.code||'—'}</div>
+        <div style="font-size:11px;color:var(--blue)">${r.code||''}</div>
+        ${spec?`<div style="font-size:10px;color:var(--mut)">${spec}</div>`:''}
+        <div style="font-size:10px;color:var(--mut)">${r.supplier_name||''}${r.kind?' · '+r.kind:''}</div>
+        <div style="margin-top:auto;display:flex;justify-content:space-between;align-items:center;padding-top:8px">
+          <span class="cost" style="font-size:14px">${r.currency||'$'}${(r.price||0).toFixed(2)}<span style="font-size:9px;color:var(--mut)">/${r.unit||'unit'}</span></span>
+          <button class="zadd" data-usecat="${r.id}" style="padding:6px 10px;font-size:11px">+ USE</button>
+        </div>
+      </div></div>`;
+  };
+  return `<div class="hint" style="padding-top:14px">Materials listed by suppliers across Fit-Out IQ. Search by name — matching products appear with their photos, so you can pick the one you want and take its code straight into your Price Book. Catalogue prices are a starting point; your own Price Book prices always take priority.</div>
   <div class="settings">
-    <label class="field" style="flex:1"><span class="fl">SEARCH</span><input class="fi" style="width:100%" id="catSearch" placeholder="e.g. gypsum, hinge, paint, supplier name" value="${store.catSearch||''}"></label>
-    <div class="stat" style="align-self:flex-end"><div class="sv" style="color:var(--blue);font-size:18px">${all.length}</div><div class="sl">ITEMS · ${suppliers.length} SUPPLIER${suppliers.length===1?'':'S'}</div></div>
+    <label class="field" style="flex:1"><span class="fl">SEARCH</span><input class="fi" style="width:100%" id="catSearch" placeholder="e.g. hinge, melamine, white, paint, supplier name" value="${store.catSearch||''}"></label>
+    <div class="stat" style="align-self:flex-end"><div class="sv" style="color:var(--blue);font-size:18px">${rows.length}</div><div class="sl">SHOWING${q?' OF '+all.length:''} · ${suppliers.length} SUPPLIER${suppliers.length===1?'':'S'}</div></div>
+    <div style="align-self:flex-end;display:flex;gap:4px">
+      <button class="zadd" data-catview="gallery" style="font-size:11px;padding:7px 10px;${gallery?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">🖼 PICTURES</button>
+      <button class="zadd" data-catview="list" style="font-size:11px;padding:7px 10px;${!gallery?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">☰ LIST</button>
+    </div>
   </div>
-  ${!all.length?`<div class="empty" style="margin-top:20px">The catalogue is empty so far. As suppliers list their materials, they'll appear here for you to use.</div>`:`
+  ${!all.length?`<div class="empty" style="margin-top:20px">The catalogue is empty so far. As suppliers list their materials, they'll appear here for you to use.</div>`
+   :!rows.length?`<div class="empty" style="margin-top:20px">Nothing matches "${store.catSearch}". Try a shorter word — a material, a colour, or a supplier name.</div>`
+   :gallery?`
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;padding:4px 16px 16px">
+    ${rows.map(card).join('')}
+  </div>`:`
   <div class="card"><div class="scroll"><table><thead><tr><th>Photo</th><th>Supplier</th><th>Category</th><th>Code</th><th>Description</th><th class="r">Spec</th><th class="r">Price</th><th></th></tr></thead><tbody>
   ${rows.map(r=>{
     const spec=[r.thk?`${r.thk}mm`:'',r.width&&r.height?`${r.width}×${r.height}`:'',r.length?`L${r.length}`:'',r.litres?`${r.litres}L`:'',r.container||''].filter(Boolean).join(' · ');
@@ -3490,8 +3572,8 @@ function catalogueHTML(){
       <td class="r" style="font-size:11px;color:var(--mut)">${spec||'—'}</td>
       <td class="r"><span class="cost">${r.currency||'$'}${(r.price||0).toFixed(2)}</span><br><span style="font-size:10px;color:var(--mut)">/${r.unit||'unit'}</span></td>
       <td><button class="zadd" data-usecat="${r.id}" style="padding:7px 10px;font-size:11px">+ USE</button></td></tr>`;}).join('')}
-  </tbody></table></div></div>
-  <div class="hint">Tip: "+ USE" copies the item into your Price Book under the right section. You can then edit the price to match what you actually pay — your version always overrides the catalogue.</div>`}`;}
+  </tbody></table></div></div>`}
+  <div class="hint">Tip: "+ USE" copies the item into your Price Book under the right section. You can then edit the price to match what you actually pay — your version always overrides the catalogue.</div>`;}
 
 function procReqViewOverlay(){
   if(!store.procReqViewId)return '';
@@ -4201,6 +4283,7 @@ function wire(){
   const apa=document.getElementById('addPA');if(apa)apa.onclick=()=>{if(!store.priceBook.ancillary)store.priceBook.ancillary=[];store.priceBook.ancillary.push({supplier:'',code:'',desc:'',unit:'each',price:0});render();};
   const cse=document.getElementById('catSearch');if(cse){cse.oninput=()=>{store.catSearch=cse.value;render();const f=document.getElementById('catSearch');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}};}
   document.querySelectorAll('[data-usecat]').forEach(b=>b.onclick=()=>useCatalogueItem(b.dataset.usecat));
+  document.querySelectorAll('[data-catview]').forEach(b=>b.onclick=()=>{store.catView=b.dataset.catview;render();});
   document.querySelectorAll('[data-bigphoto]').forEach(img=>img.onclick=()=>{
     const url=img.dataset.bigphoto;
     const ov=document.createElement('div');
