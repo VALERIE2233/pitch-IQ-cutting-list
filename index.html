@@ -140,6 +140,16 @@
   .ralTool .rnote{font-size:12px;color:#888;line-height:1.5;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
   .ralTool .rreset-btn{width:100%;padding:10px;border-radius:8px;border:none;background:var(--steel);color:#eee;font-size:13px;cursor:pointer;margin-top:4px}
   .ralTool .rreset-btn:hover{background:#3a3a3d}
+  /* ---- RTL support (Urdu, Arabic) — scoped to whatever container carries
+     dir="rtl", so English-language screens for other roles are unaffected ---- */
+  [dir="rtl"] header{flex-direction:row-reverse}
+  [dir="rtl"] .hdrRight{flex-direction:row-reverse}
+  [dir="rtl"] .cardHead{flex-direction:row-reverse;text-align:right}
+  [dir="rtl"] .field{text-align:right}
+  [dir="rtl"] .fl{text-align:right;display:block}
+  [dir="rtl"] .hint{text-align:right}
+  [dir="rtl"] td,[dir="rtl"] th{text-align:right}
+  [dir="rtl"] td.r,[dir="rtl"] th.r{text-align:left}
 </style>
 </head>
 <body>
@@ -2459,43 +2469,43 @@ function siteEngineerHTML(){
   const d=store.svDraft||{};
   const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
   const itemOptions=store.svItemOptions||[];
-  return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · SITE ENGINEER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+  return `<div ${isRTL()?'dir="rtl"':''}><header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · ${t('site_engineer')}</div><div class="bs">${store.account.company}</div></div></div>
+    <div class="hdrRight">${langSwitcherHTML()}<span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
   <div class="body">
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
     ${attendanceHTML()}
     ${crewAttendanceHTML()}
     <div class="card" style="border-color:var(--blue)">
-      <div class="cardHead" style="color:var(--blue)"><span>➕ NEW SITE VISIT</span></div>
+      <div class="cardHead" style="color:var(--blue)"><span>➕ ${t('new_site_visit')}</span></div>
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <label class="field" style="grid-column:1/3"><span class="fl">PROJECT</span>
           <select class="fi" id="sv_project">
-            <option value="">— pick a project —</option>
+            <option value="">${t('pick_project')}</option>
             ${openProjects.map(p=>`<option value="${p.id}" ${d.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}
           </select>
           ${!openProjects.length?'<div class="hint" style="padding:4px 0 0;color:var(--amber)">No projects are open for site visits yet — ask your manager to open one.</div>':''}
         </label>
-        <label class="field" style="grid-column:1/3"><span class="fl">ITEM MEASURED</span>
+        <label class="field" style="grid-column:1/3"><span class="fl">${t('item_measured')}</span>
           <select class="fi" id="sv_item" ${!d.project_id?'disabled':''}>
-            <option value="">${d.project_id?'— pick an item —':'pick a project first'}</option>
+            <option value="">${d.project_id?t('pick_item'):t('pick_item')}</option>
             ${itemOptions.map(n=>`<option value="${n}" ${d.item_name===n?'selected':''}>${n}</option>`).join('')}
           </select>
         </label>
-        <label class="field" style="grid-column:1/3"><span class="fl">LOCATION / NOTES ON WHERE</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
-        <label class="field"><span class="fl">SITE WIDTH (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
-        <label class="field"><span class="fl">SITE HEIGHT (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
-        <label class="field"><span class="fl">SITE DEPTH (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
-        <label class="field" style="grid-column:1/3"><span class="fl">NOTES</span><textarea class="fi" id="sv_notes" rows="2" placeholder="Anything the factory needs to know…">${(d.notes||'').replace(/</g,'&lt;')}</textarea></label>
+        <label class="field" style="grid-column:1/3"><span class="fl">${t('location')}</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
+        <label class="field"><span class="fl">${t('site_width')} (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
+        <label class="field"><span class="fl">${t('site_height')} (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
+        <label class="field"><span class="fl">${t('site_depth')} (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
+        <label class="field" style="grid-column:1/3"><span class="fl">${t('notes')}</span><textarea class="fi" id="sv_notes" rows="2" placeholder="Anything the factory needs to know…">${(d.notes||'').replace(/</g,'&lt;')}</textarea></label>
         <div style="grid-column:1/3">
-          <span class="fl" style="display:block;margin-bottom:6px">SITE DOCUMENTS</span>
+          <span class="fl" style="display:block;margin-bottom:6px">${t('site_documents')}</span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             ${(d.photos||[]).map((url,i)=>`<div style="position:relative">${attachCell(url,60,'draft')}<button data-svremovephoto="${i}" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>`).join('')}
-            <label class="zadd" style="cursor:pointer">📄 Choose document<input type="file" id="sv_photo_choose" style="display:none"></label>
-            <label class="zadd" style="cursor:pointer">📷 Take photo<input type="file" id="sv_photo_camera" accept="image/*" capture="environment" style="display:none"></label>
+            <label class="zadd" style="cursor:pointer">📄 ${t('choose_document')}<input type="file" id="sv_photo_choose" style="display:none"></label>
+            <label class="zadd" style="cursor:pointer">📷 ${t('take_photo')}<input type="file" id="sv_photo_camera" accept="image/*" capture="environment" style="display:none"></label>
           </div>
           ${store.svUploading?'<div style="font-size:11px;color:var(--amber);margin-top:4px">Uploading…</div>':''}
         </div>
-        <button class="add" id="sv_save" style="grid-column:1/3" ${store.svBusy?'disabled':''}>${store.svBusy?'SAVING…':'✓ SAVE SITE VISIT'}</button>
+        <button class="add" id="sv_save" style="grid-column:1/3" ${store.svBusy?'disabled':''}>${store.svBusy?'…':'✓ '+t('save_site_visit')}</button>
         ${store.svMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.svErr?'var(--red)':'var(--green)'}">${store.svMsg}</div>`:''}
       </div>
     </div>
@@ -2524,7 +2534,7 @@ function siteEngineerHTML(){
     </div>
     ${snagListHTML()}
   </div>
-  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${markupOverlay()}`;
+  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer></div>${markupOverlay()}`;
 }
 // render an uploaded file as a photo thumbnail (images) or a document icon + link
 // (PDFs, Word docs, anything else) — since Site Visit now accepts any file type.
@@ -2648,6 +2658,162 @@ function markupOverlay(){
     </div></div>`;
 }
 
+// ============ TRANSLATION (worker-facing screens only) ============
+// Scope, deliberately: Site Engineer's own screens - attendance, crew, site
+// visit form, snags. NOT the estimator or manager dashboards, which office
+// staff already use comfortably in English (per the backlog decision).
+//
+// IMPORTANT - translation quality: these are a first-pass reference translation
+// of common interface words, not reviewed by a native speaker of each language.
+// Do not treat this as finished. Every language here needs a native speaker who
+// works in the trade to check it before it's relied on in front of real workers -
+// this is flagged in the ideas backlog and remains true after this build.
+// Material codes, item names and RAL references are deliberately left in
+// English throughout, on purpose - workers use those in English regardless of
+// what language they speak, and translating them would make the app harder to
+// use, not easier.
+const RTL_LANGS=['ur','ar'];
+const LANG_NAMES={en:'English',ar:'العربية',hi:'हिन्दी',ur:'اردو',ml:'മലയാളം',ta:'தமிழ்',bn:'বাংলা',tl:'Tagalog'};
+const I18N={
+en:{
+  site_engineer:'SITE ENGINEER', sign_out:'SIGN OUT', sign_in:'SIGN IN',
+  site_attendance:'SITE ATTENDANCE', refresh:'REFRESH', on_site_since:'ON SITE since',
+  set_up_fingerprint:'SET UP FINGERPRINT', fingerprint_active:'Fingerprint active on this device',
+  crew_attendance:'CREW ATTENDANCE', project:'PROJECT', date:'DATE',
+  present:'Present', half_day:'Half day', absent:'Absent', worker_name:'Worker name',
+  trade:'Trade', add:'+ ADD', save_attendance:'SAVE ATTENDANCE', on_roster:'on roster',
+  add_worker_to_roster:'ADD A WORKER TO THE ROSTER',
+  new_site_visit:'NEW SITE VISIT', item_measured:'ITEM MEASURED', location:'LOCATION / NOTES ON WHERE',
+  site_width:'SITE WIDTH', site_height:'SITE HEIGHT', site_depth:'SITE DEPTH', notes:'NOTES',
+  save_site_visit:'SAVE SITE VISIT', site_documents:'SITE DOCUMENTS', choose_document:'Choose document',
+  take_photo:'Take photo',
+  snag_list:'SNAG LIST', description:'DESCRIPTION', log_snag:'LOG SNAG',
+  before:'Before', after:'After', status:'Status', open_status:'OPEN', resolved:'RESOLVED',
+  pick_project:'— pick a project —', pick_item:'— pick an item —',
+},
+hi:{
+  site_engineer:'साइट इंजीनियर', sign_out:'साइन आउट', sign_in:'साइन इन',
+  site_attendance:'साइट हाज़िरी', refresh:'रिफ्रेश', on_site_since:'साइट पर है, समय',
+  set_up_fingerprint:'फिंगरप्रिंट सेट करें', fingerprint_active:'इस डिवाइस पर फिंगरप्रिंट सक्रिय है',
+  crew_attendance:'क्रू हाज़िरी', project:'प्रोजेक्ट', date:'तारीख़',
+  present:'उपस्थित', half_day:'आधा दिन', absent:'अनुपस्थित', worker_name:'कर्मचारी का नाम',
+  trade:'काम/ट्रेड', add:'+ जोड़ें', save_attendance:'हाज़िरी सेव करें', on_roster:'सूची में',
+  add_worker_to_roster:'सूची में कर्मचारी जोड़ें',
+  new_site_visit:'नई साइट विज़िट', item_measured:'मापी गई वस्तु', location:'जगह / टिप्पणी',
+  site_width:'साइट चौड़ाई', site_height:'साइट ऊँचाई', site_depth:'साइट गहराई', notes:'टिप्पणियाँ',
+  save_site_visit:'साइट विज़िट सेव करें', site_documents:'साइट दस्तावेज़', choose_document:'दस्तावेज़ चुनें',
+  take_photo:'फ़ोटो लें',
+  snag_list:'खामी सूची', description:'विवरण', log_snag:'खामी दर्ज करें',
+  before:'पहले', after:'बाद में', status:'स्थिति', open_status:'खुला', resolved:'ठीक हो गया',
+  pick_project:'— प्रोजेक्ट चुनें —', pick_item:'— वस्तु चुनें —',
+},
+ur:{
+  site_engineer:'سائٹ انجینئر', sign_out:'سائن آؤٹ', sign_in:'سائن ان',
+  site_attendance:'سائٹ حاضری', refresh:'ریفریش', on_site_since:'سائٹ پر ہے، وقت',
+  set_up_fingerprint:'فنگر پرنٹ سیٹ کریں', fingerprint_active:'اس ڈیوائس پر فنگر پرنٹ فعال ہے',
+  crew_attendance:'عملے کی حاضری', project:'پروجیکٹ', date:'تاریخ',
+  present:'حاضر', half_day:'آدھا دن', absent:'غیر حاضر', worker_name:'کارکن کا نام',
+  trade:'کام', add:'+ شامل کریں', save_attendance:'حاضری محفوظ کریں', on_roster:'فہرست میں',
+  add_worker_to_roster:'فہرست میں کارکن شامل کریں',
+  new_site_visit:'نئی سائٹ وزٹ', item_measured:'ناپی گئی چیز', location:'جگہ / نوٹس',
+  site_width:'سائٹ چوڑائی', site_height:'سائٹ اونچائی', site_depth:'سائٹ گہرائی', notes:'نوٹس',
+  save_site_visit:'سائٹ وزٹ محفوظ کریں', site_documents:'سائٹ دستاویزات', choose_document:'دستاویز منتخب کریں',
+  take_photo:'تصویر لیں',
+  snag_list:'خرابی کی فہرست', description:'تفصیل', log_snag:'خرابی درج کریں',
+  before:'پہلے', after:'بعد میں', status:'حالت', open_status:'کھلا', resolved:'حل ہو گیا',
+  pick_project:'— پروجیکٹ منتخب کریں —', pick_item:'— چیز منتخب کریں —',
+},
+ml:{
+  site_engineer:'സൈറ്റ് എഞ്ചിനീയർ', sign_out:'സൈൻ ഔട്ട്', sign_in:'സൈൻ ഇൻ',
+  site_attendance:'സൈറ്റ് ഹാജർ', refresh:'റിഫ്രഷ്', on_site_since:'സൈറ്റിൽ ഉണ്ട്, സമയം',
+  set_up_fingerprint:'ഫിംഗർപ്രിന്റ് സെറ്റ് ചെയ്യുക', fingerprint_active:'ഈ ഡിവൈസിൽ ഫിംഗർപ്രിന്റ് സജീവമാണ്',
+  crew_attendance:'ക്രൂ ഹാജർ', project:'പ്രോജക്റ്റ്', date:'തീയതി',
+  present:'ഹാജർ', half_day:'അര ദിവസം', absent:'ഹാജരല്ല', worker_name:'ജോലിക്കാരന്റെ പേര്',
+  trade:'ജോലി', add:'+ ചേർക്കുക', save_attendance:'ഹാജർ സേവ് ചെയ്യുക', on_roster:'ലിസ്റ്റിൽ',
+  add_worker_to_roster:'ലിസ്റ്റിൽ ജോലിക്കാരനെ ചേർക്കുക',
+  new_site_visit:'പുതിയ സൈറ്റ് സന്ദർശനം', item_measured:'അളന്ന ഐറ്റം', location:'സ്ഥലം / കുറിപ്പ്',
+  site_width:'സൈറ്റ് വീതി', site_height:'സൈറ്റ് ഉയരം', site_depth:'സൈറ്റ് ആഴം', notes:'കുറിപ്പുകൾ',
+  save_site_visit:'സൈറ്റ് സന്ദർശനം സേവ് ചെയ്യുക', site_documents:'സൈറ്റ് രേഖകൾ', choose_document:'രേഖ തിരഞ്ഞെടുക്കുക',
+  take_photo:'ഫോട്ടോ എടുക്കുക',
+  snag_list:'തകരാർ ലിസ്റ്റ്', description:'വിവരണം', log_snag:'തകരാർ രേഖപ്പെടുത്തുക',
+  before:'മുമ്പ്', after:'ശേഷം', status:'സ്ഥിതി', open_status:'തുറന്നത്', resolved:'പരിഹരിച്ചു',
+  pick_project:'— പ്രോജക്റ്റ് തിരഞ്ഞെടുക്കുക —', pick_item:'— ഐറ്റം തിരഞ്ഞെടുക്കുക —',
+},
+ta:{
+  site_engineer:'சைட் இன்ஜினியர்', sign_out:'வெளியேறு', sign_in:'உள்நுழை',
+  site_attendance:'சைட் வருகை', refresh:'புதுப்பி', on_site_since:'சைட்டில் உள்ளார், நேரம்',
+  set_up_fingerprint:'கைரேகை அமை', fingerprint_active:'இந்தச் சாதனத்தில் கைரேகை செயலில் உள்ளது',
+  crew_attendance:'குழு வருகை', project:'திட்டம்', date:'தேதி',
+  present:'வந்துள்ளார்', half_day:'அரை நாள்', absent:'வரவில்லை', worker_name:'தொழிலாளியின் பெயர்',
+  trade:'வேலை', add:'+ சேர்', save_attendance:'வருகையைச் சேமி', on_roster:'பட்டியலில்',
+  add_worker_to_roster:'பட்டியலில் தொழிலாளியைச் சேர்',
+  new_site_visit:'புதிய சைட் வருகை', item_measured:'அளந்த பொருள்', location:'இடம் / குறிப்பு',
+  site_width:'சைட் அகலம்', site_height:'சைட் உயரம்', site_depth:'சைட் ஆழம்', notes:'குறிப்புகள்',
+  save_site_visit:'சைட் வருகையைச் சேமி', site_documents:'சைட் ஆவணங்கள்', choose_document:'ஆவணத்தைத் தேர்வுசெய்',
+  take_photo:'புகைப்படம் எடு',
+  snag_list:'குறைபாடு பட்டியல்', description:'விவரம்', log_snag:'குறைபாட்டைப் பதிவுசெய்',
+  before:'முன்', after:'பின்', status:'நிலை', open_status:'திறந்துள்ளது', resolved:'தீர்க்கப்பட்டது',
+  pick_project:'— திட்டத்தைத் தேர்வுசெய் —', pick_item:'— பொருளைத் தேர்வுசெய் —',
+},
+bn:{
+  site_engineer:'সাইট ইঞ্জিনিয়ার', sign_out:'সাইন আউট', sign_in:'সাইন ইন',
+  site_attendance:'সাইট হাজিরা', refresh:'রিফ্রেশ', on_site_since:'সাইটে আছেন, সময়',
+  set_up_fingerprint:'ফিঙ্গারপ্রিন্ট সেট করুন', fingerprint_active:'এই ডিভাইসে ফিঙ্গারপ্রিন্ট সক্রিয়',
+  crew_attendance:'ক্রু হাজিরা', project:'প্রজেক্ট', date:'তারিখ',
+  present:'উপস্থিত', half_day:'অর্ধেক দিন', absent:'অনুপস্থিত', worker_name:'শ্রমিকের নাম',
+  trade:'কাজ', add:'+ যোগ করুন', save_attendance:'হাজিরা সংরক্ষণ করুন', on_roster:'তালিকায়',
+  add_worker_to_roster:'তালিকায় শ্রমিক যোগ করুন',
+  new_site_visit:'নতুন সাইট ভিজিট', item_measured:'মাপা আইটেম', location:'স্থান / নোট',
+  site_width:'সাইট প্রস্থ', site_height:'সাইট উচ্চতা', site_depth:'সাইট গভীরতা', notes:'নোট',
+  save_site_visit:'সাইট ভিজিট সংরক্ষণ করুন', site_documents:'সাইট ডকুমেন্ট', choose_document:'ডকুমেন্ট বেছে নিন',
+  take_photo:'ছবি তুলুন',
+  snag_list:'ত্রুটির তালিকা', description:'বিবরণ', log_snag:'ত্রুটি লগ করুন',
+  before:'আগে', after:'পরে', status:'অবস্থা', open_status:'খোলা', resolved:'সমাধান হয়েছে',
+  pick_project:'— প্রজেক্ট বেছে নিন —', pick_item:'— আইটেম বেছে নিন —',
+},
+tl:{
+  site_engineer:'SITE ENGINEER', sign_out:'MAG-SIGN OUT', sign_in:'MAG-SIGN IN',
+  site_attendance:'ATTENDANCE SA SITE', refresh:'I-REFRESH', on_site_since:'NASA SITE mula',
+  set_up_fingerprint:'I-SET UP ANG FINGERPRINT', fingerprint_active:'Aktibo ang fingerprint sa device na ito',
+  crew_attendance:'ATTENDANCE NG CREW', project:'PROYEKTO', date:'PETSA',
+  present:'Present', half_day:'Kalahating araw', absent:'Absent', worker_name:'Pangalan ng manggagawa',
+  trade:'Trabaho', add:'+ IDAGDAG', save_attendance:'I-SAVE ANG ATTENDANCE', on_roster:'nasa listahan',
+  add_worker_to_roster:'MAGDAGDAG NG MANGGAGAWA SA LISTAHAN',
+  new_site_visit:'BAGONG SITE VISIT', item_measured:'ITEM NA SINUKAT', location:'LUGAR / TALA',
+  site_width:'LAPAD NG SITE', site_height:'TAAS NG SITE', site_depth:'LALIM NG SITE', notes:'MGA TALA',
+  save_site_visit:'I-SAVE ANG SITE VISIT', site_documents:'MGA DOKUMENTO NG SITE', choose_document:'Pumili ng dokumento',
+  take_photo:'Kumuha ng litrato',
+  snag_list:'LISTAHAN NG SNAG', description:'PALIWANAG', log_snag:'ITALA ANG SNAG',
+  before:'Bago', after:'Pagkatapos', status:'Katayuan', open_status:'BUKAS', resolved:'NAAYOS',
+  pick_project:'— pumili ng proyekto —', pick_item:'— pumili ng item —',
+},
+ar:{
+  site_engineer:'مهندس الموقع', sign_out:'تسجيل الخروج', sign_in:'تسجيل الدخول',
+  site_attendance:'حضور الموقع', refresh:'تحديث', on_site_since:'في الموقع منذ',
+  set_up_fingerprint:'إعداد بصمة الإصبع', fingerprint_active:'بصمة الإصبع مفعّلة على هذا الجهاز',
+  crew_attendance:'حضور الطاقم', project:'المشروع', date:'التاريخ',
+  present:'حاضر', half_day:'نصف يوم', absent:'غائب', worker_name:'اسم العامل',
+  trade:'المهنة', add:'+ إضافة', save_attendance:'حفظ الحضور', on_roster:'في القائمة',
+  add_worker_to_roster:'إضافة عامل إلى القائمة',
+  new_site_visit:'زيارة موقع جديدة', item_measured:'العنصر المقاس', location:'الموقع / ملاحظات',
+  site_width:'عرض الموقع', site_height:'ارتفاع الموقع', site_depth:'عمق الموقع', notes:'ملاحظات',
+  save_site_visit:'حفظ زيارة الموقع', site_documents:'مستندات الموقع', choose_document:'اختر مستندًا',
+  take_photo:'التقاط صورة',
+  snag_list:'قائمة الملاحظات', description:'الوصف', log_snag:'تسجيل ملاحظة',
+  before:'قبل', after:'بعد', status:'الحالة', open_status:'مفتوح', resolved:'تم الحل',
+  pick_project:'— اختر مشروعًا —', pick_item:'— اختر عنصرًا —',
+},
+};
+function t(key){
+  const lang=store.lang||'en';
+  return (I18N[lang]&&I18N[lang][key]) || I18N.en[key] || key;
+}
+function isRTL(){ return RTL_LANGS.indexOf(store.lang||'en')!==-1; }
+function langSwitcherHTML(){
+  return `<select id="langSwitch" style="font-size:11px;padding:5px 8px;border-radius:4px;background:var(--steel);color:#eee;border:1px solid var(--line)">
+    ${Object.keys(LANG_NAMES).map(k=>`<option value="${k}" ${(store.lang||'en')===k?'selected':''}>${LANG_NAMES[k]}</option>`).join('')}
+  </select>`;
+}
 // ============ SITE ATTENDANCE ============
 // Fingerprint here means WebAuthn: the phone's own sensor confirms its owner is
 // present. The browser never sees the print itself, and this only works on the
@@ -2794,25 +2960,25 @@ function attendanceHTML(){
   const hasBio=(store.bioCreds||[]).length>0;
   const since=open?new Date(open.sign_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="card" style="border-color:var(--green)">
-    <div class="cardHead" style="color:var(--green)"><span>🕐 SITE ATTENDANCE</span>
-      <button class="zadd" id="attRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
+    <div class="cardHead" style="color:var(--green)"><span>🕐 ${t('site_attendance')}</span>
+      <button class="zadd" id="attRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
     <div style="padding:12px">
       ${open?`<div style="background:var(--steel);border:1px solid var(--green);border-radius:6px;padding:12px;margin-bottom:10px">
-          <div style="font-size:12px;color:var(--green);font-weight:700">● ON SITE since ${since}</div>
+          <div style="font-size:12px;color:var(--green);font-weight:700">● ${t('on_site_since')} ${since}</div>
           <div style="font-size:11px;color:var(--mut);margin-top:3px">${open.project_name||''}${open.sign_in_method==='fingerprint'?' · 👆 fingerprint verified':''}${open.sign_in_lat?' · 📍 location recorded':' · ⚠ no location'}</div>
-          <button class="add" id="attSignOut" style="width:100%;margin-top:10px" ${store.attBusy?'disabled':''}>${store.attBusy?'…':'SIGN OUT'}</button>
+          <button class="add" id="attSignOut" style="width:100%;margin-top:10px" ${store.attBusy?'disabled':''}>${store.attBusy?'…':t('sign_out')}</button>
         </div>`
-      :`<label class="field" style="margin-bottom:8px"><span class="fl">PROJECT</span>
+      :`<label class="field" style="margin-bottom:8px"><span class="fl">${t('project')}</span>
           <select class="fi" id="att_project">
-            <option value="">— pick a project —</option>
+            <option value="">${t('pick_project')}</option>
             ${openProjects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
           </select></label>
         ${!openProjects.length?'<div class="hint" style="padding:0 0 8px;color:var(--amber)">No projects visible yet — ask your supervisor to save one.</div>':''}
-        <button class="add" id="attSignIn" style="width:100%" ${store.attBusy?'disabled':''}>${store.attBusy?'…':'SIGN IN'}</button>`}
+        <button class="add" id="attSignIn" style="width:100%" ${store.attBusy?'disabled':''}>${store.attBusy?'…':t('sign_in')}</button>`}
       <div style="margin-top:10px;font-size:11px;color:var(--mut);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        ${hasBio?'<span style="color:var(--green)">👆 Fingerprint active on this device</span>'
+        ${hasBio?`<span style="color:var(--green)">👆 ${t('fingerprint_active')}</span>`
                 :`<span>Fingerprint not set up on this device.</span>
-                  <button class="zadd" id="attRegBio" style="font-size:10px;padding:4px 8px">👆 SET UP FINGERPRINT</button>`}
+                  <button class="zadd" id="attRegBio" style="font-size:10px;padding:4px 8px">👆 ${t('set_up_fingerprint')}</button>`}
       </div>
       ${hasBio?'':'<div class="hint" style="padding:6px 0 0">Without it you can still sign in, but the record won\'t be fingerprint-verified.</div>'}
     </div>
@@ -2933,21 +3099,21 @@ function crewAttendanceHTML(){
     return `<button data-crewst="${cid}:${st}" style="font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid ${col};background:${on?col:'transparent'};color:${on?'#000':col}">${label}</button>`;
   };
   return `<div class="card" style="border-color:var(--amber)">
-    <div class="cardHead" style="color:var(--amber)"><span>👷 CREW ATTENDANCE</span>
-      <button class="zadd" id="crewRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
+    <div class="cardHead" style="color:var(--amber)"><span>👷 ${t('crew_attendance')}</span>
+      <button class="zadd" id="crewRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
     <div class="hint" style="padding:0 12px 8px">Mark your labour present or absent for the day. Their names come from your company roster, so you only type them once.</div>
     <div style="padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <label class="field"><span class="fl">PROJECT</span>
+      <label class="field"><span class="fl">${t('project')}</span>
         <select class="fi" id="crew_project">
-          <option value="">— pick a project —</option>
+          <option value="">${t('pick_project')}</option>
           ${projects.map(p=>`<option value="${p.id}" ${store.crewProject===p.id?'selected':''}>${p.name}</option>`).join('')}
         </select></label>
-      <label class="field"><span class="fl">DATE</span><input class="fi" type="date" id="crew_date" value="${d}"></label>
+      <label class="field"><span class="fl">${t('date')}</span><input class="fi" type="date" id="crew_date" value="${d}"></label>
     </div>
     ${!store.crewProject?'<div class="empty">Pick a project to mark attendance.</div>':`
       <div style="padding:0 12px 8px;font-size:12px;color:var(--mut)">
-        <strong style="color:var(--green)">${counts.present||0} present</strong> ·
-        ${counts.half||0} half day · ${counts.absent||0} absent · ${crew.length} on roster
+        <strong style="color:var(--green)">${counts.present||0} ${t('present').toLowerCase()}</strong> ·
+        ${counts.half||0} ${t('half_day').toLowerCase()} · ${counts.absent||0} ${t('absent').toLowerCase()} · ${crew.length} ${t('on_roster')}
       </div>
       ${crew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th></th></tr></thead><tbody>
         ${crew.map(c=>{
@@ -2964,14 +3130,14 @@ function crewAttendanceHTML(){
               <button data-crewdel="${c.id}" title="Remove from roster" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">×</button></td>
           </tr>`;}).join('')}
       </tbody></table></div>`:'<div class="empty">No workers on the roster yet — add them below.</div>'}
-      <div style="padding:12px"><button class="add" id="crewSave" style="width:100%" ${store.crewBusy?'disabled':''}>${store.crewBusy?'SAVING…':'✓ SAVE ATTENDANCE'}</button></div>
+      <div style="padding:12px"><button class="add" id="crewSave" style="width:100%" ${store.crewBusy?'disabled':''}>${store.crewBusy?'…':'✓ '+t('save_attendance')}</button></div>
     `}
     <div style="padding:0 12px 12px;border-top:1px solid var(--line)">
-      <div style="font-size:11px;color:var(--mut);margin:10px 0 6px">ADD A WORKER TO THE ROSTER</div>
+      <div style="font-size:11px;color:var(--mut);margin:10px 0 6px">${t('add_worker_to_roster')}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input class="fi" id="crew_name" placeholder="Worker name" style="flex:2;min-width:130px">
-        <input class="fi" id="crew_trade" placeholder="Trade (e.g. carpenter)" style="flex:2;min-width:130px">
-        <button class="zadd" id="crewAdd" style="padding:8px 14px">+ ADD</button>
+        <input class="fi" id="crew_name" placeholder="${t('worker_name')}" style="flex:2;min-width:130px">
+        <input class="fi" id="crew_trade" placeholder="${t('trade')}" style="flex:2;min-width:130px">
+        <button class="zadd" id="crewAdd" style="padding:8px 14px">${t('add')}</button>
       </div>
     </div>
   </div>`;
@@ -3032,22 +3198,22 @@ function snagListHTML(){
   const d=store.snagDraft||{};
   const projName=(id)=>{const p=(store.projects||[]).find(x=>x.id===id);return p?p.name:'—';};
   return `<div class="card" style="border-color:var(--red)">
-    <div class="cardHead" style="color:var(--red)"><span>🔧 SNAG LIST</span><button class="zadd" id="snagRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
+    <div class="cardHead" style="color:var(--red)"><span>🔧 ${t('snag_list')}</span><button class="zadd" id="snagRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
     <div class="hint" style="padding:0 12px 8px">Log a snag with a "before" photo — either side can log one, either side can close it out with an "after" photo once fixed.</div>
     <div style="padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <label class="field" style="grid-column:1/3"><span class="fl">PROJECT</span>
+      <label class="field" style="grid-column:1/3"><span class="fl">${t('project')}</span>
         <select class="fi" id="snag_project">
-          <option value="">— pick a project —</option>
+          <option value="">${t('pick_project')}</option>
           ${openProjects.map(p=>`<option value="${p.id}" ${d.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}
         </select>
       </label>
-      <label class="field" style="grid-column:1/3"><span class="fl">DESCRIPTION</span><input class="fi" id="snag_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Scratched laminate on vanity door"></label>
+      <label class="field" style="grid-column:1/3"><span class="fl">${t('description')}</span><input class="fi" id="snag_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Scratched laminate on vanity door"></label>
       <div style="grid-column:1/3;display:flex;align-items:center;gap:10px">
         ${d.beforeUrl?`<span style="font-size:12px;color:var(--green)">📎 Before photo attached <button id="snagBeforeRemove" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px" title="Remove">✕</button></span>`:''}
         <label class="zadd" style="cursor:pointer">📷 ${d.beforeUrl?'Retake':'Take'} before photo<input type="file" id="snag_before_photo" accept="image/*" capture="environment" style="display:none"></label>
         <label class="zadd" style="cursor:pointer">🖼 Choose photo<input type="file" id="snag_before_choose" accept="image/*" style="display:none"></label>
       </div>
-      <button class="add" id="snag_save" style="grid-column:1/3" ${store.snagBusy?'disabled':''}>${store.snagBusy?'SAVING…':'+ LOG SNAG'}</button>
+      <button class="add" id="snag_save" style="grid-column:1/3" ${store.snagBusy?'disabled':''}>${store.snagBusy?'…':'+ '+t('log_snag')}</button>
       ${store.snagMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.snagErr?'var(--red)':'var(--green)'}">${store.snagMsg}</div>`:''}
     </div>
     ${snags.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Description</th><th>Before</th><th>After</th><th>Status</th></tr></thead><tbody>
@@ -3153,6 +3319,15 @@ function supplierHTML(){
     <div class="card" style="margin-top:14px"><div class="cardHead" style="color:var(--amber)"><span>📥 INCOMING ORDERS — ${inc.length}</span></div></div>
     ${inc.length?inc.map(incCard).join(''):'<div class="empty">No orders received yet. When a contractor sends you an approved order, it appears here.</div>'}
     <div class="hint" style="padding-top:14px">List the materials you supply. Supervisors using Fit-Out IQ across the network will see these in their Catalogue and can price jobs with them. Keep codes and prices accurate — this is your shopfront.</div>
+    <div class="card" style="border-color:var(--green)">
+      <div class="cardHead" style="color:var(--green)"><span>🔗 SHARE YOUR PROFILE</span></div>
+      <div class="hint" style="padding:0 12px 8px">Send this link to a potential buyer — WhatsApp, email, in person. They see what you sell with no account needed.</div>
+      <div style="padding:0 12px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input readonly id="profileLinkBox" value="${publicProfileLink()}" style="flex:1;min-width:220px;padding:9px;border-radius:6px;border:1px solid var(--line);background:var(--steel);color:#ccc;font-size:12px">
+        <button class="zadd" id="copyProfileLink" style="border-color:var(--green);color:var(--green)">📋 COPY LINK</button>
+        <a href="${publicProfileLink()}" target="_blank" rel="noopener" class="zadd" style="text-decoration:none;display:inline-block">👁 PREVIEW</a>
+      </div>
+    </div>
     <div class="card"><div class="cardHead"><span>MY CATALOGUE — ${rows.length} item${rows.length===1?'':'s'}</span></div>
       <div class="scroll"><table><thead><tr><th>Category / type</th><th>Code</th><th>Description</th><th class="r">Thk</th><th class="r">W</th><th class="r">H</th><th class="r">Length</th><th class="r">Litres</th><th>Container</th><th>Unit</th><th class="r">Price</th><th>Cur</th><th>Photos</th><th></th></tr></thead><tbody>
       ${rows.map(r=>{const phs=Array.isArray(r.photos)?r.photos:[];return `<tr>
@@ -4168,6 +4343,7 @@ function wire(){
       ov.innerHTML=`<img src="${url}" style="max-width:90%;max-height:90%;border-radius:6px">`;ov.onclick=()=>ov.remove();document.body.appendChild(ov);
     });
     const svr=document.getElementById('svRefresh');if(svr)svr.onclick=()=>{store.siteVisitsLoaded=false;loadSiteVisits();};
+    {const ls=document.getElementById('langSwitch'); if(ls)ls.onchange=()=>{store.lang=ls.value;render();};}
     wireAttendance();
     wireCrewAttendance();
     wireSnagList();
@@ -4261,6 +4437,13 @@ function wire(){
   if(store.account.accountType==='supplier'){
     const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.catLoaded=false;store.myCatalogue=[];store.incomingLoaded=false;store.incoming=[];store.threadOrderId=null;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;render();}};
     const ca=document.getElementById('catAdd');if(ca)ca.onclick=catAdd;
+    {const cpl=document.getElementById('copyProfileLink'); if(cpl)cpl.onclick=()=>{
+      const box=document.getElementById('profileLinkBox');
+      box.select();
+      try{navigator.clipboard.writeText(box.value); cpl.textContent='✓ COPIED';}
+      catch(e){document.execCommand('copy'); cpl.textContent='✓ COPIED';}
+      setTimeout(()=>{cpl.textContent='📋 COPY LINK';},1800);
+    };}
     wireCatImport();
     document.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>catDelete(b.dataset.delcat));
     document.querySelectorAll('[data-catup]').forEach(b=>b.onclick=()=>{
@@ -4658,6 +4841,77 @@ async function linkContractorCompany(uid,companyName,fullName,phone,location){
     await new Promise(r=>setTimeout(r,500));
   }
 }
+// ============ PUBLIC SUPPLIER PROFILE (no login required) ============
+// The one page in the app that works with no account. Reached via
+// ?profile=<supplier-uid> in the URL. Deliberately shows only what a supplier
+// would want a stranger to see - company name, what they sell, a way to get
+// in touch - nothing that requires the RLS policies used everywhere else in
+// the app, which all assume an authenticated, company-scoped user.
+function publicProfileLink(){
+  return `${window.location.origin}${window.location.pathname}?profile=${store.account.uid}`;
+}
+async function loadPublicProfile(uid){
+  const box=document.getElementById('root');
+  box.innerHTML=`<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#888;font-family:sans-serif">Loading…</div>`;
+  let prof=null, companyName='', items=[];
+  try{
+    const {data}=await sb.from('profiles').select('id,full_name,phone,company_id,account_type').eq('id',uid).eq('account_type','supplier').maybeSingle();
+    prof=data;
+    if(prof&&prof.company_id){
+      const {data:co}=await sb.from('companies').select('name').eq('id',prof.company_id).maybeSingle();
+      companyName=co?co.name:'';
+    }
+    const {data:cat}=await sb.from('catalogue').select('*').eq('supplier_id',uid).order('kind');
+    items=cat||[];
+  }catch(e){}
+  renderPublicProfile(prof,companyName,items);
+}
+function renderPublicProfile(prof,companyName,items){
+  const box=document.getElementById('root');
+  if(!prof){
+    box.innerHTML=`<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#888;font-family:sans-serif;text-align:center;padding:20px">
+      <div style="font-size:16px;margin-bottom:8px">This profile isn't available.</div>
+      <a href="${window.location.origin}${window.location.pathname}" style="color:#5db8ff">Go to FIT-OUT IQ →</a>
+    </div>`;
+    return;
+  }
+  const withPhoto=items.filter(i=>Array.isArray(i.photos)&&i.photos.length);
+  const shown=withPhoto.length?withPhoto:items;
+  const kinds=[...new Set(items.map(i=>i.kind).filter(Boolean))];
+  box.innerHTML=`<div style="min-height:100vh;background:#0b0f14;color:#eee;font-family:sans-serif">
+    <div style="max-width:960px;margin:0 auto;padding:28px 20px 60px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:28px">
+        <div style="font-weight:800;letter-spacing:1px;font-size:13px">FIT-OUT IQ</div>
+        <span style="color:#555;font-size:12px">supplier profile</span>
+      </div>
+      <div style="background:#12181f;border:1px solid #223;border-radius:12px;padding:24px;margin-bottom:24px">
+        <div style="font-size:22px;font-weight:800">${companyName||prof.full_name||'Supplier'}</div>
+        ${companyName&&prof.full_name?`<div style="font-size:13px;color:#888;margin-top:2px">${prof.full_name}</div>`:''}
+        ${kinds.length?`<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">${kinds.map(k=>`<span style="font-size:11px;padding:3px 10px;border-radius:12px;background:#1c2733;color:#8ec6ff">${k}</span>`).join('')}</div>`:''}
+        ${prof.phone?`<div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+          <a href="tel:${prof.phone}" style="font-size:12px;padding:8px 14px;border-radius:6px;background:#1c2733;color:#8ec6ff;text-decoration:none">📞 Call</a>
+          <a href="https://wa.me/${String(prof.phone).replace(/[^0-9]/g,'')}" target="_blank" rel="noopener" style="font-size:12px;padding:8px 14px;border-radius:6px;background:#1c2733;color:#8ec6ff;text-decoration:none">💬 WhatsApp</a>
+        </div>`:''}
+      </div>
+      <div style="font-size:12px;color:#666;margin-bottom:10px">${items.length} item${items.length===1?'':'s'} listed</div>
+      ${items.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+        ${shown.slice(0,60).map(r=>{
+          const spec=[r.thk?`${r.thk}mm`:'',r.width&&r.height?`${r.width}×${r.height}`:'',r.litres?`${r.litres}L`:''].filter(Boolean).join(' · ');
+          const ph=Array.isArray(r.photos)&&r.photos.length?r.photos[0]:'';
+          return `<div style="background:#12181f;border:1px solid #223;border-radius:8px;overflow:hidden">
+            ${ph?`<img src="${ph}" style="width:100%;height:130px;object-fit:cover">`:`<div style="width:100%;height:130px;display:flex;align-items:center;justify-content:center;background:#1a222c;color:#555;font-size:11px">no photo</div>`}
+            <div style="padding:10px">
+              <div style="font-size:12px;font-weight:700">${r.description||r.code||'—'}</div>
+              ${spec?`<div style="font-size:10px;color:#777;margin-top:2px">${spec}</div>`:''}
+            </div></div>`;
+        }).join('')}
+      </div>`:`<div style="color:#666;font-size:13px;padding:20px 0">This supplier hasn't listed any materials yet.</div>`}
+      <div style="margin-top:40px;padding-top:20px;border-top:1px solid #223;text-align:center">
+        <div style="font-size:13px;color:#999;margin-bottom:10px">Want to order from ${companyName||'this supplier'} directly, or list your own materials?</div>
+        <a href="${window.location.origin}${window.location.pathname}" style="display:inline-block;padding:10px 20px;background:#5db8ff;color:#001;border-radius:6px;font-weight:700;font-size:13px;text-decoration:none">Join FIT-OUT IQ →</a>
+      </div>
+    </div></div>`;
+}
 async function loadSession(){
   if(!sb){render();return;}
   let session=null;
@@ -4716,7 +4970,11 @@ async function loadSession(){
 }
 // react to auth changes (magic-link return, token refresh)
 if(sb){ sb.auth.onAuthStateChange((event,_s)=>{ if(event==='PASSWORD_RECOVERY'){ store.showResetPassword=true; render(); } else { loadSession(); } }); }
-loadSession();
+{
+  const __profileParam=new URLSearchParams(window.location.search).get('profile');
+  if(__profileParam){ loadPublicProfile(__profileParam); }
+  else { loadSession(); }
+}
 </script>
 </body>
 </html>
