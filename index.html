@@ -1780,7 +1780,7 @@ function managerHTML(){
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='approvals')?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
     <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production" style="color:var(--blue)">🏭 PRODUCTION</button>
@@ -1799,7 +1799,7 @@ function managerHTML(){
       <div style="font-size:12px;color:var(--mut);margin-bottom:14px">Select the role you're approving this order under. It will appear on the approval certificate.</div>
       ${['Manager','QS','Purchasing','Project Lead','Director','Other'].map(t=>`<button class="cta" data-approvetitle="${t}" style="width:100%;margin-bottom:8px;background:var(--steel);color:var(--ink);border:1px solid var(--line);text-align:left">${t}</button>`).join('')}
       <button class="pbtn" id="cancelApprove" style="width:100%;margin-top:4px">CANCEL</button>
-    </div></div>`:''}`;}
+    </div></div>`:''}${accountOverlayHTML()}`;}
 
 // ---- Manager's SITE VISITS tab: request drawings for review, see what's pending/reviewed ----
 function mgrSiteVisitsTabHTML(){
@@ -2586,7 +2586,7 @@ function siteEngineerHTML(){
   const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
   const itemOptions=store.svItemOptions||[];
   return `<div ${isRTL()?'dir="rtl"':''}><header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · ${t('site_engineer')}</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight">${langSwitcherHTML()}<span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
+    <div class="hdrRight">${langSwitcherHTML()}<button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
   <div class="body">
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
     ${attendanceHTML()}
@@ -2650,7 +2650,7 @@ function siteEngineerHTML(){
     </div>
     ${snagListHTML()}
   </div>
-  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer></div>${markupOverlay()}`;
+  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer></div>${markupOverlay()}${accountOverlayHTML()}`;
 }
 // render an uploaded file as a photo thumbnail (images) or a document icon + link
 // (PDFs, Word docs, anything else) — since Site Visit now accepts any file type.
@@ -3430,7 +3430,7 @@ function supplierHTML(){
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · SUPPLIER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="body">
     <div class="card" style="margin-top:14px"><div class="cardHead" style="color:var(--amber)"><span>📥 INCOMING ORDERS — ${inc.length}</span></div></div>
     ${inc.length?inc.map(incCard).join(''):'<div class="empty">No orders received yet. When a contractor sends you an approved order, it appears here.</div>'}
@@ -3478,7 +3478,7 @@ function supplierHTML(){
       </div>
     </div>
     <div class="hint">Tip: use clear codes (e.g. GYP-12.5-STD, STUD-92-3.6) and fill thickness/size where relevant — it helps contractors match your products to their cut lists.</div>
-  </div>${catImportOverlay()}`;}
+  </div>${catImportOverlay()}${accountOverlayHTML()}`;}
 
 // Supplier: load orders sent to them
 async function loadIncoming(){
@@ -3506,6 +3506,100 @@ function b64ToUtf8(b64){
 // which means localStorage throws inside it - so the mixer could never remember
 // your calibration. srcdoc runs same-origin while still being its own document,
 // so the tool stays isolated from Fit-Out IQ's CSS/JS but can save its settings.
+// ============ ACCOUNT: EDIT / DELETE (self-service, every role) ============
+// One shared overlay reused across all five dashboards, so there's a single
+// place this logic lives and gets tested, rather than five copies.
+//
+// Honest limit, stated plainly in the UI too: a regular account can never
+// delete its own LOGIN (email/password) - that lives in Supabase Auth, and
+// only a project administrator can remove it (via the Authentication panel,
+// or an Admin API key that must never sit in client-side code, since exposing
+// it would let anyone delete anyone). What this DOES do: remove the person's
+// own data, and sign them out. Full closure needs an administrator afterwards.
+function accountOverlayHTML(){
+  if(!store.showAccountPanel)return '';
+  const a=store.account;
+  const d=store.acctDraft||{name:a.name||'', phone:a.phone||''};
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;max-width:440px;width:100%;max-height:90vh;overflow:auto;padding:20px">
+      <div style="display:flex;align-items:center;margin-bottom:14px"><strong style="font-size:14px">⚙ MY ACCOUNT</strong>
+        <button class="zadd" id="acctClose" style="margin-left:auto;padding:4px 10px">✕ CLOSE</button></div>
+
+      <div class="card" style="border-color:var(--blue);margin-bottom:14px">
+        <div class="cardHead" style="color:var(--blue)"><span>EDIT DETAILS</span></div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+          <label class="field"><span class="fl">NAME</span><input class="fi" id="acct_name" value="${(d.name||'').replace(/"/g,'&quot;')}"></label>
+          <label class="field"><span class="fl">PHONE</span><input class="fi" id="acct_phone" value="${(d.phone||'').replace(/"/g,'&quot;')}"></label>
+          <label class="field"><span class="fl">EMAIL</span><input class="fi" value="${a.email}" disabled style="opacity:.6"></label>
+          <div class="hint" style="padding:0">Email can't be changed here — contact your administrator if it needs to change.</div>
+          <label class="field"><span class="fl">NEW PASSWORD (leave blank to keep current)</span><input class="fi" type="password" id="acct_pw" placeholder="At least 6 characters"></label>
+          <button class="add" id="acctSave" ${store.acctBusy?'disabled':''}>${store.acctBusy?'SAVING…':'✓ SAVE CHANGES'}</button>
+          ${store.acctMsg?`<div style="font-size:12px;color:${store.acctErr?'var(--red)':'var(--green)'}">${store.acctMsg}</div>`:''}
+        </div>
+      </div>
+
+      <div class="card" style="border-color:var(--red)">
+        <div class="cardHead" style="color:var(--red)"><span>DELETE MY ACCOUNT</span></div>
+        <div style="padding:12px">
+          <div class="hint" style="padding:0 0 8px">This removes your profile, your site visits, your attendance and fingerprint records, and signs you out. It does <strong>not</strong> delete your login itself — that has to be closed by an administrator afterwards. This cannot be undone.</div>
+          ${store.showDeleteConfirm?`
+            <div class="hint" style="padding:0 0 6px;color:var(--red)">Type DELETE below to confirm.</div>
+            <input class="fi" id="acct_delete_confirm" placeholder="DELETE" style="margin-bottom:8px">
+            <div style="display:flex;gap:8px">
+              <button class="add" id="acctDeleteConfirm" style="background:var(--red);border-color:var(--red)" ${store.acctBusy?'disabled':''}>${store.acctBusy?'DELETING…':'⚠ PERMANENTLY DELETE'}</button>
+              <button class="zadd" id="acctDeleteCancel">CANCEL</button>
+            </div>`
+          :`<button class="zadd" id="acctDeleteStart" style="border-color:var(--red);color:var(--red)">DELETE MY ACCOUNT</button>`}
+          ${store.acctDelMsg?`<div style="font-size:12px;color:var(--red);margin-top:8px">${store.acctDelMsg}</div>`:''}
+        </div>
+      </div>
+    </div></div>`;
+}
+function wireAccountOverlay(){
+  const btn=document.getElementById('myAccountBtn');
+  if(btn)btn.onclick=()=>{store.showAccountPanel=true;store.acctDraft={name:store.account.name||'',phone:store.account.phone||''};store.acctMsg='';store.acctDelMsg='';store.showDeleteConfirm=false;render();};
+  const close=document.getElementById('acctClose');
+  if(close)close.onclick=()=>{store.showAccountPanel=false;render();};
+  const nm=document.getElementById('acct_name'); if(nm)nm.oninput=()=>{store.acctDraft.name=nm.value;};
+  const ph=document.getElementById('acct_phone'); if(ph)ph.oninput=()=>{store.acctDraft.phone=ph.value;};
+  const save=document.getElementById('acctSave');
+  if(save)save.onclick=async()=>{
+    const name=(document.getElementById('acct_name')||{}).value||'';
+    const phone=(document.getElementById('acct_phone')||{}).value||'';
+    const pw=(document.getElementById('acct_pw')||{}).value||'';
+    if(pw && pw.length<6){store.acctMsg='Password must be at least 6 characters.';store.acctErr=true;render();return;}
+    store.acctBusy=true;store.acctMsg='';render();
+    try{
+      await sb.from('profiles').update({full_name:name,phone}).eq('id',store.account.uid);
+      if(pw){const {error}=await sb.auth.updateUser({password:pw}); if(error)throw error;}
+      store.account.name=name; store.account.phone=phone;
+      store.acctMsg='Saved.'; store.acctErr=false;
+    }catch(e){store.acctMsg='Could not save: '+(e.message||'error'); store.acctErr=true;}
+    store.acctBusy=false; render();
+  };
+  const delStart=document.getElementById('acctDeleteStart');
+  if(delStart)delStart.onclick=()=>{store.showDeleteConfirm=true;render();};
+  const delCancel=document.getElementById('acctDeleteCancel');
+  if(delCancel)delCancel.onclick=()=>{store.showDeleteConfirm=false;render();};
+  const delConfirm=document.getElementById('acctDeleteConfirm');
+  if(delConfirm)delConfirm.onclick=async()=>{
+    const txt=(document.getElementById('acct_delete_confirm')||{}).value||'';
+    if(txt.trim().toUpperCase()!=='DELETE'){store.acctDelMsg='Type DELETE exactly to confirm.';render();return;}
+    store.acctBusy=true;store.acctDelMsg='';render();
+    const uid=store.account.uid;
+    try{
+      await sb.from('biometric_credentials').delete().eq('user_id',uid);
+      await sb.from('attendance').delete().eq('user_id',uid);
+      await sb.from('site_visits').delete().eq('site_engineer_id',uid);
+      await sb.from('profiles').delete().eq('id',uid);
+      await sb.auth.signOut();
+      alert('Your account data has been removed and you have been signed out. To fully close your login, contact your administrator.');
+      window.location.reload();
+    }catch(e){
+      store.acctBusy=false; store.acctDelMsg='Could not complete deletion: '+(e.message||'error'); render();
+    }
+  };
+}
 function ralMixerHTML(){
   return `<div style="margin:0 -16px -16px;height:calc(100vh - 130px);min-height:500px">
     <iframe id="ralFrame" style="width:100%;height:100%;border:none;background:#1c1c1e"></iframe>
@@ -3517,7 +3611,7 @@ function procurementHTML(){
   const projects=store.projects||[];
   if(!_workspaceId){
     return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.account.company}</div></div></div>
-      <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+      <div class="hdrRight"><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
     <div class="tabs" style="padding:10px 16px 0">
       <button class="tab ${store.tab!=='ralmixer'?'on':''}" data-noprojtab="projects">📁 PROJECTS</button>
       <button class="tab ${store.tab==='ralmixer'?'on':''}" data-noprojtab="ralmixer" style="color:var(--green)">🎨 RAL MIXER</button>
@@ -3531,10 +3625,10 @@ function procurementHTML(){
         </div>`).join(''):'<div class="empty">No projects yet — ask your contractor to save one.</div>'}
       </div>
     </div>`}
-    <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>`;
+    <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accountOverlayHTML()}`;
   }
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.projectName||'Untitled project'}</div></div></div>
-    <div class="hdrRight"><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="pbtn" id="procChangeProject" style="margin-right:12px">← CHANGE PROJECT</button>
     <button class="tab ${store.tab==='prices'?'on':''}" data-tab="prices">PRICE BOOK</button>
@@ -3543,7 +3637,7 @@ function procurementHTML(){
     <button class="tab ${store.tab==='ralmixer'?'on':''}" data-tab="ralmixer" style="color:var(--green)">🎨 RAL MIXER</button>
   </div>
   <div class="body">${({prices:priceHTML,catalogue:catalogueHTML,order:orderHTML,ralmixer:ralMixerHTML}[store.tab]||orderHTML)()}</div>
-  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>`;
+  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accountOverlayHTML()}`;
 }
 function appHTML(){
   const daysLeft=Math.max(0,Math.ceil((new Date(store.account.trialEnds)-new Date())/864e5));
@@ -3589,7 +3683,7 @@ function appHTML(){
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
   </div></div>
   <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab]||assemblyHTML)()}</div>
-  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}`;}
+  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="myAccountBtn" style="cursor:pointer;text-decoration:underline">my account</span> · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}${accountOverlayHTML()}`;}
 
 // export picker: choose which sheets go into the Excel
 // ---- Contractor: SITE DRAWINGS tab — marked-up drawings the manager forwarded on ----
@@ -4469,6 +4563,7 @@ function wire(){
     wireCrewAttendance();
     wireSnagList();
     wireMarkupOverlay();
+    wireAccountOverlay();
     return;}
   // ---- manager dashboard wiring ----
   if(store.account.accountType==='manager'){
@@ -4553,6 +4648,7 @@ function wire(){
     {const prm=document.getElementById('procRefreshMgr'); if(prm)prm.onclick=()=>{store.procReqLoaded=false;loadProcurementRequests();};}
     wireSnagList();
     wireMarkupOverlay();
+    wireAccountOverlay();
     return;}
   // ---- supplier dashboard wiring ----
   if(store.account.accountType==='supplier'){
@@ -4566,6 +4662,7 @@ function wire(){
       setTimeout(()=>{cpl.textContent='📋 COPY LINK';},1800);
     };}
     wireCatImport();
+    wireAccountOverlay();
     document.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>catDelete(b.dataset.delcat));
     document.querySelectorAll('[data-catup]').forEach(b=>b.onclick=()=>{
       const id=b.dataset.catup;
@@ -4607,6 +4704,7 @@ function wire(){
   const impb=document.getElementById('import');if(impb)impb.onchange=importJob;
   const shrb=document.getElementById('share');if(shrb)shrb.onclick=shareLink;
   const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){unsubscribeThread();unsubscribeOrders();if(sb)await sb.auth.signOut();store.account=null;store.authBusy=false;store.authMsg='';_workspaceId=null;_workspaceOwnerId=null;store.syncState='';store.myOrdersLoaded=false;store.myOrders=[];store.catAllLoaded=false;store.projectsLoaded=false;store.projects=[];store.showProjects=false;store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.siteVisitsLoaded=false;store.siteVisits=[];store.showSitePull=false;store.procReqLoaded=false;store.procReqs=[];store.procReqViewId=null;render();}};
+  wireAccountOverlay();
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
   const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
   document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
