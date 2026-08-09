@@ -1530,7 +1530,7 @@ function authHTML(){
         <div style="font-size:10px;color:var(--mut);margin:-4px 0 8px">If your company is already on Fit-Out IQ, pick it from the list so your team links correctly. Otherwise type a new name.</div>
         <label class="lbl">YOUR NAME</label><input class="inp" id="f_name" placeholder="Your full name">
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
-        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+44 7700 900000">
+        <label class="lbl">PHONE (with country code)</label><input class="inp" id="f_phone" type="tel" placeholder="+971501234567">
         <label class="lbl">LOCATION</label><input class="inp" id="f_location" placeholder="City, Country">
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
         <div class="err" id="authErr">${store.authMsg}</div>
@@ -1542,7 +1542,7 @@ function authHTML(){
         <div style="font-size:10px;color:var(--mut);margin:-4px 0 8px">Pick your company from the list so your estimators' work reaches you. Type exactly if creating it new.</div>
         <label class="lbl">YOUR NAME</label><input class="inp" id="f_name" placeholder="Your full name">
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
-        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+44 ...">
+        <label class="lbl">PHONE (with country code)</label><input class="inp" id="f_phone" type="tel" placeholder="+971501234567">
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupManager" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE MANAGER ACCOUNT'}</button>
@@ -1553,7 +1553,7 @@ function authHTML(){
         <div style="font-size:10px;color:var(--mut);margin:-4px 0 8px">Pick your company from the list so your site visits reach the right factory. Type exactly if creating it new.</div>
         <label class="lbl">YOUR NAME</label><input class="inp" id="f_name" placeholder="Your full name">
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
-        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+44 ...">
+        <label class="lbl">PHONE (with country code)</label><input class="inp" id="f_phone" type="tel" placeholder="+971501234567">
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupSiteEng" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE SITE ENGINEER ACCOUNT'}</button>
@@ -1564,7 +1564,7 @@ function authHTML(){
         <div style="font-size:10px;color:var(--mut);margin:-4px 0 8px">Pick your company from the list so you see the right projects. Type exactly if creating it new.</div>
         <label class="lbl">YOUR NAME</label><input class="inp" id="f_name" placeholder="Your full name">
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
-        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+44 ...">
+        <label class="lbl">PHONE (with country code)</label><input class="inp" id="f_phone" type="tel" placeholder="+971501234567">
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupProcurement" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE PROCUREMENT ACCOUNT'}</button>
@@ -1574,7 +1574,7 @@ function authHTML(){
         <label class="lbl">SUPPLIER / BUSINESS NAME</label><input class="inp" id="f_company" placeholder="Gulf Gypsum Trading LLC">
         <label class="lbl">CONTACT NAME</label><input class="inp" id="f_name" placeholder="Your full name">
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="sales@business.com">
-        <label class="lbl">PHONE</label><input class="inp" id="f_phone" type="tel" placeholder="+971 ...">
+        <label class="lbl">PHONE (with country code)</label><input class="inp" id="f_phone" type="tel" placeholder="+971501234567">
         <label class="lbl">REGION SERVED</label><input class="inp" id="f_location" placeholder="UAE / Gulf">
         <label class="lbl">WEBSITE (optional)</label><input class="inp" id="f_website" placeholder="https://...">
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
@@ -1780,7 +1780,7 @@ function managerHTML(){
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" style="text-decoration:none;display:inline-block">❓ HELP</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='approvals')?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
     <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production" style="color:var(--blue)">🏭 PRODUCTION</button>
@@ -2586,7 +2586,7 @@ function siteEngineerHTML(){
   const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
   const itemOptions=store.svItemOptions||[];
   return `<div ${isRTL()?'dir="rtl"':''}><header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · ${t('site_engineer')}</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight">${langSwitcherHTML()}<button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
+    <div class="hdrRight">${langSwitcherHTML()}<a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" style="text-decoration:none;display:inline-block">❓ HELP</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
   <div class="body">
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
     ${attendanceHTML()}
@@ -3430,7 +3430,7 @@ function supplierHTML(){
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · SUPPLIER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" style="text-decoration:none;display:inline-block">❓ HELP</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="body">
     <div class="card" style="margin-top:14px"><div class="cardHead" style="color:var(--amber)"><span>📥 INCOMING ORDERS — ${inc.length}</span></div></div>
     ${inc.length?inc.map(incCard).join(''):'<div class="empty">No orders received yet. When a contractor sends you an approved order, it appears here.</div>'}
@@ -3574,6 +3574,7 @@ function wireAccountOverlay(){
     const companyName=((document.getElementById('acct_company')||{}).value||'').trim();
     const pw=(document.getElementById('acct_pw')||{}).value||'';
     if(pw && pw.length<6){store.acctMsg='Password must be at least 6 characters.';store.acctErr=true;render();return;}
+    if(phone && !isValidPhone(phone)){store.acctMsg='Please include your country code in your phone number, e.g. +971501234567.';store.acctErr=true;render();return;}
     if(!companyName){store.acctMsg='Company name can\'t be empty.';store.acctErr=true;render();return;}
     store.acctBusy=true;store.acctMsg='';render();
     try{
@@ -3640,7 +3641,7 @@ function procurementHTML(){
   const projects=store.projects||[];
   if(!_workspaceId){
     return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.account.company}</div></div></div>
-      <div class="hdrRight"><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+      <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" style="text-decoration:none;display:inline-block">❓ HELP</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
     <div class="tabs" style="padding:10px 16px 0">
       <button class="tab ${store.tab!=='ralmixer'?'on':''}" data-noprojtab="projects">📁 PROJECTS</button>
       <button class="tab ${store.tab==='ralmixer'?'on':''}" data-noprojtab="ralmixer" style="color:var(--green)">🎨 RAL MIXER</button>
@@ -3657,7 +3658,7 @@ function procurementHTML(){
     <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accountOverlayHTML()}`;
   }
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.projectName||'Untitled project'}</div></div></div>
-    <div class="hdrRight"><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" style="text-decoration:none;display:inline-block">❓ HELP</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="pbtn" id="procChangeProject" style="margin-right:12px">← CHANGE PROJECT</button>
     <button class="tab ${store.tab==='prices'?'on':''}" data-tab="prices">PRICE BOOK</button>
@@ -3712,7 +3713,7 @@ function appHTML(){
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
   </div></div>
   <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab]||assemblyHTML)()}</div>
-  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="myAccountBtn" style="cursor:pointer;text-decoration:underline">my account</span> · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}${accountOverlayHTML()}`;}
+  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="myAccountBtn" style="cursor:pointer;text-decoration:underline">my account</span> · <a href="${helpDeskLink()}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">help</a> · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}${accountOverlayHTML()}`;}
 
 // export picker: choose which sheets go into the Excel
 // ---- Contractor: SITE DRAWINGS tab — marked-up drawings the manager forwarded on ----
@@ -4385,9 +4386,10 @@ function wire(){
     const su=document.getElementById('doSignup');
     if(su)su.onclick=async()=>{
       const c=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),l=val('f_location'),pw=document.getElementById('f_pass').value;
-      if(!c||!n||!e||!pw){return sErr('Please fill company, name, email and password.');}
+      if(!c||!n||!e||!p||!pw){return sErr('Please fill company, name, email, phone and password.');}
       if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
       if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(p && !isValidPhone(p)){return sErr('Please include your country code in your phone number, e.g. +971501234567.');}
       if(!sb){return sErr('No connection to Supabase.');}
       store.authBusy=true;store.authMsg='';render();
       try{
@@ -4408,9 +4410,10 @@ function wire(){
     const mgr=document.getElementById('doSignupManager');
     if(mgr)mgr.onclick=async()=>{
       const co=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),pw=document.getElementById('f_pass').value;
-      if(!co||!n||!e||!pw){return sErr('Please fill company, name, email and password.');}
+      if(!co||!n||!e||!p||!pw){return sErr('Please fill company, name, email, phone and password.');}
       if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
       if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(p && !isValidPhone(p)){return sErr('Please include your country code in your phone number, e.g. +971501234567.');}
       if(!sb){return sErr('No connection to Supabase.');}
       store.authBusy=true;store.authMsg='';render();
       try{
@@ -4435,9 +4438,10 @@ function wire(){
     const seg=document.getElementById('doSignupSiteEng');
     if(seg)seg.onclick=async()=>{
       const co=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),pw=document.getElementById('f_pass').value;
-      if(!co||!n||!e||!pw){return sErr('Please fill company, name, email and password.');}
+      if(!co||!n||!e||!p||!pw){return sErr('Please fill company, name, email, phone and password.');}
       if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
       if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(p && !isValidPhone(p)){return sErr('Please include your country code in your phone number, e.g. +971501234567.');}
       if(!sb){return sErr('No connection to Supabase.');}
       store.authBusy=true;store.authMsg='';render();
       try{
@@ -4461,9 +4465,10 @@ function wire(){
     const dpe=document.getElementById('doSignupProcurement');
     if(dpe)dpe.onclick=async()=>{
       const co=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),pw=document.getElementById('f_pass').value;
-      if(!co||!n||!e||!pw){return sErr('Please fill company, name, email and password.');}
+      if(!co||!n||!e||!p||!pw){return sErr('Please fill company, name, email, phone and password.');}
       if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
       if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(p && !isValidPhone(p)){return sErr('Please include your country code in your phone number, e.g. +971501234567.');}
       if(!sb){return sErr('No connection to Supabase.');}
       store.authBusy=true;store.authMsg='';render();
       try{
@@ -4487,9 +4492,10 @@ function wire(){
     const sup=document.getElementById('doSignupSupplier');
     if(sup)sup.onclick=async()=>{
       const biz=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),reg=val('f_location'),web=val('f_website'),pw=document.getElementById('f_pass').value;
-      if(!biz||!n||!e||!pw){return sErr('Please fill business name, contact, email and password.');}
+      if(!biz||!n||!e||!p||!pw){return sErr('Please fill business name, contact, email, phone and password.');}
       if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
       if(pw.length<6){return sErr('Password must be at least 6 characters.');}
+      if(p && !isValidPhone(p)){return sErr('Please include your country code in your phone number, e.g. +971501234567.');}
       if(!sb){return sErr('No connection to Supabase.');}
       store.authBusy=true;store.authMsg='';render();
       try{
@@ -5159,6 +5165,26 @@ function renderPublicProfile(prof,companyName,items){
         <a href="${window.location.origin}${window.location.pathname}" style="display:inline-block;padding:10px 20px;background:#5db8ff;color:#001;border-radius:6px;font-weight:700;font-size:13px;text-decoration:none">Join FIT-OUT IQ →</a>
       </div>
     </div></div>`;
+}
+// Require a real international format (+countrycode number) — this is what
+// makes every phone number on the platform reachable on WhatsApp, which is
+// the whole point of collecting it. Doesn't try to validate per-country
+// length rules (too many variants), just that a plausible country code and
+// enough digits are present.
+// Help Desk — a direct WhatsApp line to Mbe, reachable from every dashboard.
+// Pre-fills a message naming the account type, so a reply already has context
+// without the person having to explain who they are first.
+const HELP_DESK_PHONE='971567257880'; // wa.me format: digits only, no plus
+function helpDeskLink(){
+  const role=(store.account&&store.account.accountType)?store.account.accountType.replace(/_/g,' '):'account';
+  const msg=`Hi, I need help with FIT-OUT IQ (${role} account).`;
+  return `https://wa.me/${HELP_DESK_PHONE}?text=${encodeURIComponent(msg)}`;
+}
+function isValidPhone(p){
+  return /^\+[1-9]\d{6,14}$/.test(String(p||'').replace(/[\s-]/g,''));
+}
+function normalizePhone(p){
+  return String(p||'').replace(/[\s-]/g,'');
 }
 async function loadSession(){
   if(!sb){render();return;}
