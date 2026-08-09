@@ -948,6 +948,17 @@ const ancMeta=code=>{const e=(store.priceBook.ancillary||[]).find(x=>x.code===co
 // ---- ASSEMBLY TEMPLATES ----
 // Each template takes user inputs and returns a list of {code, qty, desc, unit}.
 // Quantities are calculated using industry rules of thumb. All editable.
+// Pick a real, stocked bar length for a linear item, since the price book
+// only has exact-match prices (code+thickness+length) with no fuzzy fallback.
+// Prefers the shortest stock option that's still long enough to cut the
+// piece from (least waste); if nothing is long enough, falls back to the
+// longest available rather than silently pricing nothing.
+function bestLinearLen(code,thk,needed){
+  const opts=[...new Set(store.priceBook.linear.filter(x=>x.code===code&&x.thk===thk).map(x=>x.len))];
+  if(!opts.length) return needed; // nothing stocked under this code/thickness at all
+  const fits=opts.filter(l=>l>=needed).sort((a,b)=>a-b);
+  return fits.length ? fits[0] : Math.max(...opts);
+}
 const ASSEMBLIES = {
   stud_wall: {
     name: 'Stud Partition Wall',
@@ -969,8 +980,18 @@ const ASSEMBLIES = {
       const layersArr=String(p.layers||'1+1').split('+').map(n=>+n);
       const layersTotal=layersArr.reduce((a,b)=>a+b,0); // 1+1=2 layers, 2+2=4
       const studs=Math.ceil(L/spacing)+1;
-      const studLen=Math.ceil(H*1000); // mm
-      const trackLen=L*1.05; // 5% wastage
+      // Studs are cut down from a stock bar, so price against a real stocked
+      // length long enough for the wall height — not the exact cut height,
+      // which will essentially never match a catalogue length.
+      const studNeeded=Math.ceil(H*1000); // mm, the actual cut length
+      const studStockLen=bestLinearLen(p.studCode,+p.studThk,studNeeded);
+      // Track is laid end-to-end along the wall run (top + bottom), so what
+      // matters is the total run length, covered by however many stock bars
+      // that takes — prefer the longest stocked option to minimise joints.
+      const trackRunNeeded=L*1.05*1000*2; // top + bottom, mm, 5% wastage
+      const trackOpts=[...new Set(store.priceBook.linear.filter(x=>x.code===p.trackCode&&x.thk===+p.studThk).map(x=>x.len))];
+      const trackStockLen=trackOpts.length?Math.max(...trackOpts):Math.max(3000,Math.ceil(L*1000));
+      const trackQty=Math.ceil(trackRunNeeded/trackStockLen);
       const boardArea=L*H*layersTotal*1.1; // 10% cut wastage
       const insulArea=L*H;
       const perimeter=2*(L+H);
@@ -982,9 +1003,10 @@ const ASSEMBLIES = {
       const scrimM=boardArea*scrimMPerM2;
       const compKg=boardArea*compKgPerM2;
       const cornerLen=(+p.externalCorners||0)*H;
+      const studShort=studStockLen<studNeeded;
       return [
-        {kind:'linear', code:p.trackCode, thk:+p.studThk, len:Math.max(3000,Math.ceil(L*1000)), qty:Math.ceil(trackLen*2/(Math.max(3,L*1.05))), desc:'Top + bottom track'},
-        {kind:'linear', code:p.studCode, thk:+p.studThk, len:studLen, qty:studs, desc:`Studs @ ${p.spacing}mm c/c`},
+        {kind:'linear', code:p.trackCode, thk:+p.studThk, len:trackStockLen, qty:trackQty, desc:'Top + bottom track'},
+        {kind:'linear', code:p.studCode, thk:+p.studThk, len:studStockLen, qty:studs, desc:`Studs @ ${p.spacing}mm c/c`+(studShort?` ⚠ longest stocked length (${studStockLen}mm) is shorter than the ${studNeeded}mm wall height — check with your supplier`:'')},
         {kind:'sheet',  code:p.boardCode, thk:+p.boardThk, w:1220, h:2440, qty:Math.ceil(boardArea/(1.22*2.44)), desc:`Plasterboard (${p.layers} layers)`},
         {kind:'anc', code:p.insulCode, qty:Math.ceil(insulArea), desc:'Insulation', unit:'m²'},
         {kind:'anc', code:p.boardThk>=15?'DRYWALL-SCREW-38':'DRYWALL-SCREW-25', qty:Math.ceil(bdScrews/1000), desc:'Drywall screws', unit:'box'},
@@ -1055,6 +1077,88 @@ const ASSEMBLIES = {
         {kind:'anc', code:'WOOD-SCREW-50', qty:Math.ceil(panels*8/200), desc:'Wood screws', unit:'box'},
         {kind:'anc', code:'WALL-PLUG-PK', qty:Math.ceil(panels*8/100), desc:'Wall plugs', unit:'pack'},
         {kind:'anc', code:'CONSTR-ADH-TUBE', qty:Math.ceil(perim/8), desc:'Construction adhesive', unit:'tube'},
+      ];
+    }
+  },
+  // "General Joinery" above is kept for backward compatibility with any assemblies
+  // already saved as that type, but it isn't a real calculator - it needs you to
+  // already know the perimeter and batten length before you can use it. These
+  // three replace it with the real task split out, each deriving its own bill of
+  // materials from actual panel/door/unit dimensions instead of asking you to
+  // pre-calculate the answer yourself.
+  wall_panel: {
+    name: 'Wall Panelling',
+    inputs: [
+      {k:'area', label:'Wall area (m²)', def:15},
+      {k:'panelW', label:'Panel width (mm)', def:600},
+      {k:'panelH', label:'Panel height (mm)', def:2400},
+      {k:'battenCode', label:'Batten code', def:'BATTEN-25X50-3M', type:'text'},
+      {k:'screwCode', label:'Screw code', def:'WOOD-SCREW-50', type:'text'},
+      {k:'adhCode', label:'Adhesive code', def:'CONSTR-ADH-TUBE', type:'text'},
+    ],
+    compute(p){
+      const area=+p.area, pw=+p.panelW/1000, ph=+p.panelH/1000;
+      const panelArea=pw*ph;
+      const panelCount=Math.ceil(area*1.1/panelArea); // 10% cut wastage
+      const perimPerPanel=2*(pw+ph); // m, mounting batten runs behind each panel's edge
+      const battenRun=panelCount*perimPerPanel;
+      const screwSpacingM=0.3; // one fixing every 300mm along the panel edge
+      const screwsPerPanel=Math.ceil(perimPerPanel/screwSpacingM);
+      const totalScrews=panelCount*screwsPerPanel;
+      return [
+        {kind:'anc', code:p.battenCode, qty:Math.ceil(battenRun/3), desc:`Mounting battens (${panelCount} panels)`, unit:'length'},
+        {kind:'anc', code:p.screwCode, qty:Math.ceil(totalScrews/200), desc:'Fixing screws (@300mm centres)', unit:'box'},
+        {kind:'anc', code:'WALL-PLUG-PK', qty:Math.ceil(totalScrews/100), desc:'Wall plugs', unit:'pack'},
+        {kind:'anc', code:p.adhCode, qty:Math.ceil(battenRun/8), desc:'Construction adhesive', unit:'tube'},
+      ];
+    }
+  },
+  door_install: {
+    name: 'Door & Frame Installation',
+    inputs: [
+      {k:'doorCount', label:'Number of doors', def:4},
+      {k:'doorW', label:'Door width (mm)', def:900},
+      {k:'doorH', label:'Door height (mm)', def:2100},
+      {k:'hingesPerDoor', label:'Hinges per door', def:3},
+      {k:'frameCode', label:'Frame timber code', def:'DOOR-FRAME-TIMBER', type:'text'},
+      {k:'hingeCode', label:'Hinge code', def:'DOOR-HINGE-4IN', type:'text'},
+      {k:'lockCode', label:'Lockset code', def:'DOOR-LOCKSET-STD', type:'text'},
+      {k:'architraveCode', label:'Architrave code', def:'ARCHITRAVE-70MM', type:'text'},
+    ],
+    compute(p){
+      const n=+p.doorCount, w=+p.doorW/1000, h=+p.doorH/1000;
+      const framePerimPerDoor=2*h+w; // two jambs + head, m
+      const frameTotal=n*framePerimPerDoor*1.1; // 10% wastage
+      const architraveTotal=n*framePerimPerDoor*1.1; // one face — double if trimming both sides
+      return [
+        {kind:'anc', code:p.frameCode, qty:Math.ceil(frameTotal/3), desc:`Door frame timber (${n} doors)`, unit:'length'},
+        {kind:'anc', code:p.hingeCode, qty:n*(+p.hingesPerDoor||3), desc:'Door hinges', unit:'each'},
+        {kind:'anc', code:p.lockCode, qty:n, desc:'Locksets/handles', unit:'each'},
+        {kind:'anc', code:p.architraveCode, qty:Math.ceil(architraveTotal/3), desc:'Architrave trim (one face)', unit:'length'},
+        {kind:'anc', code:'WOOD-SCREW-50', qty:Math.ceil(n*8/200), desc:'Fixing screws', unit:'box'},
+        {kind:'anc', code:'WALL-PLUG-PK', qty:Math.ceil(n*8/100), desc:'Wall plugs', unit:'pack'},
+      ];
+    }
+  },
+  wardrobe_install: {
+    name: 'Wardrobe / Cabinet Installation',
+    inputs: [
+      {k:'unitCount', label:'Number of units', def:3},
+      {k:'doorCount', label:'Number of doors', def:6},
+      {k:'shelfCount', label:'Number of shelves', def:9},
+      {k:'hingesPerDoor', label:'Hinges per door', def:2},
+      {k:'hingeCode', label:'Hinge code', def:'CAB-HINGE-SOFTCLOSE', type:'text'},
+      {k:'shelfPinCode', label:'Shelf pin code', def:'SHELF-PIN-PK', type:'text'},
+      {k:'handleCode', label:'Handle code', def:'CAB-HANDLE-STD', type:'text'},
+    ],
+    compute(p){
+      const units=+p.unitCount, doors=+p.doorCount, shelves=+p.shelfCount, hpd=+p.hingesPerDoor||2;
+      return [
+        {kind:'anc', code:p.hingeCode, qty:doors*hpd, desc:`Cabinet hinges (${hpd}/door — use 3 for doors over ~1200mm)`, unit:'each'},
+        {kind:'anc', code:p.shelfPinCode, qty:Math.ceil(shelves*4/50), desc:'Shelf support pins', unit:'pack'},
+        {kind:'anc', code:p.handleCode, qty:doors, desc:'Door handles', unit:'each'},
+        {kind:'anc', code:'WALL-PLUG-PK', qty:Math.ceil(units*6/100), desc:'Wall fixing plugs', unit:'pack'},
+        {kind:'anc', code:'WOOD-SCREW-50', qty:Math.ceil(units*6/200), desc:'Fixing screws', unit:'box'},
       ];
     }
   },
@@ -1321,24 +1425,36 @@ function sheetAccessories(){
   const acc={}; // code -> qty
   const add=(code,n)=>{if(!code||n<=0)return;acc[code]=(acc[code]||0)+n;};
   const C=store.accCodes||{};
-  const carcass=(R.carcassParts||['Side','Top','Bottom','Back']);
+  // Part names are user-extensible (custom types, free-typed via "Other"), so
+  // matching them exactly and case-sensitively silently drops accessories the
+  // moment anyone types "door" instead of "Door" — proven to happen in testing.
+  // Normalise both sides so the same word in a different case still matches.
+  const norm=s=>String(s||'').trim().toLowerCase();
+  const carcass=(R.carcassParts||['Side','Top','Bottom','Back']).map(norm);
+  const unmatched={}; // part name -> total qty that triggered no rule at all
   rows.forEach(r=>{
-    const part=r.part||''; const qty=Math.max(0,+r.qty||0); if(!part||qty<=0)return;
-    if(part==='Door'){
+    const part=r.part||''; const partN=norm(part); const qty=Math.max(0,+r.qty||0); if(!part||qty<=0)return;
+    if(partN==='door'){
       // hinges scale by door height (use final H)
       const h=+r.h||0; const band=(R.hingeBands||[]).find(b=>h<=b.max)||{n:2};
       add(C.hinge, band.n*qty);
       add(C.handle,(R.handlesPerDoor||1)*qty);
-    } else if(part==='Shelf'){
+    } else if(partN==='shelf'){
       add(C.pin,(R.shelfPins||4)*qty);
-    } else if(part==='Drawer front'){
+    } else if(partN==='drawer front'){
       add(C.runner,(R.runnerPairs||1)*qty);
       add(C.handle,(R.handlesPerDrawer||1)*qty);
-    } else if(carcass.includes(part)){
+    } else if(carcass.includes(partN)){
       add(C.dowel,(R.dowelsPerCarcass||4)*qty);
       add(C.screw,(R.screwsPerCarcass||4)*qty);
+    } else {
+      // Nothing matched. This is worth surfacing rather than silently
+      // producing zero accessories for a real, counted part — a part named
+      // "Cabinet Door" instead of "Door" would otherwise vanish with no trace.
+      unmatched[part]=(unmatched[part]||0)+qty;
     }
   });
+  store._accUnmatched=Object.entries(unmatched).map(([part,qty])=>({part,qty}));
   // turn into rows with the CHOSEN (or default) brand/model priced from catalogue
   return Object.entries(acc).map(([code,qty])=>{
     const o=chosenAccessory(code);
@@ -3609,7 +3725,9 @@ function assemblyHTML(){
     <button class="zadd" data-newassy="stud_wall" style="padding:11px 14px">+ STUD WALL</button>
     <button class="zadd" data-newassy="ceiling" style="padding:11px 14px">+ CEILING (MF)</button>
     <button class="zadd" data-newassy="floor_tile" style="padding:11px 14px">+ FLOOR TILING</button>
-    <button class="zadd" data-newassy="joinery" style="padding:11px 14px">+ JOINERY</button>
+    <button class="zadd" data-newassy="wall_panel" style="padding:11px 14px">+ WALL PANELLING</button>
+    <button class="zadd" data-newassy="door_install" style="padding:11px 14px">+ DOOR INSTALL</button>
+    <button class="zadd" data-newassy="wardrobe_install" style="padding:11px 14px">+ WARDROBE/CABINET</button>
     <button class="zadd" id="newCustom" style="padding:11px 14px;background:#1f2937;border-color:var(--blue);color:var(--blue)">+ CUSTOM ASSEMBLY</button>
   </div>
   ${rows.length?rows.map(r=>{const tpl=ASSEMBLIES[r.type];const c=assemblyCost(r);return `
@@ -3763,12 +3881,15 @@ function sheetHTML(){
     <tr><td class="r">${pc.area.toFixed(2)}</td><td class="r"><strong style="color:var(--green)">${pc.litres.toFixed(2)} L</strong></td><td>${pc.supplier||'—'}</td><td class="r"><span class="cost" style="font-size:14px">${pc.price>0?money(pc.cost):'⚠ no price'}</span></td></tr>
     </tbody></table></div>
     <div class="hint">Set each panel's finish (Prime/Paint/Both) and faces in the Finish column above. Primer & paint coats are set on their own cards.</div></div>`;})()}
-  ${(()=>{const acc=sheetAccessories();if(!acc.length)return '';const total=acc.reduce((s,a)=>s+a.cost,0);return `<div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>🔩 ACCESSORIES (auto, from parts)</span><button class="zadd" id="accRulesBtn" style="font-size:10px;padding:4px 8px">⚙ EDIT RULES</button></div>
-    <div class="scroll"><table><thead><tr><th>Accessory</th><th class="r">Qty</th><th>Brand / model</th><th class="r">Unit price</th><th class="r">Cost</th></tr></thead><tbody>
+  ${(()=>{const acc=sheetAccessories();const unmatched=store._accUnmatched||[];if(!acc.length&&!unmatched.length)return '';const total=acc.reduce((s,a)=>s+a.cost,0);return `<div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>🔩 ACCESSORIES (auto, from parts)</span><button class="zadd" id="accRulesBtn" style="font-size:10px;padding:4px 8px">⚙ EDIT RULES</button></div>
+    ${unmatched.length?`<div style="padding:10px 16px;background:#3a2a10;border-bottom:1px solid var(--amber)"><div style="font-size:12px;color:var(--amber);font-weight:700">⚠ ${unmatched.length} part name${unmatched.length>1?'s':''} not recognised — no accessories were counted for ${unmatched.length>1?'these':'this'}:</div>
+      ${unmatched.map(u=>`<div style="font-size:11px;color:var(--amber);margin-top:2px">• "${u.part}" — ${u.qty} panel${u.qty>1?'s':''}. Rename the Part to Door / Shelf / Drawer front / Side / Top / Bottom / Back to get hinges, handles, pins, runners, dowels or screws counted for it.</div>`).join('')}
+    </div>`:''}
+    ${acc.length?`<div class="scroll"><table><thead><tr><th>Accessory</th><th class="r">Qty</th><th>Brand / model</th><th class="r">Unit price</th><th class="r">Cost</th></tr></thead><tbody>
     ${acc.map(a=>{const curId=chosenAccessory(a.code).id;return `<tr><td><strong>${a.code}</strong></td><td class="r">${a.qty}</td><td>${a.options&&a.options.length?`<select class="cell" data-accpick="${a.code}" style="width:100%;font-size:11px">${a.options.map(o=>`<option value="${o.id}" ${o.id===curId?'selected':''}>${o.desc} — ${o.supplier} (${o.currency}${o.price.toFixed(2)})</option>`).join('')}</select>`:'<span style="color:var(--amber)">⚠ no supplier stocks this — add it in Price Book</span>'}</td><td class="r">${a.price>0?money(a.price):'—'}</td><td class="r"><span class="cost">${a.price>0?money(a.cost):'—'}</span></td></tr>`;}).join('')}
     <tr style="border-top:2px solid var(--line)"><td colspan="4" class="r"><strong>TOTAL ACCESSORIES</strong></td><td class="r"><strong style="color:var(--blue)">${money(total)}</strong></td></tr>
-    </tbody></table></div>
-    <div class="hint">Auto-counted from your panel Parts: Doors→hinges (by height)+handles, Shelves→pins, Drawer fronts→runners+handles, carcass panels (Side/Top/Bottom/Back)→dowels+screws. Pick which supplier's brand/model to use for each — your choice is remembered. Click EDIT RULES to change quantities.</div></div>`;})()}
+    </tbody></table></div>`:''}
+    <div class="hint">Auto-counted from your panel Parts: Doors→hinges (by height)+handles, Shelves→pins, Drawer fronts→runners+handles, carcass panels (Side/Top/Bottom/Back)→dowels+screws. Matching ignores case, so "door" and "Door" both work. Pick which supplier's brand/model to use for each — your choice is remembered. Click EDIT RULES to change quantities.</div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
     ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
       const col=p.grainless?'#e8eaed':PAL[ci++%PAL.length];
