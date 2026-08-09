@@ -3519,7 +3519,9 @@ function b64ToUtf8(b64){
 function accountOverlayHTML(){
   if(!store.showAccountPanel)return '';
   const a=store.account;
-  const d=store.acctDraft||{name:a.name||'', phone:a.phone||''};
+  if(!store.companyList){store.companyList=[];loadCompanyList();}
+  const d=store.acctDraft||{name:a.name||'', phone:a.phone||'', company:a.company||''};
+  const isSupplier=a.accountType==='supplier';
   return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px">
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;max-width:440px;width:100%;max-height:90vh;overflow:auto;padding:20px">
       <div style="display:flex;align-items:center;margin-bottom:14px"><strong style="font-size:14px">⚙ MY ACCOUNT</strong>
@@ -3529,6 +3531,8 @@ function accountOverlayHTML(){
         <div class="cardHead" style="color:var(--blue)"><span>EDIT DETAILS</span></div>
         <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
           <label class="field"><span class="fl">NAME</span><input class="fi" id="acct_name" value="${(d.name||'').replace(/"/g,'&quot;')}"></label>
+          <label class="field"><span class="fl">COMPANY / BUSINESS NAME</span><input class="fi" id="acct_company" ${isSupplier?'list="acctCompanyOptions"':'disabled style="opacity:.6"'} value="${(d.company||'').replace(/"/g,'&quot;')}">${isSupplier?`<datalist id="acctCompanyOptions">${(store.companyList||[]).map(nm=>`<option value="${nm.replace(/"/g,'&quot;')}">`).join('')}</datalist>`:''}</label>
+          ${isSupplier?`<div class="hint" style="padding:0">Changing this moves your profile — including everything in your catalogue — to the new company. Pick from the list if you're joining a company already on Fit-Out IQ, or type a new name to create one.</div>`:`<div class="hint" style="padding:0">Changing which company you belong to affects which shared projects you can see — this can only be done by an administrator, not from here.</div>`}
           <label class="field"><span class="fl">PHONE</span><input class="fi" id="acct_phone" value="${(d.phone||'').replace(/"/g,'&quot;')}"></label>
           <label class="field"><span class="fl">EMAIL</span><input class="fi" value="${a.email}" disabled style="opacity:.6"></label>
           <div class="hint" style="padding:0">Email can't be changed here — contact your administrator if it needs to change.</div>
@@ -3557,23 +3561,48 @@ function accountOverlayHTML(){
 }
 function wireAccountOverlay(){
   const btn=document.getElementById('myAccountBtn');
-  if(btn)btn.onclick=()=>{store.showAccountPanel=true;store.acctDraft={name:store.account.name||'',phone:store.account.phone||''};store.acctMsg='';store.acctDelMsg='';store.showDeleteConfirm=false;render();};
+  if(btn)btn.onclick=()=>{store.showAccountPanel=true;store.acctDraft={name:store.account.name||'',phone:store.account.phone||'',company:store.account.company||''};store.acctMsg='';store.acctDelMsg='';store.showDeleteConfirm=false;if(!store.companyList){store.companyList=[];loadCompanyList();}render();};
   const close=document.getElementById('acctClose');
   if(close)close.onclick=()=>{store.showAccountPanel=false;render();};
   const nm=document.getElementById('acct_name'); if(nm)nm.oninput=()=>{store.acctDraft.name=nm.value;};
+  const co=document.getElementById('acct_company'); if(co)co.oninput=()=>{store.acctDraft.company=co.value;};
   const ph=document.getElementById('acct_phone'); if(ph)ph.oninput=()=>{store.acctDraft.phone=ph.value;};
   const save=document.getElementById('acctSave');
   if(save)save.onclick=async()=>{
     const name=(document.getElementById('acct_name')||{}).value||'';
     const phone=(document.getElementById('acct_phone')||{}).value||'';
+    const companyName=((document.getElementById('acct_company')||{}).value||'').trim();
     const pw=(document.getElementById('acct_pw')||{}).value||'';
     if(pw && pw.length<6){store.acctMsg='Password must be at least 6 characters.';store.acctErr=true;render();return;}
+    if(!companyName){store.acctMsg='Company name can\'t be empty.';store.acctErr=true;render();return;}
     store.acctBusy=true;store.acctMsg='';render();
     try{
-      await sb.from('profiles').update({full_name:name,phone}).eq('id',store.account.uid);
+      // Only suppliers can actually change company from here — enforced here too,
+      // not just by disabling the field, since account switching for the four
+      // internal roles changes which shared projects they can see and needs to
+      // stay an administrator-only action.
+      const companyChanged = store.account.accountType==='supplier' && companyName !== (store.account.company||'');
+      let companyId = store.account.companyId;
+      if(companyChanged){
+        // same find-by-exact-name-or-create pattern used at signup, so this
+        // links to an existing company rather than accidentally forking a
+        // near-duplicate one (a real bug we hit earlier from name mismatches).
+        const {data:found}=await sb.from('companies').select('id').eq('name',companyName).maybeSingle();
+        if(found){ companyId=found.id; }
+        else { const {data:created}=await sb.from('companies').insert({name:companyName}).select().single(); if(created)companyId=created.id; }
+      }
+      await sb.from('profiles').update({full_name:name,phone,company_id:companyId}).eq('id',store.account.uid);
+      if(companyChanged && store.account.accountType==='supplier'){
+        // Relabel this supplier's existing catalogue listings under their new
+        // company, per how Mbe wants this to work - the listings move with
+        // the person rather than staying pinned to the employer they've left.
+        await sb.from('catalogue').update({supplier_name:companyName}).eq('supplier_id',store.account.uid);
+        await sb.from('catalogue_pages').update({supplier_name:companyName}).eq('supplier_id',store.account.uid);
+        store.catLoaded=false; store.catPagesLoaded=false; // so both views reload with the new name next time they're opened
+      }
       if(pw){const {error}=await sb.auth.updateUser({password:pw}); if(error)throw error;}
-      store.account.name=name; store.account.phone=phone;
-      store.acctMsg='Saved.'; store.acctErr=false;
+      store.account.name=name; store.account.phone=phone; store.account.company=companyName; store.account.companyId=companyId;
+      store.acctMsg=companyChanged?'Saved. Your company has changed — you\'ll now see that company\'s shared projects.':'Saved.'; store.acctErr=false;
     }catch(e){store.acctMsg='Could not save: '+(e.message||'error'); store.acctErr=true;}
     store.acctBusy=false; render();
   };
