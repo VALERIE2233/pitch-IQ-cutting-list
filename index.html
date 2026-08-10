@@ -418,6 +418,21 @@ async function openProject(id){
     if(data){ _workspaceId=data.id; _workspaceOwnerId=data.owner_id; store.projectName=data.name; const d=data.data||{}; applyProject(d); store.syncState='saved'; store.showProjects=false; render(); }
   }catch(e){}
 }
+async function deleteProject(id,name){
+  if(!sb)return;
+  if(!confirm(`Permanently delete "${name}"? This can't be undone.`))return;
+  try{
+    const {error}=await sb.from('jobs').delete().eq('id',id);
+    if(error){ alert('Could not delete: '+error.message); return; }
+    store.projects=(store.projects||[]).filter(p=>p.id!==id);
+    if(id===_workspaceId){
+      // the deleted project was the one currently open — reset to a blank workspace
+      _workspaceId=null; _workspaceOwnerId=null; store.projectName='My First Project';
+      applyProject({}); store.syncState='';
+    }
+    render();
+  }catch(e){ alert('Could not delete: '+(e.message||'error')); }
+}
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
   const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','accSelections','customItemTypes','customPartTypes','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
@@ -3680,7 +3695,7 @@ function appHTML(){
   </div>
   ${store.showProjects?`<div style="padding:12px 14px;background:#15181d;border-bottom:1px solid var(--line)">
     <div style="font-size:11px;color:var(--mut);margin-bottom:8px">YOUR SAVED PROJECTS — tap to open</div>
-    ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px;cursor:pointer" data-openproj="${p.id}"><span>${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut)">${new Date(p.updated_at).toLocaleDateString()}</span></div>`).join('')||'<div class="empty">No projects yet.</div>'}
+    ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px"><span style="cursor:pointer;flex:1" data-openproj="${p.id}">${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut);margin-right:8px">${new Date(p.updated_at).toLocaleDateString()}</span>${p.owner_id===store.account.uid?`<button data-delproj="${p.id}" data-delprojname="${p.name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Delete this project">🗑</button>`:''}</div>`).join('')||'<div class="empty">No projects yet.</div>'}
   </div>`:''}
   <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">FIT-OUT&nbsp;IQ</div><div class="sub">ESTIMATE · PRODUCE · FIT OUT</div></div></div>
     <div class="headBtns">
@@ -4743,6 +4758,7 @@ function wire(){
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
   const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
   document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
+  document.querySelectorAll('[data-delproj]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();deleteProject(b.dataset.delproj,b.dataset.delprojname);});
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{store.tab=b.dataset.tab;render();});
   document.querySelectorAll('[data-openprocproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openprocproj));
   {const rf=document.getElementById('ralFrame');
