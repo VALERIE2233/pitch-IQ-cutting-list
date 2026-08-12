@@ -1017,6 +1017,17 @@ const priceLinear=(code,thk,len)=>offerLinear(code,thk,len).price;
 const priceSheet=(code,thk,w,h)=>offerSheet(code,thk,w,h).price;
 const pricePaint=code=>offerPaint(code).price;
 const allSuppliers=()=>{const s=new Set();['linear','sheet','paint'].forEach(k=>(store.priceBook[k]||[]).forEach(e=>e.supplier&&s.add(e.supplier)));return [...s].sort();};
+// Broader than allSuppliers() on purpose: includes anyone with a catalogue
+// listing, even if nobody's priced their materials into THIS project's price
+// book yet. allSuppliers() stays narrow deliberately for its one legitimate
+// use (comparing prices already in the book) - this is for "who can I
+// actually send business to", which should include the whole network.
+const allKnownSuppliers=()=>{
+  const s=new Set(allSuppliers());
+  (store.catalogueAll||[]).forEach(c=>{ if(c.supplier_name) s.add(c.supplier_name); });
+  s.delete('(no supplier set)');
+  return [...s].sort();
+};
 // ---- offcut bank matching: same code AND thickness, big enough ----
 const matchBank=(code,thk,need)=>store.bankedDrops.find(d=>d.code===code && d.thk===thk && d.size>=need);
 
@@ -4454,7 +4465,7 @@ function orderHTML(){
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <select class="sel" data-lposupplier="${r.id}" style="padding:6px">
               <option value="">— pick supplier —</option>
-              ${allSuppliers().map(sp=>`<option value="${sp}">${sp}</option>`).join('')}
+              ${allKnownSuppliers().map(sp=>`<option value="${sp}">${sp}</option>`).join('')}
             </select>
             <button class="add" data-sendlpo="${r.id}" style="font-size:10px;padding:5px 12px">📤 SEND LPO</button>
           </div></div>`
