@@ -675,19 +675,24 @@ async function sendLPO(reqId, supplierName){
   if(!supplierName){alert('Pick a supplier first.');return;}
   let supplierId=null;
   try{const {data}=await sb.from('supplier_profiles').select('id').ilike('supplier_name',supplierName.trim()).maybeSingle();if(data)supplierId=data.id;}catch(e){}
+  if(!supplierId){
+    alert(`Can't send: "${supplierName}" isn't a Fit-Out IQ supplier account, so there's no inbox to send to. Nothing has been marked as sent — pick a different supplier, or ask them to check their account is set up correctly.`);
+    return;
+  }
   const items=r.items_edited||r.items||[];
   const total=items.reduce((a,it)=>a+(+it.cost||0),0);
   // Drop a real order into the supplier's existing inbox, so this reuses the
   // supplier workflow they already know rather than inventing a second one.
-  if(supplierId){
-    try{
-      await sb.from('orders').insert({
-        contractor_id:r.contractor_id, contractor_name:r.contractor_name, contractor_company:store.account.company,
-        company_id:store.account.companyId, supplier_id:supplierId, supplier_name:supplierName,
-        project_id:r.project_id, project_name:r.project_name, revision:1,
-        items, total, currency:r.currency||store.currency, status:'sent'
-      });
-    }catch(e){}
+  try{
+    await sb.from('orders').insert({
+      contractor_id:r.contractor_id, contractor_name:r.contractor_name, contractor_company:store.account.company,
+      company_id:store.account.companyId, supplier_id:supplierId, supplier_name:supplierName,
+      project_id:r.project_id, project_name:r.project_name, revision:1,
+      items, total, currency:r.currency||store.currency, status:'sent'
+    });
+  }catch(e){
+    alert('Could not send the order to the supplier: '+(e.message||'error')+'. Nothing has been marked as sent — try again.');
+    return;
   }
   const patch={supplier_name:supplierName, supplier_id:supplierId, lpo_sent_at:new Date().toISOString(), status:'lpo_sent'};
   Object.assign(r,patch); render();
