@@ -674,7 +674,7 @@ async function sendLPO(reqId, supplierName){
   const r=(store.procReqs||[]).find(x=>x.id===reqId); if(!r)return;
   if(!supplierName){alert('Pick a supplier first.');return;}
   let supplierId=null;
-  try{const {data}=await sb.from('supplier_profiles').select('id').eq('supplier_name',supplierName).maybeSingle();if(data)supplierId=data.id;}catch(e){}
+  try{const {data}=await sb.from('supplier_profiles').select('id').ilike('supplier_name',supplierName.trim()).maybeSingle();if(data)supplierId=data.id;}catch(e){}
   const items=r.items_edited||r.items||[];
   const total=items.reduce((a,it)=>a+(+it.cost||0),0);
   // Drop a real order into the supplier's existing inbox, so this reuses the
@@ -918,7 +918,7 @@ async function submitOrderForApproval(lines, total, supplierName){
   // resolve supplier account id by name
   let supplierId=null;
   if(supplierName&&supplierName!=='(multiple)'){
-    try{const {data}=await sb.from('supplier_profiles').select('id').eq('supplier_name',supplierName).maybeSingle();if(data)supplierId=data.id;}catch(e){}
+    try{const {data}=await sb.from('supplier_profiles').select('id').ilike('supplier_name',supplierName.trim()).maybeSingle();if(data)supplierId=data.id;}catch(e){}
   }
   const row={
     contractor_id:store.account.uid, contractor_name:store.account.name, contractor_company:store.account.company,
@@ -943,7 +943,7 @@ async function sendToSupplier(orderId){
   if(o.status!=='approved'){alert('Only approved orders can be sent to the supplier.');return;}
   let supplierId=o.supplier_id;
   if(!supplierId && o.supplier_name && o.supplier_name!=='(multiple)'){
-    try{const {data}=await sb.from('supplier_profiles').select('id').eq('supplier_name',o.supplier_name).maybeSingle();if(data)supplierId=data.id;}catch(e){}
+    try{const {data}=await sb.from('supplier_profiles').select('id').ilike('supplier_name',(o.supplier_name||'').trim()).maybeSingle();if(data)supplierId=data.id;}catch(e){}
   }
   if(o.supplier_name==='(multiple)'){
     alert('This is a whole-order submission covering multiple suppliers. Send the per-supplier orders individually so each supplier gets their own part.');
@@ -3686,6 +3686,11 @@ function wireAccountOverlay(){
         // the person rather than staying pinned to the employer they've left.
         await sb.from('catalogue').update({supplier_name:companyName}).eq('supplier_id',store.account.uid);
         await sb.from('catalogue_pages').update({supplier_name:companyName}).eq('supplier_id',store.account.uid);
+        // This is the row order-routing actually depends on to find this
+        // supplier's real account when someone sends them an order — missing
+        // this update was the original bug: catalogue showed the new name,
+        // but order routing kept looking for the old one and silently failed.
+        await sb.from('supplier_profiles').update({supplier_name:companyName}).eq('id',store.account.uid);
         store.catLoaded=false; store.catPagesLoaded=false; // so both views reload with the new name next time they're opened
       }
       if(pw){const {error}=await sb.auth.updateUser({password:pw}); if(error)throw error;}
