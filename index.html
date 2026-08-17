@@ -4082,8 +4082,8 @@ function sheetHTML(){
   return `<div class="settings">
     <label class="field"><span class="fl">SHEET CODE</span><input class="fi" id="sheetCode" value="${store.sheetCode}" style="width:130px"></label>
     <label class="field"><span class="fl">THICKNESS (mm)</span><input class="fi" type="number" id="sheetThk" value="${store.sheetThk}" style="width:100px"></label>
-    <label class="field"><span class="fl">SHEET W (${u()})</span><input class="fi" type="number" id="sheetW" value="${fmt(store.sheetW)}"></label>
-    <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span><input class="fi" type="number" id="sheetH" value="${fmt(store.sheetH)}"></label>
+    <label class="field"><span class="fl">SHEET W (${u()})</span>${sheetSizeSelect('sheetW',store.sheetW,STD_SHEET_W)}</label>
+    <label class="field"><span class="fl">SHEET H / LENGTH (${u()})</span>${sheetSizeSelect('sheetH',store.sheetH,STD_SHEET_H)}</label>
     <label class="field"><span class="fl">KERF (${u()})</span><input class="fi" type="number" id="sheetKerf" value="${fmt(store.sheetKerf)}"></label>
     <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label>
     <label class="field"><span class="fl">SITE CLEARANCE (${u()})</span><input class="fi" type="number" id="siteTol" value="${fmt(store.siteTol||0)}" title="Item must be this much smaller than the site opening to fit/install — warns if it's not"></label>
@@ -4939,7 +4939,7 @@ function wire(){
   const nz=document.getElementById('newZone');if(nz){nz.oninput=e=>store.newZone=e.target.value;nz.onkeydown=e=>{if(e.key==='Enter')addZone();};}
   const az=document.getElementById('addZone');if(az)az.onclick=addZone;
   const szf=document.getElementById('sheetZoneFilter');if(szf)szf.onchange=()=>{store.zoneFilter=szf.value==='all'?'all':+szf.value;render();};
-  bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindNum('sheetW','sheetW');bindNum('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');bindNum('siteTol','siteTol');
+  bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindSheetSize('sheetW','sheetW');bindSheetSize('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');bindNum('siteTol','siteTol');
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
   const rt=document.getElementById('reuseToggle');if(rt)rt.onclick=()=>{store.reuseSheetOffcuts=!store.reuseSheetOffcuts;render();};
@@ -5062,6 +5062,29 @@ function importRows(text){
 }
 const val=id=>document.getElementById(id).value.trim();
 function bindNum(id,key){const el=document.getElementById(id);if(!el)return;el.onchange=()=>{store[key]=Math.max(0,Math.round(toMM(+el.value||0)));render();};}
+// Standard commercial sheet sizes — pick from real stock sizes instead of
+// typing/incrementing a number one at a time. Kept editable via "Other"
+// since a specific job or supplier may occasionally need a size outside
+// this list — this shouldn't become a wall you can't get past.
+const STD_SHEET_W=[1220,1250,1500,1830,2075];
+const STD_SHEET_H=[1220,2440,2745,3050,3660];
+function sheetSizeSelect(id,val,options){
+  const isStd=options.includes(+val);
+  return `<select class="fi" id="${id}" data-custom="${!isStd}">
+    ${options.map(o=>`<option value="${o}" ${isStd&&+val===o?'selected':''}>${o}</option>`).join('')}
+    <option value="__custom__" ${!isStd?'selected':''}>Other (type below)</option>
+  </select>
+  <input class="fi" id="${id}_custom" type="number" placeholder="Custom size (mm)" value="${!isStd?val:''}" style="margin-top:6px;display:${!isStd?'block':'none'}">`;
+}
+function bindSheetSize(id,key){
+  const sel=document.getElementById(id), custom=document.getElementById(id+'_custom');
+  if(!sel)return;
+  sel.onchange=()=>{
+    if(sel.value==='__custom__'){ custom.style.display='block'; custom.focus(); }
+    else { custom.style.display='none'; store[key]=Math.max(0,Math.round(toMM(+sel.value||0))); render(); }
+  };
+  if(custom)custom.onchange=()=>{ store[key]=Math.max(0,Math.round(toMM(+custom.value||0))); render(); };
+}
 function bindRow(el,kind,arr){const id=+el.dataset[kind],k=el.dataset.k;el.onchange=()=>{const row=store[arr].find(r=>r.id===id);if(!row)return;const v=el.value;
   if(k==='itemOther'||k==='partOther'){
     row[k]=v;
