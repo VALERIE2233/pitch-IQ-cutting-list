@@ -3611,10 +3611,60 @@ async function loadIncoming(){
   try{const {data}=await sb.from('orders').select('*').eq('supplier_id',store.account.uid).in('status',['sent','actioned']).order('created_at',{ascending:false});store.incoming=data||[];}catch(e){store.incoming=[];}
   store.incomingLoaded=true;render();
 }
+// Show exactly what was SUBMITTED, not what the live cut list currently says.
+// Those two drift apart the moment you edit anything after sending, and until
+// now there was no way to see the version the supplier actually received.
+function submittedOrdersCard(){
+  if(!_workspaceId)return '';
+  const mine=(store.myOrders||[]).filter(o=>o.project_id===_workspaceId)
+    .sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  if(!mine.length)return '';
+  const label=st=>st==='actioned'?'✓ SUPPLIER ACKNOWLEDGED':st==='sent'?'SENT TO SUPPLIER':st==='approved'?'APPROVED':st==='rejected'?'REJECTED':st==='pending_approval'?'AWAITING APPROVAL':(st||'');
+  const col=st=>st==='actioned'?'var(--green)':st==='sent'?'var(--blue)':st==='approved'?'var(--green)':st==='rejected'?'var(--red)':'var(--amber)';
+  return `<div class="card" style="border-color:var(--blue)">
+    <div class="cardHead" style="color:var(--blue)"><span>📄 ORDERS I'VE SUBMITTED — ${mine.length}</span></div>
+    <div class="hint" style="padding:0 12px 8px">A permanent record of every order sent on this project. Open one to see exactly what the supplier received — this doesn't change when you edit your cut list. To change an order, adjust the cut list and submit again; that creates a new revision.</div>
+    <div style="padding:0 12px 12px">
+      ${mine.map(o=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--line);border-radius:5px;margin-bottom:6px">
+        <div style="min-width:0">
+          <div style="font-size:12px"><strong>${o.supplier_name||'—'}</strong> <span style="color:var(--mut)">· Rev ${o.revision||1}</span></div>
+          <div style="font-size:10px;color:${col(o.status)}">${label(o.status)}${o.acknowledged_at?' · '+new Date(o.acknowledged_at).toLocaleString():''}</div>
+          <div style="font-size:10px;color:var(--mut)">${o.created_at?new Date(o.created_at).toLocaleString():''} · ${(Array.isArray(o.items)?o.items.length:0)} item${(Array.isArray(o.items)?o.items.length:0)===1?'':'s'}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="cost">${o.currency||'$'}${(+o.total||0).toFixed(2)}</span>
+          <button class="zadd" data-viewsent="${o.id}" style="padding:5px 10px;font-size:10px;border-color:var(--blue);color:var(--blue)">📄 VIEW</button>
+        </div>
+      </div>`).join('')}
+    </div></div>`;
+}
+function sentOrderOverlay(){
+  const id=store.viewSentId; if(!id)return '';
+  const o=(store.myOrders||[]).find(x=>x.id===id); if(!o)return '';
+  const items=Array.isArray(o.items)?o.items:[];
+  const total=items.reduce((a,it)=>a+(+it.cost||0),0);
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px">
+    <div style="background:var(--panel);border:1px solid var(--blue);border-radius:8px;max-width:720px;width:100%;max-height:90vh;overflow:auto;padding:18px">
+      <div style="display:flex;align-items:center;margin-bottom:6px">
+        <strong style="color:var(--blue);font-size:14px">📄 WHAT YOU SUBMITTED — Revision ${o.revision||1}</strong>
+        <button class="zadd" id="sentClose" style="margin-left:auto;padding:4px 10px">✕ CLOSE</button>
+      </div>
+      <div class="hint" style="padding:0 0 10px">To ${o.supplier_name||'supplier'} · ${o.created_at?new Date(o.created_at).toLocaleString():''} · status: <strong>${o.status||''}</strong>.
+      This is a fixed record of what was sent — it doesn't change if you edit your cut list afterwards. To change an order, adjust your cut list and submit again; that creates a new revision the supplier and your manager both see.</div>
+      ${items.length?`<div class="scroll"><table><thead><tr><th>Item</th><th class="r">Qty</th><th>Unit</th><th class="r">Unit price</th><th class="r">Cost</th></tr></thead><tbody>
+        ${items.map(it=>`<tr><td style="font-size:11px">${it.item||it.code||'—'}</td>
+          <td class="r">${it.qty||0}</td><td style="font-size:11px">${it.unit||''}</td>
+          <td class="r">${it.price?money(it.price):'—'}</td>
+          <td class="r"><span class="cost">${it.cost?money(it.cost):'—'}</span></td></tr>`).join('')}
+        <tr style="border-top:2px solid var(--line)"><td colspan="4" class="r"><strong>TOTAL</strong></td><td class="r"><strong style="color:var(--blue)">${money(total)}</strong></td></tr>
+      </tbody></table></div>`:'<div class="empty">No item detail was stored on this order.</div>'}
+    </div></div>`;
+}
 async function acknowledgeOrder(id){
   if(!sb)return;
-  try{await sb.from('orders').update({status:'actioned'}).eq('id',id);}catch(e){}
-  const o=(store.incoming||[]).find(x=>x.id===id);if(o)o.status='actioned';
+  const now=new Date().toISOString();
+  try{await sb.from('orders').update({status:'actioned',acknowledged_at:now}).eq('id',id);}catch(e){}
+  const o=(store.incoming||[]).find(x=>x.id===id);if(o){o.status='actioned';o.acknowledged_at=now;}
   render();
 }
 
@@ -4423,7 +4473,9 @@ function orderHTML(){
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
           <button class="zadd" data-thread="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--blue);color:var(--blue)">💬 MESSAGES${unreadBadge(priorO.id)}</button>
           ${status==='approved'?`<button class="zadd" data-cert="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button> <button class="zadd" data-sendsup="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--amber);color:var(--amber)">▶ SEND TO SUPPLIER</button>`:''}
+          <button class="zadd" data-viewsent="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--blue);color:var(--blue)">📄 VIEW WHAT I SENT</button>
           ${status==='sent'?`<button class="zadd" data-cert="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button> <span style="font-size:10px;color:var(--blue);align-self:center">✓ SENT TO SUPPLIER</span>`:''}
+          ${status==='actioned'?`<button class="zadd" data-cert="${priorO.id}" style="padding:5px 10px;font-size:10px;border-color:var(--green);color:var(--green)">⎙ CERTIFICATE</button> <span style="font-size:10px;color:var(--green);align-self:center;font-weight:700">✓ SUPPLIER ACKNOWLEDGED${priorO.acknowledged_at?' · '+new Date(priorO.acknowledged_at).toLocaleString():''}</span>`:''}
         </div>
         ${threadPanel(priorO)}
       </div>`;
@@ -4512,11 +4564,12 @@ function orderHTML(){
   </div>`:'';
   return `<div class="hint" style="padding-top:14px">Each supplier's order is its own card below — submit it for approval, track its status, message about it, and get its certificate all in one place. Choose a different supplier per card if you want to send the same items elsewhere.</div>
     ${store.account.accountType==='procurement'?'':quickOrderCard()}
+    ${store.account.accountType==='procurement'?'':submittedOrdersCard()}
     ${procSection}
     ${store.account.accountType==='procurement'?'':supplierCards}
     ${store.account.accountType==='procurement'?'':wholeOrderCard}
     ${store.account.accountType==='procurement'?'':`<button class="bigPrint" id="printOrder">⊞ EXPORT FULL ESTIMATE TO EXCEL</button>`}
-    ${store.account.accountType==='procurement'?'':costSummary}${procReqViewOverlay()}`;}
+    ${store.account.accountType==='procurement'?'':costSummary}${procReqViewOverlay()}${sentOrderOverlay()}`;}
 
 function zoneSel(val,kind,id){return `<select class="sel" data-${kind}="${id}" data-k="zone">${store.zones.map(z=>`<option value="${z.id}" ${z.id===val?'selected':''}>${z.name}</option>`).join('')}</select>`;}
 function partSel(val,other,id){
@@ -4923,6 +4976,8 @@ function wire(){
     render();
   };}
   wireQuickOrder();
+  document.querySelectorAll('[data-viewsent]').forEach(b=>b.onclick=()=>{store.viewSentId=b.dataset.viewsent;render();});
+  {const sc2=document.getElementById('sentClose'); if(sc2)sc2.onclick=()=>{store.viewSentId=null;render();};}
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
   const pn=document.getElementById('projNew');if(pn)pn.onclick=async()=>{const name=prompt('Name this new project:','Project '+((store.projects||[]).length+1));if(name&&name.trim()){await newProject(name.trim());}};
   document.querySelectorAll('[data-openproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openproj));
