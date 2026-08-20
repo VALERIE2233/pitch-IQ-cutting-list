@@ -79,6 +79,20 @@
      Qty. Secondary columns (site measurements, lipping, finish, ref) hide by
      default so the ten you actually type into fit on one screen. */
   .colsEssential .xcol{display:none}
+  /* On a phone, no table with 10+ columns fits a ~360px screen — it will
+     always scroll sideways. So below 720px the cutting list stops being a
+     table and becomes one stacked card per panel, each field on its own
+     line with its label. Desktop is completely unaffected. */
+  @media(max-width:720px){
+    .stackable{overflow-x:visible}
+    .stackable table,.stackable tbody,.stackable tr,.stackable td{display:block;width:100%}
+    .stackable thead{display:none}
+    .stackable tr{border:1px solid var(--line);border-radius:6px;margin-bottom:10px;padding:6px 10px;background:rgba(255,255,255,.02)}
+    .stackable td{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;border:none;text-align:left}
+    .stackable td::before{content:attr(data-label);color:var(--mut);font-size:10px;letter-spacing:.5px;flex:0 0 auto}
+    .stackable td.r{text-align:left}
+    .stackable .num,.stackable .numS,.stackable .cell,.stackable .sel{width:auto;min-width:110px;max-width:62%}
+  }
   table{width:100%;border-collapse:collapse;min-width:560px}
   th{text-align:left;padding:9px 7px;font-size:10px;letter-spacing:1px;color:var(--mut);border-bottom:1px solid var(--line);font-weight:600}
   th.r{text-align:right}
@@ -3561,7 +3575,7 @@ function supplierHTML(){
         <td><input class="cell" style="width:110px" value="${r.kind||''}" data-cat="${r.id}" data-k="kind" placeholder="e.g. hinges, paint, board"></td>
         <td><input class="cell" style="width:120px" value="${r.code||''}" data-cat="${r.id}" data-k="code"></td>
         <td><input class="cell" style="width:180px" value="${r.description||''}" data-cat="${r.id}" data-k="description"></td>
-        <td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-cat="${r.id}" data-k="thk"></td>
+        <td class="r" data-label="Thk"><input class="num numS" type="number" value="${r.thk||0}" data-cat="${r.id}" data-k="thk"></td>
         <td class="r"><input class="num numS" type="number" value="${r.width||0}" data-cat="${r.id}" data-k="width"></td>
         <td class="r"><input class="num numS" type="number" value="${r.height||0}" data-cat="${r.id}" data-k="height"></td>
         <td class="r"><input class="num numS" type="number" value="${r.length||0}" data-cat="${r.id}" data-k="length"></td>
@@ -4039,9 +4053,9 @@ function linearHTML(){
   ${matches.length?`<div class="card" style="border-color:var(--green)"><div class="cardHead" style="color:var(--green)">♻ OFFCUT BANK MATCHES — you may already have these</div><div style="padding:10px 16px;font-size:11px;color:var(--green)">${matches.map(r=>{const m=matchBank(r.code,r.thk,r.len);return `${r.code} ${r.thk}mm · ${fmt(r.len)}${u()} → banked ${fmt(m.size)}${u()} from ${m.zone}`;}).join('<br>')}</div></div>`:''}
   <div class="card"><div class="cardHead"><span>REQUIRED CUTS ${store.zoneFilter!=='all'?'· '+zoneName(+store.zoneFilter):''}</span></div>
     <div class="scroll"><table><thead><tr><th>Zone</th><th>Code</th><th class="r">Thk</th><th>Label</th><th class="r">Length</th><th class="r">Qty</th><th></th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td>${zoneSel(r.zone,'lin',r.id)}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-lin="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-lin="${r.id}" data-k="thk"></td><td><input class="cell" value="${r.label}" data-lin="${r.id}" data-k="label"></td>
+    ${rows.map(r=>`<tr><td>${zoneSel(r.zone,'lin',r.id)}</td><td data-label="Code"><input class="cell" style="width:90px" value="${r.code||''}" data-lin="${r.id}" data-k="code"></td><td class="r" data-label="Thk"><input class="num numS" type="number" value="${r.thk||0}" data-lin="${r.id}" data-k="thk"></td><td><input class="cell" value="${r.label}" data-lin="${r.id}" data-k="label"></td>
       <td class="r"><input class="num" type="number" value="${fmt(r.len)}" data-lin="${r.id}" data-k="len"></td>
-      <td class="r"><input class="num numS" type="number" value="${r.qty}" data-lin="${r.id}" data-k="qty"></td>
+      <td class="r" data-label="Qty"><input class="num numS" type="number" value="${r.qty}" data-lin="${r.id}" data-k="qty"></td>
       <td><button class="del" data-dellin="${r.id}">✕</button></td></tr>`).join('')}</tbody></table></div>
     <button class="add" id="addLin">+ ADD CUT</button></div>
   <div class="stats">
@@ -4096,20 +4110,20 @@ function sheetHTML(){
     <label class="field" style="justify-content:center"><span class="fl">SITE VISITS</span><button class="zadd" id="pullSiteBtn" style="padding:8px 12px;border-color:var(--amber);color:var(--amber)">📍 PULL MEASUREMENTS</button></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="zadd" id="sheetColsToggle" style="font-size:10px;padding:5px 10px">${store.sheetCols==='all'?'− HIDE SITE / LIPPING / FINISH COLUMNS':'+ SHOW SITE / LIPPING / FINISH COLUMNS'}</button></div>
-    <div class="scroll ${store.sheetCols==='all'?'':'colsEssential'}"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th class="xcol">Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r xcol">Site W</th><th class="r xcol">Site H</th><th class="r xcol">Site D</th><th class="xcol">Fit</th><th class="r xcol">Lip thk</th><th class="xcol">Lip edge</th><th class="xcol">Lip code</th><th class="xcol">Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
-    ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td>${zoneSel(r.zone,'sheet',r.id)}</td><td>${itemSel(r.item,r.itemOther,r.id)}</td><td>${partSel(r.part,r.partOther,r.id)}</td><td class="xcol" style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
-      <td class="r"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
-      <td class="r"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
-      <td class="r xcol"><input class="num numS" type="number" value="${r.siteW?fmt(r.siteW):''}" data-sheet="${r.id}" data-k="siteW" placeholder="—" title="Site opening width"></td>
-      <td class="r xcol"><input class="num numS" type="number" value="${r.siteH?fmt(r.siteH):''}" data-sheet="${r.id}" data-k="siteH" placeholder="—" title="Site opening height"></td>
-      <td class="r xcol"><input class="num numS" type="number" value="${r.siteD?fmt(r.siteD):''}" data-sheet="${r.id}" data-k="siteD" placeholder="—" title="Site opening depth (reference only)"></td>
-      <td class="xcol">${fitIndicator(r)}</td>
-      <td class="r xcol">${lipSel(r.lip,r.id)}</td><td class="xcol">${edgeSel(r.edge,r.id)}</td>
-      <td class="xcol"><input class="cell" style="width:90px" value="${r.lipCode||''}" data-sheet="${r.id}" data-k="lipCode" placeholder="e.g. LIP-OAK"></td>
-      <td class="xcol">${finishSel(r.pfinish,r.id)}${(r.pfinish&&r.pfinish!=='none')?' '+paintFacesSel(r.paintFaces,r.id):''}</td>
-      <td class="r"><span class="cutSize">${fmt(cs.cw)}×${fmt(cs.ch)}</span></td>
-      <td class="r"><input class="num numS" type="number" value="${r.qty}" data-sheet="${r.id}" data-k="qty"></td>
-      <td><button class="del" data-delsheet="${r.id}">✕</button></td></tr>`;}).join('')}</tbody></table></div>
+    <div class="scroll stackable ${store.sheetCols==='all'?'':'colsEssential'}"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th class="xcol">Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final W</th><th class="r">Final H</th><th class="r xcol">Site W</th><th class="r xcol">Site H</th><th class="r xcol">Site D</th><th class="xcol">Fit</th><th class="r xcol">Lip thk</th><th class="xcol">Lip edge</th><th class="xcol">Lip code</th><th class="xcol">Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
+    ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td data-label="Zone">${zoneSel(r.zone,'sheet',r.id)}</td><td data-label="Item">${itemSel(r.item,r.itemOther,r.id)}</td><td data-label="Part">${partSel(r.part,r.partOther,r.id)}</td><td class="xcol" data-label="Ref" style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td data-label="Code"><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r" data-label="Thk"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
+      <td class="r" data-label="Final W"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
+      <td class="r" data-label="Final H"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
+      <td class="r xcol" data-label="Site W"><input class="num numS" type="number" value="${r.siteW?fmt(r.siteW):''}" data-sheet="${r.id}" data-k="siteW" placeholder="—" title="Site opening width"></td>
+      <td class="r xcol" data-label="Site H"><input class="num numS" type="number" value="${r.siteH?fmt(r.siteH):''}" data-sheet="${r.id}" data-k="siteH" placeholder="—" title="Site opening height"></td>
+      <td class="r xcol" data-label="Site D"><input class="num numS" type="number" value="${r.siteD?fmt(r.siteD):''}" data-sheet="${r.id}" data-k="siteD" placeholder="—" title="Site opening depth (reference only)"></td>
+      <td class="xcol" data-label="Fit">${fitIndicator(r)}</td>
+      <td class="r xcol" data-label="Lip thk">${lipSel(r.lip,r.id)}</td><td class="xcol" data-label="Lip edge">${edgeSel(r.edge,r.id)}</td>
+      <td class="xcol" data-label="Lip code"><input class="cell" style="width:90px" value="${r.lipCode||''}" data-sheet="${r.id}" data-k="lipCode" placeholder="e.g. LIP-OAK"></td>
+      <td class="xcol" data-label="Finish">${finishSel(r.pfinish,r.id)}${(r.pfinish&&r.pfinish!=='none')?' '+paintFacesSel(r.paintFaces,r.id):''}</td>
+      <td class="r" data-label="Cut size"><span class="cutSize">${fmt(cs.cw)}×${fmt(cs.ch)}</span></td>
+      <td class="r" data-label="Qty"><input class="num numS" type="number" value="${r.qty}" data-sheet="${r.id}" data-k="qty"></td>
+      <td data-label=""><button class="del" data-delsheet="${r.id}">✕</button></td></tr>`;}).join('')}</tbody></table></div>
     <button class="add" id="addSheet">+ ADD PANEL</button></div>
   ${off.fellBack?`<div class="hint" style="color:var(--red)">⚠ ${store.sheetCode} ${store.sheetThk}mm not stocked by your pinned supplier — falling back to ${off.supplier} at ${money(off.price)}.</div>`:''}
   ${off.offers.length>1?`<div class="hint" style="color:var(--green)">✓ ${off.offers.length} suppliers stock this: ${off.offers.sort((a,b)=>a.price-b.price).map(o=>o.supplier+' '+money(o.price)).join(' · ')} (${off.pinned&&!off.fellBack?'pinned to '+off.supplier:'cheapest selected'})</div>`:''}
