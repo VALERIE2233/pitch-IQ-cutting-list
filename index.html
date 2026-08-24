@@ -1904,6 +1904,7 @@ function managerHTML(){
     <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production" style="color:var(--blue)">🏭 PRODUCTION</button>
     <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="color:var(--amber)">👷 SITE VISITS</button>
     <button class="tab ${store.managerTab==='editor'?'on':''}" data-mgrtab="editor" style="color:var(--amber)">🔧 EDITOR</button>
+    <button class="tab ${store.managerTab==='manpower'?'on':''}" data-mgrtab="manpower" style="color:var(--green)">👷 MANPOWER</button>
   </div>
   ${(!store.managerTab||store.managerTab==='approvals')?`<div class="body">
     <div class="hint" style="padding-top:14px">Review cutting lists and orders your estimators submit. Approve to release them to suppliers, or reject with a reason. Only orders from <strong>${store.account.company}</strong> appear here.</div>
@@ -1911,7 +1912,7 @@ function managerHTML(){
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`:store.managerTab==='production'?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:mgrSiteVisitsTabHTML()}
+  </div>`:store.managerTab==='production'?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -3852,6 +3853,79 @@ function procurementHTML(){
 // Shared "open a project in the full editor" picker — used by Manager and
 // Site Engineer, since both now get the same access Supervisor has, reusing
 // the exact same picker pattern already proven in Procurement's project list.
+// Manpower per project — who's on site now, who's been there, and how much
+// labour a project has actually absorbed. The data was already stored
+// company-wide; it just had nowhere to be seen except the individual's own
+// screen. Read-only: this reports, it never edits anyone's attendance.
+function manpowerHTML(){
+  if(!store.attLoaded){loadAttendance();}
+  if(!store.crewAttLoaded){loadCrewAttendance();}
+  if(!store.crewLoaded){loadCrew();}
+  if(!store.projectsLoaded){loadProjects();}
+  const att=store.attendance||[], crewAtt=store.crewAtt||[], crew=store.crew||[];
+  const sel=store.manpowerProject||'';
+  const inScope=x=>!sel||String(x.project_id)===String(sel);
+  const A=att.filter(inScope), C=crewAtt.filter(inScope);
+  const today=new Date().toISOString().slice(0,10);
+  // staff currently on site = signed in, not signed out
+  const onNow=A.filter(r=>r.sign_in_at&&!r.sign_out_at);
+  const hrs=r=>{ if(!r.sign_in_at)return 0; const end=r.sign_out_at?new Date(r.sign_out_at):new Date();
+    return Math.max(0,(end-new Date(r.sign_in_at))/36e5); };
+  const totalHrs=A.reduce((a,r)=>a+hrs(r),0);
+  const todayCrew=C.filter(r=>r.work_date===today);
+  const cName=id=>{const m=crew.find(c=>String(c.id)===String(id));return m?m.name:(id||'—');};
+  const cTrade=id=>{const m=crew.find(c=>String(c.id)===String(id));return m?(m.trade||''):'';};
+  const present=todayCrew.filter(r=>r.status==='present').length;
+  const half=todayCrew.filter(r=>r.status==='half').length;
+  const absent=todayCrew.filter(r=>r.status==='absent').length;
+  // crew man-days across the whole period (half day counts as 0.5)
+  const manDays=C.reduce((a,r)=>a+(r.status==='present'?1:r.status==='half'?0.5:0),0);
+  return `<div class="body">
+    <div class="hint" style="padding-top:14px">Who is signed in right now, and how much labour this project has taken. Covers both staff who sign in with their own account and crew marked by the site engineer. Read-only — nobody's attendance can be changed from here.</div>
+    <div class="settings">
+      <label class="field" style="flex:1"><span class="fl">PROJECT</span>
+        <select class="fi" id="manpowerProject">
+          <option value="">All projects</option>
+          ${(store.projects||[]).map(p=>`<option value="${p.id}" ${String(sel)===String(p.id)?'selected':''}>${p.name}</option>`).join('')}
+        </select></label>
+      <button class="zadd" id="manpowerRefresh" style="align-self:flex-end">🔄 REFRESH</button>
+    </div>
+    <div class="settings">
+      <div class="stat"><div class="sv" style="color:var(--green)">${onNow.length}</div><div class="sl">ON SITE NOW</div></div>
+      <div class="stat"><div class="sv" style="color:var(--blue)">${totalHrs.toFixed(1)}</div><div class="sl">STAFF HOURS LOGGED</div></div>
+      <div class="stat"><div class="sv" style="color:var(--amber)">${manDays.toFixed(1)}</div><div class="sl">CREW MAN-DAYS</div></div>
+      <div class="stat"><div class="sv">${present}<span style="font-size:12px;color:var(--mut)">/${todayCrew.length}</span></div><div class="sl">CREW PRESENT TODAY</div></div>
+    </div>
+    <div class="card" style="border-color:var(--green)">
+      <div class="cardHead" style="color:var(--green)"><span>🟢 ON SITE RIGHT NOW — ${onNow.length}</span></div>
+      ${onNow.length?`<div class="scroll"><table><thead><tr><th>Name</th><th>Project</th><th>Since</th><th class="r">Hours so far</th><th>Method</th></tr></thead><tbody>
+        ${onNow.map(r=>`<tr><td><strong>${r.user_name||'—'}</strong></td><td style="font-size:11px">${r.project_name||'—'}</td>
+          <td style="font-size:11px">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'—'}</td>
+          <td class="r">${hrs(r).toFixed(1)}</td>
+          <td style="font-size:10px;color:var(--mut)">${r.sign_in_method==='biometric'?'👆 fingerprint':'manual'}${(r.sign_in_lat?' · 📍':'')}</td></tr>`).join('')}
+      </tbody></table></div>`:'<div class="empty">Nobody is signed in right now.</div>'}
+    </div>
+    <div class="card" style="border-color:var(--amber)">
+      <div class="cardHead" style="color:var(--amber)"><span>👷 CREW TODAY — ${present} present · ${half} half day · ${absent} absent</span></div>
+      ${todayCrew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th>Recorded by</th></tr></thead><tbody>
+        ${todayCrew.map(r=>`<tr><td>${r.worker_name||cName(r.crew_member_id)}</td><td style="font-size:11px;color:var(--mut)">${r.trade||cTrade(r.crew_member_id)}</td>
+          <td style="font-size:11px;color:${r.status==='present'?'var(--green)':r.status==='half'?'var(--amber)':'var(--red)'}">${r.status==='present'?'Present':r.status==='half'?'Half day':'Absent'}</td>
+          <td style="font-size:10px;color:var(--mut)">${r.recorded_by_name||'—'}</td></tr>`).join('')}
+      </tbody></table></div>`:'<div class="empty">No crew marked for today yet.</div>'}
+    </div>
+    <div class="card">
+      <div class="cardHead"><span>🕐 RECENT STAFF ATTENDANCE</span></div>
+      ${A.length?`<div class="scroll"><table><thead><tr><th>Name</th><th>Project</th><th>Date</th><th>In</th><th>Out</th><th class="r">Hours</th></tr></thead><tbody>
+        ${A.slice(0,40).map(r=>`<tr><td>${r.user_name||'—'}</td><td style="font-size:11px">${r.project_name||'—'}</td>
+          <td style="font-size:11px">${r.work_date||''}</td>
+          <td style="font-size:11px">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'—'}</td>
+          <td style="font-size:11px">${r.sign_out_at?new Date(r.sign_out_at).toLocaleTimeString():'<span style="color:var(--green)">still on site</span>'}</td>
+          <td class="r">${hrs(r).toFixed(1)}</td></tr>`).join('')}
+      </tbody></table></div>`:'<div class="empty">No attendance recorded yet.</div>'}
+      ${A.length>40?`<div class="hint">Showing the 40 most recent of ${A.length}.</div>`:''}
+    </div>
+  </div>`;
+}
 function fullEditorPickerHTML(){
   if(!store.projectsLoaded){loadProjects();}
   const projects=store.projects||[];
@@ -4845,6 +4919,8 @@ function wire(){
     });
     const ca=document.getElementById('cancelApprove');if(ca)ca.onclick=()=>{store.approvingId=null;render();};
     document.querySelectorAll('[data-mgrtab]').forEach(b=>b.onclick=()=>{store.managerTab=b.dataset.mgrtab;render();});
+    {const mp=document.getElementById('manpowerProject'); if(mp)mp.onchange=()=>{store.manpowerProject=mp.value;render();};}
+    {const mr=document.getElementById('manpowerRefresh'); if(mr)mr.onclick=()=>{store.attLoaded=false;store.crewAttLoaded=false;loadAttendance();loadCrewAttendance();};}
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
     });
