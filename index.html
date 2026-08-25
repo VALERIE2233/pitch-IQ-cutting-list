@@ -3359,7 +3359,7 @@ async function crewPunch(memberId, direction){
       }
     }else{
       if(!existing||!existing.sign_in_at){alert('Sign this worker in first.');store.crewBusy=false;render();return;}
-      const patch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null};
+      const patch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null, status:'closed'};
       Object.assign(existing,patch);
       await sb.from('crew_attendance').update(patch).eq('id',existing.id);
     }
@@ -3378,7 +3378,12 @@ function crewAttendanceHTML(){
   const projects=store.projects||[];
   const d=store.crewDate||todayStr();
   const crew=store.crew||[];
-  const counts=crew.reduce((a,c)=>{const st=crewStatusOf(c.id); if(st)a[st]=(a[st]||0)+1; return a;},{});
+  // Attendance is now proven by a real sign-in time rather than a marked
+  // status, so these counts come from the punch records themselves.
+  const dayRecs=crew.map(c=>crewRecordFor(c.id)).filter(Boolean);
+  const signedInToday=dayRecs.filter(r=>r.sign_in_at).length;
+  const stillOn=dayRecs.filter(r=>r.sign_in_at&&!r.sign_out_at).length;
+  const dayHours=dayRecs.reduce((a,r)=>a+crewHours(r),0);
   const btn=(cid,st,label,col)=>{
     const on=crewStatusOf(cid)===st;
     return `<button data-crewst="${cid}:${st}" style="font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid ${col};background:${on?col:'transparent'};color:${on?'#000':col}">${label}</button>`;
@@ -3397,21 +3402,16 @@ function crewAttendanceHTML(){
     </div>
     ${!store.crewProject?'<div class="empty">Pick a project to mark attendance.</div>':`
       <div style="padding:0 12px 8px;font-size:12px;color:var(--mut)">
-        <strong style="color:var(--green)">${counts.present||0} ${t('present').toLowerCase()}</strong> ·
-        ${counts.half||0} ${t('half_day').toLowerCase()} · ${counts.absent||0} ${t('absent').toLowerCase()} · ${crew.length} ${t('on_roster')}
+        <strong style="color:var(--green)">${signedInToday} signed in</strong> ·
+        ${stillOn} still on site · ${dayHours.toFixed(1)}h logged today · ${crew.length} ${t('on_roster')}
       </div>
-      ${crew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th>Sign in / out</th><th></th></tr></thead><tbody>
+      ${crew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Sign in / out</th><th></th></tr></thead><tbody>
         ${crew.map(c=>{
           const rec=crewRecordFor(c.id);
           return `<tr>
             <td style="font-size:12px">${c.name}</td>
             <td style="font-size:11px;color:var(--mut)">${c.trade||'—'}</td>
-            <td style="white-space:nowrap;display:flex;gap:4px">
-              ${btn(c.id,'present','P','var(--green)')}
-              ${btn(c.id,'half','½','var(--amber)')}
-              ${btn(c.id,'absent','A','var(--red)')}
-            </td>
-            <td style="white-space:nowrap">
+              <td style="white-space:nowrap">
               ${(()=>{const r=crewRecordFor(c.id);
                 const inAt=r&&r.sign_in_at, outAt=r&&r.sign_out_at;
                 if(!inAt)return `<button class="zadd" data-crewin="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--green);color:var(--green)" ${store.crewBusy?'disabled':''}>▶ IN</button>`;
@@ -3424,7 +3424,6 @@ function crewAttendanceHTML(){
               <button data-crewdel="${c.id}" title="Remove from roster" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">×</button></td>
           </tr>`;}).join('')}
       </tbody></table></div>`:'<div class="empty">No workers on the roster yet — add them below.</div>'}
-      <div style="padding:12px"><button class="add" id="crewSave" style="width:100%" ${store.crewBusy?'disabled':''}>${store.crewBusy?'…':'✓ '+t('save_attendance')}</button></div>
     `}
     <div style="padding:0 12px 12px;border-top:1px solid var(--line)">
       <div style="font-size:11px;color:var(--mut);margin:10px 0 6px">${t('add_worker_to_roster')}</div>
@@ -3947,6 +3946,101 @@ async function setProjectSiteLocation(pid){
     render();
   }catch(e){alert('Could not save: '+(e.message||'error'));}
 }
+// Attendance records need to leave the app — for payroll, for a client
+// asking how much labour went into their job, or just for filing. Excel for
+// working with the numbers, print for signing and filing.
+function manpowerRows(){
+  const att=store.attendance||[], crewAtt=store.crewAtt||[];
+  const sel=store.manpowerProject||'';
+  const inScope=x=>!sel||String(x.project_id)===String(sel);
+  const proj=id=>(store.projects||[]).find(x=>String(x.id)===String(id));
+  const dist=(lat,lng,pid)=>{const pr=proj(pid);
+    if(lat==null||!pr||pr.site_lat==null)return '';
+    const m=metresBetween(lat,lng,pr.site_lat,pr.site_lng);
+    return m==null?'':(m<1000?m+'m':(m/1000).toFixed(1)+'km');};
+  const hrs=r=>{if(!r.sign_in_at)return 0;const end=r.sign_out_at?new Date(r.sign_out_at):new Date();
+    return Math.max(0,(end-new Date(r.sign_in_at))/36e5);};
+  const rows=[];
+  att.filter(inScope).forEach(r=>rows.push({
+    Name:r.user_name||'', Type:'Staff', Project:r.project_name||'', Date:r.work_date||'',
+    'Sign in':r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'',
+    'Sign out':r.sign_out_at?new Date(r.sign_out_at).toLocaleTimeString():'still on site',
+    Hours:+hrs(r).toFixed(2),
+    'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
+    'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
+    Method:r.sign_in_method==='biometric'?'Fingerprint':'Manual',
+    'Recorded by':'self'}));
+  crewAtt.filter(inScope).forEach(r=>rows.push({
+    Name:r.worker_name||'', Type:'Crew'+(r.trade?' ('+r.trade+')':''), Project:r.project_name||'', Date:r.work_date||'',
+    'Sign in':r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'',
+    'Sign out':r.sign_out_at?new Date(r.sign_out_at).toLocaleTimeString():(r.sign_in_at?'still on site':''),
+    Hours:+crewHours(r).toFixed(2),
+    'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
+    'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
+    Method:'Recorded on site',
+    'Recorded by':r.recorded_by_name||''}));
+  rows.sort((a,b)=>(b.Date||'').localeCompare(a.Date||'')||String(a.Name).localeCompare(String(b.Name)));
+  return rows;
+}
+function manpowerProjectLabel(){
+  const sel=store.manpowerProject||'';
+  if(!sel)return 'All projects';
+  const pr=(store.projects||[]).find(x=>String(x.id)===String(sel));
+  return pr?pr.name:'Project';
+}
+function exportManpowerExcel(){
+  if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
+  const rows=manpowerRows();
+  if(!rows.length){alert('No attendance records to export yet.');return;}
+  const staffH=rows.filter(r=>r.Type==='Staff').reduce((a,r)=>a+r.Hours,0);
+  const crewH=rows.filter(r=>r.Type!=='Staff').reduce((a,r)=>a+r.Hours,0);
+  const summary=[
+    ['FIT-OUT IQ — Attendance & Manpower'],
+    ['Project', manpowerProjectLabel()],
+    ['Exported', new Date().toLocaleString()],
+    ['Exported by', store.account.name||store.account.email],
+    [],
+    ['Staff hours', +staffH.toFixed(2)],
+    ['Crew hours', +crewH.toFixed(2)],
+    ['Total hours', +(staffH+crewH).toFixed(2)],
+    ['Records', rows.length],
+  ];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Attendance');
+  const safe=manpowerProjectLabel().replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+  XLSX.writeFile(wb, `attendance-${safe}-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+function printManpower(){
+  const rows=manpowerRows();
+  if(!rows.length){alert('No attendance records to print yet.');return;}
+  const staffH=rows.filter(r=>r.Type==='Staff').reduce((a,r)=>a+r.Hours,0);
+  const crewH=rows.filter(r=>r.Type!=='Staff').reduce((a,r)=>a+r.Hours,0);
+  const w=window.open('','_blank');
+  if(!w){alert('Please allow pop-ups to print.');return;}
+  const cols=['Name','Type','Date','Sign in','Sign out','Hours','In: distance from site','Recorded by'];
+  w.document.write(`<html><head><title>Attendance - ${manpowerProjectLabel()}</title><style>
+    body{font-family:Arial,sans-serif;padding:28px;color:#222}
+    h1{font-size:18px;margin:0 0 4px} .sub{color:#666;font-size:12px;margin-bottom:16px}
+    table{border-collapse:collapse;width:100%;font-size:11px}
+    th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}
+    th{background:#f2f2f2} tr:nth-child(even) td{background:#fafafa}
+    .tot{margin-top:16px;font-size:13px} .tot strong{font-size:15px}
+    .sign{margin-top:38px;display:flex;gap:60px;font-size:12px;color:#444}
+    .sign div{border-top:1px solid #888;padding-top:5px;min-width:200px}
+    @media print{.noprint{display:none}}
+  </style></head><body>
+    <h1>Attendance &amp; Manpower — ${manpowerProjectLabel()}</h1>
+    <div class="sub">${store.account.company} · generated ${new Date().toLocaleString()} by ${store.account.name||store.account.email}</div>
+    <table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
+      ${rows.map(r=>`<tr>${cols.map(c=>`<td>${r[c]===undefined?'':r[c]}</td>`).join('')}</tr>`).join('')}
+    </tbody></table>
+    <div class="tot">Staff hours: ${staffH.toFixed(2)} &nbsp;·&nbsp; Crew hours: ${crewH.toFixed(2)} &nbsp;·&nbsp; <strong>Total: ${(staffH+crewH).toFixed(2)} hours</strong></div>
+    <div class="sign"><div>Prepared by</div><div>Approved by</div></div>
+    <button class="noprint" onclick="window.print()" style="margin-top:24px;padding:8px 16px">Print</button>
+  </body></html>`);
+  w.document.close();
+}
 function manpowerHTML(){
   if(!store.attLoaded){loadAttendance();}
   if(!store.crewAttLoaded){loadCrewAttendance();}
@@ -3959,17 +4053,21 @@ function manpowerHTML(){
   const today=new Date().toISOString().slice(0,10);
   // staff currently on site = signed in, not signed out
   const onNow=A.filter(r=>r.sign_in_at&&!r.sign_out_at);
+  const crewOnNow=C.filter(r=>r.sign_in_at&&!r.sign_out_at);
+  const totalOnNow=onNow.length+crewOnNow.length;
   const hrs=r=>{ if(!r.sign_in_at)return 0; const end=r.sign_out_at?new Date(r.sign_out_at):new Date();
     return Math.max(0,(end-new Date(r.sign_in_at))/36e5); };
   const totalHrs=A.reduce((a,r)=>a+hrs(r),0);
   const todayCrew=C.filter(r=>r.work_date===today);
   const cName=id=>{const m=crew.find(c=>String(c.id)===String(id));return m?m.name:(id||'—');};
   const cTrade=id=>{const m=crew.find(c=>String(c.id)===String(id));return m?(m.trade||''):'';};
-  const present=todayCrew.filter(r=>r.status==='present').length;
+  const present=todayCrew.filter(r=>r.sign_in_at).length;
   const half=todayCrew.filter(r=>r.status==='half').length;
   const absent=todayCrew.filter(r=>r.status==='absent').length;
   // crew man-days across the whole period (half day counts as 0.5)
-  const manDays=C.reduce((a,r)=>a+(r.status==='present'?1:r.status==='half'?0.5:0),0);
+  const manDays=C.filter(r=>r.sign_in_at).length; // one man-day per recorded sign-in
+  const crewHrsTotal=C.reduce((a,r)=>a+crewHours(r),0);
+  const grandHrs=totalHrs+crewHrsTotal;
   return `<div class="body">
     <div class="hint" style="padding-top:14px">Who is signed in right now, and how much labour this project has taken. Covers both staff who sign in with their own account and crew marked by the site engineer. Read-only — nobody's attendance can be changed from here.</div>
     <div class="settings">
@@ -3979,6 +4077,8 @@ function manpowerHTML(){
           ${(store.projects||[]).map(p=>`<option value="${p.id}" ${String(sel)===String(p.id)?'selected':''}>${p.name}</option>`).join('')}
         </select></label>
       <button class="zadd" id="manpowerRefresh" style="align-self:flex-end">🔄 REFRESH</button>
+      <button class="zadd" id="manpowerExcel" style="align-self:flex-end;border-color:var(--green);color:var(--green)">⊞ EXCEL</button>
+      <button class="zadd" id="manpowerPrint" style="align-self:flex-end">⎙ PRINT</button>
     </div>
     ${(()=>{ if(!sel)return '<div class="hint" style="padding:0 16px 10px">Pick a single project above to set its site location and see how far each sign-in was from it.</div>';
       const pr=(store.projects||[]).find(x=>String(x.id)===String(sel));
@@ -3989,25 +4089,33 @@ function manpowerHTML(){
           <button class="zadd" data-setsiteloc="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--amber);color:var(--amber)">📍 ${has?'UPDATE':'SET'} SITE LOCATION</button>
         </div></div>`;})()}
     <div class="settings">
-      <div class="stat"><div class="sv" style="color:var(--green)">${onNow.length}</div><div class="sl">ON SITE NOW</div></div>
-      <div class="stat"><div class="sv" style="color:var(--blue)">${totalHrs.toFixed(1)}</div><div class="sl">STAFF HOURS LOGGED</div></div>
-      <div class="stat"><div class="sv" style="color:var(--amber)">${manDays.toFixed(1)}</div><div class="sl">CREW MAN-DAYS</div></div>
-      <div class="stat"><div class="sv">${present}<span style="font-size:12px;color:var(--mut)">/${todayCrew.length}</span></div><div class="sl">CREW PRESENT TODAY</div></div>
+      <div class="stat"><div class="sv" style="color:var(--green)">${totalOnNow}</div><div class="sl">ON SITE NOW · ${onNow.length} staff + ${crewOnNow.length} crew</div></div>
+      <div class="stat"><div class="sv" style="color:var(--blue)">${grandHrs.toFixed(1)}</div><div class="sl">TOTAL HOURS LOGGED</div></div>
+      <div class="stat"><div class="sv" style="color:var(--blue)">${totalHrs.toFixed(1)}</div><div class="sl">STAFF HOURS</div></div>
+      <div class="stat"><div class="sv" style="color:var(--amber)">${crewHrsTotal.toFixed(1)}</div><div class="sl">CREW HOURS</div></div>
+      <div class="stat"><div class="sv" style="color:var(--amber)">${manDays.toFixed(1)}</div><div class="sl">CREW SHIFTS</div></div>
+      <div class="stat"><div class="sv">${present}<span style="font-size:12px;color:var(--mut)">/${todayCrew.length}</span></div><div class="sl">CREW SIGNED IN TODAY</div></div>
     </div>
     <div class="card" style="border-color:var(--green)">
-      <div class="cardHead" style="color:var(--green)"><span>🟢 ON SITE RIGHT NOW — ${onNow.length}</span></div>
-      ${onNow.length?`<div class="scroll"><table><thead><tr><th>Name</th><th>Project</th><th>Since</th><th class="r">Hours so far</th><th>Method</th><th>Where</th></tr></thead><tbody>
-        ${onNow.map(r=>`<tr><td><strong>${r.user_name||'—'}</strong></td><td style="font-size:11px">${r.project_name||'—'}</td>
+      <div class="cardHead" style="color:var(--green)"><span>🟢 ON SITE RIGHT NOW — ${totalOnNow}</span></div>
+      ${(onNow.length||crewOnNow.length)?`<div class="scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Project</th><th>Since</th><th class="r">Hours so far</th><th>Method</th><th>Where</th></tr></thead><tbody>
+        ${onNow.map(r=>`<tr><td><strong>${r.user_name||'—'}</strong></td><td style="font-size:10px;color:var(--blue)">staff</td><td style="font-size:11px">${r.project_name||'—'}</td>
           <td style="font-size:11px">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'—'}</td>
           <td class="r">${hrs(r).toFixed(1)}</td>
           <td style="font-size:10px;color:var(--mut)">${r.sign_in_method==='biometric'?'👆 fingerprint':'manual'}</td><td>${distanceTag(r.sign_in_lat,r.sign_in_lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
+        ${crewOnNow.map(r=>`<tr><td><strong>${r.worker_name||'—'}</strong></td><td style="font-size:10px;color:var(--amber)">crew</td>
+          <td style="font-size:11px">${r.project_name||'—'}</td>
+          <td style="font-size:11px">${new Date(r.sign_in_at).toLocaleTimeString()}</td>
+          <td class="r">${crewHours(r).toFixed(1)}</td>
+          <td style="font-size:10px;color:var(--mut)">by ${r.recorded_by_name||'—'}</td>
+          <td>${distanceTag(r.sign_in_lat,r.sign_in_lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty">Nobody is signed in right now.</div>'}
     </div>
     <div class="card" style="border-color:var(--amber)">
       <div class="cardHead" style="color:var(--amber)"><span>👷 CREW TODAY — ${present} present · ${half} half day · ${absent} absent</span></div>
       ${todayCrew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th>Recorded by</th><th>When</th><th>Where</th></tr></thead><tbody>
         ${todayCrew.map(r=>`<tr><td>${r.worker_name||cName(r.crew_member_id)}</td><td style="font-size:11px;color:var(--mut)">${r.trade||cTrade(r.crew_member_id)}</td>
-          <td style="font-size:11px;color:${r.status==='present'?'var(--green)':r.status==='half'?'var(--amber)':'var(--red)'}">${r.status==='present'?'Present':r.status==='half'?'Half day':'Absent'}</td>
+          <td style="font-size:11px;color:${(r.sign_in_at&&!r.sign_out_at)?'var(--green)':r.sign_out_at?'var(--blue)':'var(--mut)'}">${(r.sign_in_at&&!r.sign_out_at)?'On site':r.sign_out_at?'End of duty':'No sign-in'}</td>
           <td style="font-size:10px;color:var(--mut)">${r.recorded_by_name||'—'}</td><td style="font-size:10px;color:var(--mut)">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString()+(r.sign_out_at?' → '+new Date(r.sign_out_at).toLocaleTimeString():' → still in')+' · '+crewHours(r).toFixed(1)+'h':(r.recorded_at?new Date(r.recorded_at).toLocaleTimeString():(r.work_date||'—'))}</td><td>${distanceTag(r.lat,r.lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty">No crew marked for today yet.</div>'}
     </div>
@@ -5024,6 +5132,8 @@ function wire(){
     {const mp=document.getElementById('manpowerProject'); if(mp)mp.onchange=()=>{store.manpowerProject=mp.value;render();};}
     {const mr=document.getElementById('manpowerRefresh'); if(mr)mr.onclick=()=>{store.attLoaded=false;store.crewAttLoaded=false;loadAttendance();loadCrewAttendance();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
+    {const mx=document.getElementById('manpowerExcel'); if(mx)mx.onclick=exportManpowerExcel;}
+    {const mpr=document.getElementById('manpowerPrint'); if(mpr)mpr.onclick=printManpower;}
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
     });
