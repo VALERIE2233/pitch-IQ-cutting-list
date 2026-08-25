@@ -405,7 +405,7 @@ async function cloudSave(){
 async function loadProjects(){
   if(!sb||!store.account)return;
   try{
-    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id,open_for_site_visit').order('updated_at',{ascending:false});
+    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id,open_for_site_visit,site_lat,site_lng').order('updated_at',{ascending:false});
     if(store.account.companyId){
       q=q.or(`owner_id.eq.${store.account.uid},company_id.eq.${store.account.companyId}`);
     }else{
@@ -3857,6 +3857,44 @@ function procurementHTML(){
 // labour a project has actually absorbed. The data was already stored
 // company-wide; it just had nowhere to be seen except the individual's own
 // screen. Read-only: this reports, it never edits anyone's attendance.
+// Distance between two GPS points, in metres (Haversine). Used to answer the
+// question that actually matters — "was this person AT the site?" — rather
+// than just showing raw coordinates or a place name. A place name would say
+// "Dubai" whether you're on site or at home; a distance from the site itself
+// tells you the truth.
+function metresBetween(lat1,lng1,lat2,lng2){
+  if([lat1,lng1,lat2,lng2].some(v=>v===null||v===undefined||isNaN(v)))return null;
+  const R=6371000, rad=x=>x*Math.PI/180;
+  const dLat=rad(lat2-lat1), dLng=rad(lng2-lng1);
+  const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLng/2)**2;
+  return Math.round(2*R*Math.asin(Math.sqrt(a)));
+}
+// How far from the project site, shown plainly. Green if plausibly on site,
+// amber if questionable, red if clearly somewhere else.
+function distanceTag(lat,lng,proj){
+  if(lat===null||lat===undefined)return '<span style="color:var(--mut);font-size:10px">no GPS</span>';
+  if(!proj||proj.site_lat===null||proj.site_lat===undefined)
+    return '<span style="color:var(--mut);font-size:10px">📍 GPS captured · site location not set</span>';
+  const m=metresBetween(lat,lng,proj.site_lat,proj.site_lng);
+  if(m===null)return '<span style="color:var(--mut);font-size:10px">no GPS</span>';
+  const txt=m<1000?`${m}m`:`${(m/1000).toFixed(1)}km`;
+  if(m<=200)return `<span style="color:var(--green);font-size:10px">✓ ${txt} from site</span>`;
+  if(m<=1000)return `<span style="color:var(--amber);font-size:10px">⚠ ${txt} from site</span>`;
+  return `<span style="color:var(--red);font-size:10px;font-weight:700">⚠ ${txt} from site</span>`;
+}
+async function setProjectSiteLocation(pid){
+  if(!confirm('Set this project\'s site location to where you are standing right now?\n\nDo this while you are actually on site — every future sign-in gets measured against this point.'))return;
+  const pos=await getPosition();
+  if(!pos){alert('Could not read your location. Check that location permission is allowed for this site.');return;}
+  try{
+    const {error}=await sb.from('jobs').update({site_lat:pos.lat,site_lng:pos.lng}).eq('id',pid);
+    if(error)throw error;
+    const pr=(store.projects||[]).find(x=>String(x.id)===String(pid));
+    if(pr){pr.site_lat=pos.lat;pr.site_lng=pos.lng;}
+    alert('Site location saved. Sign-ins will now show how far away they were.');
+    render();
+  }catch(e){alert('Could not save: '+(e.message||'error'));}
+}
 function manpowerHTML(){
   if(!store.attLoaded){loadAttendance();}
   if(!store.crewAttLoaded){loadCrewAttendance();}
@@ -3890,6 +3928,14 @@ function manpowerHTML(){
         </select></label>
       <button class="zadd" id="manpowerRefresh" style="align-self:flex-end">🔄 REFRESH</button>
     </div>
+    ${(()=>{ if(!sel)return '<div class="hint" style="padding:0 16px 10px">Pick a single project above to set its site location and see how far each sign-in was from it.</div>';
+      const pr=(store.projects||[]).find(x=>String(x.id)===String(sel));
+      const has=pr&&pr.site_lat!==null&&pr.site_lat!==undefined;
+      return `<div class="card" style="border-color:${has?'var(--green)':'var(--amber)'}">
+        <div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:12px">${has?`📍 Site location set — sign-ins are measured against it`:`⚠ No site location set for this project — sign-ins show GPS but not whether it was actually on site`}</span>
+          <button class="zadd" data-setsiteloc="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--amber);color:var(--amber)">📍 ${has?'UPDATE':'SET'} SITE LOCATION</button>
+        </div></div>`;})()}
     <div class="settings">
       <div class="stat"><div class="sv" style="color:var(--green)">${onNow.length}</div><div class="sl">ON SITE NOW</div></div>
       <div class="stat"><div class="sv" style="color:var(--blue)">${totalHrs.toFixed(1)}</div><div class="sl">STAFF HOURS LOGGED</div></div>
@@ -3898,28 +3944,30 @@ function manpowerHTML(){
     </div>
     <div class="card" style="border-color:var(--green)">
       <div class="cardHead" style="color:var(--green)"><span>🟢 ON SITE RIGHT NOW — ${onNow.length}</span></div>
-      ${onNow.length?`<div class="scroll"><table><thead><tr><th>Name</th><th>Project</th><th>Since</th><th class="r">Hours so far</th><th>Method</th></tr></thead><tbody>
+      ${onNow.length?`<div class="scroll"><table><thead><tr><th>Name</th><th>Project</th><th>Since</th><th class="r">Hours so far</th><th>Method</th><th>Where</th></tr></thead><tbody>
         ${onNow.map(r=>`<tr><td><strong>${r.user_name||'—'}</strong></td><td style="font-size:11px">${r.project_name||'—'}</td>
           <td style="font-size:11px">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'—'}</td>
           <td class="r">${hrs(r).toFixed(1)}</td>
-          <td style="font-size:10px;color:var(--mut)">${r.sign_in_method==='biometric'?'👆 fingerprint':'manual'}${(r.sign_in_lat?' · 📍':'')}</td></tr>`).join('')}
+          <td style="font-size:10px;color:var(--mut)">${r.sign_in_method==='biometric'?'👆 fingerprint':'manual'}</td><td>${distanceTag(r.sign_in_lat,r.sign_in_lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty">Nobody is signed in right now.</div>'}
     </div>
     <div class="card" style="border-color:var(--amber)">
       <div class="cardHead" style="color:var(--amber)"><span>👷 CREW TODAY — ${present} present · ${half} half day · ${absent} absent</span></div>
-      ${todayCrew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th>Recorded by</th></tr></thead><tbody>
+      ${todayCrew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th>Recorded by</th><th>When</th><th>Where</th></tr></thead><tbody>
         ${todayCrew.map(r=>`<tr><td>${r.worker_name||cName(r.crew_member_id)}</td><td style="font-size:11px;color:var(--mut)">${r.trade||cTrade(r.crew_member_id)}</td>
           <td style="font-size:11px;color:${r.status==='present'?'var(--green)':r.status==='half'?'var(--amber)':'var(--red)'}">${r.status==='present'?'Present':r.status==='half'?'Half day':'Absent'}</td>
-          <td style="font-size:10px;color:var(--mut)">${r.recorded_by_name||'—'}</td></tr>`).join('')}
+          <td style="font-size:10px;color:var(--mut)">${r.recorded_by_name||'—'}</td><td style="font-size:10px;color:var(--mut)">${r.recorded_at?new Date(r.recorded_at).toLocaleTimeString():(r.work_date||'—')}</td><td>${distanceTag(r.lat,r.lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty">No crew marked for today yet.</div>'}
     </div>
     <div class="card">
       <div class="cardHead"><span>🕐 RECENT STAFF ATTENDANCE</span></div>
-      ${A.length?`<div class="scroll"><table><thead><tr><th>Name</th><th>Project</th><th>Date</th><th>In</th><th>Out</th><th class="r">Hours</th></tr></thead><tbody>
+      ${A.length?`<div class="scroll"><table><thead><tr><th>Name</th><th>Project</th><th>Date</th><th>In</th><th>In: where</th><th>Out</th><th>Out: where</th><th class="r">Hours</th></tr></thead><tbody>
         ${A.slice(0,40).map(r=>`<tr><td>${r.user_name||'—'}</td><td style="font-size:11px">${r.project_name||'—'}</td>
           <td style="font-size:11px">${r.work_date||''}</td>
           <td style="font-size:11px">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'—'}</td>
+          <td>${distanceTag(r.sign_in_lat,r.sign_in_lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td>
           <td style="font-size:11px">${r.sign_out_at?new Date(r.sign_out_at).toLocaleTimeString():'<span style="color:var(--green)">still on site</span>'}</td>
+          <td>${r.sign_out_at?distanceTag(r.sign_out_lat,r.sign_out_lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id))):''}</td>
           <td class="r">${hrs(r).toFixed(1)}</td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty">No attendance recorded yet.</div>'}
       ${A.length>40?`<div class="hint">Showing the 40 most recent of ${A.length}.</div>`:''}
@@ -4921,6 +4969,7 @@ function wire(){
     document.querySelectorAll('[data-mgrtab]').forEach(b=>b.onclick=()=>{store.managerTab=b.dataset.mgrtab;render();});
     {const mp=document.getElementById('manpowerProject'); if(mp)mp.onchange=()=>{store.manpowerProject=mp.value;render();};}
     {const mr=document.getElementById('manpowerRefresh'); if(mr)mr.onclick=()=>{store.attLoaded=false;store.crewAttLoaded=false;loadAttendance();loadCrewAttendance();};}
+    document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
     });
