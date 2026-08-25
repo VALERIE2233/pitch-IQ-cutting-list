@@ -3328,6 +3328,49 @@ async function saveCrewAttendance(){
   store.crewDraft={}; store.crewBusy=false; render();
   alert(`Saved ${ok} record${ok===1?'':'s'}${fail?`, ${fail} failed`:''}.`);
 }
+// Crew sign-in / sign-out. Workers who can register themselves do so with
+// their own account; everyone else is punched in by the site engineer here.
+// Either way the record carries a real timestamp and GPS, so "recorded by
+// someone else" doesn't mean "less evidence" — it just means a different
+// person pressed the button.
+async function crewPunch(memberId, direction){
+  const pid=store.crewProject; if(!pid){alert('Pick a project first.');return;}
+  const c=(store.crew||[]).find(x=>String(x.id)===String(memberId)); if(!c)return;
+  const d=store.crewDate||todayStr();
+  const pos=await getPosition();
+  const now=new Date().toISOString();
+  const proj=(store.projects||[]).find(x=>String(x.id)===String(pid));
+  const existing=crewRecordFor(memberId);
+  store.crewBusy=true; render();
+  try{
+    if(direction==='in'){
+      const patch={sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present'};
+      if(existing){
+        Object.assign(existing,patch);
+        await sb.from('crew_attendance').update(patch).eq('id',existing.id);
+      }else{
+        const row={company_id:store.account.companyId, project_id:pid, project_name:proj?proj.name:'',
+          crew_member_id:c.id, worker_name:c.name, trade:c.trade, work_date:d,
+          recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
+          recorded_at:now, lat:pos?pos.lat:null, lng:pos?pos.lng:null, ...patch};
+        const {data,error}=await sb.from('crew_attendance').insert(row).select().single();
+        if(error)throw error;
+        store.crewAtt=[data,...(store.crewAtt||[])];
+      }
+    }else{
+      if(!existing||!existing.sign_in_at){alert('Sign this worker in first.');store.crewBusy=false;render();return;}
+      const patch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null};
+      Object.assign(existing,patch);
+      await sb.from('crew_attendance').update(patch).eq('id',existing.id);
+    }
+  }catch(e){alert('Could not save: '+(e.message||'error'));}
+  store.crewBusy=false; render();
+}
+function crewHours(r){
+  if(!r||!r.sign_in_at)return 0;
+  const end=r.sign_out_at?new Date(r.sign_out_at):new Date();
+  return Math.max(0,(end-new Date(r.sign_in_at))/36e5);
+}
 function crewAttendanceHTML(){
   if(!store.crewLoaded){loadCrew();}
   if(!store.crewAttLoaded){loadCrewAttendance();}
@@ -3357,7 +3400,7 @@ function crewAttendanceHTML(){
         <strong style="color:var(--green)">${counts.present||0} ${t('present').toLowerCase()}</strong> ·
         ${counts.half||0} ${t('half_day').toLowerCase()} · ${counts.absent||0} ${t('absent').toLowerCase()} · ${crew.length} ${t('on_roster')}
       </div>
-      ${crew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th></th></tr></thead><tbody>
+      ${crew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th>Sign in / out</th><th></th></tr></thead><tbody>
         ${crew.map(c=>{
           const rec=crewRecordFor(c.id);
           return `<tr>
@@ -3367,6 +3410,15 @@ function crewAttendanceHTML(){
               ${btn(c.id,'present','P','var(--green)')}
               ${btn(c.id,'half','½','var(--amber)')}
               ${btn(c.id,'absent','A','var(--red)')}
+            </td>
+            <td style="white-space:nowrap">
+              ${(()=>{const r=crewRecordFor(c.id);
+                const inAt=r&&r.sign_in_at, outAt=r&&r.sign_out_at;
+                if(!inAt)return `<button class="zadd" data-crewin="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--green);color:var(--green)" ${store.crewBusy?'disabled':''}>▶ IN</button>`;
+                if(!outAt)return `<span style="font-size:10px;color:var(--green)">in ${new Date(inAt).toLocaleTimeString()}</span>
+                  <button class="zadd" data-crewout="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--amber);color:var(--amber);margin-left:4px" ${store.crewBusy?'disabled':''}>■ OUT</button>`;
+                return `<span style="font-size:10px;color:var(--mut)">${new Date(inAt).toLocaleTimeString()} → ${new Date(outAt).toLocaleTimeString()} · <strong style="color:var(--blue)">${crewHours(r).toFixed(1)}h</strong></span>`;
+              })()}
             </td>
             <td style="font-size:10px;color:var(--mut);white-space:nowrap">${rec?'saved':''}
               <button data-crewdel="${c.id}" title="Remove from roster" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">×</button></td>
@@ -3956,7 +4008,7 @@ function manpowerHTML(){
       ${todayCrew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th>Recorded by</th><th>When</th><th>Where</th></tr></thead><tbody>
         ${todayCrew.map(r=>`<tr><td>${r.worker_name||cName(r.crew_member_id)}</td><td style="font-size:11px;color:var(--mut)">${r.trade||cTrade(r.crew_member_id)}</td>
           <td style="font-size:11px;color:${r.status==='present'?'var(--green)':r.status==='half'?'var(--amber)':'var(--red)'}">${r.status==='present'?'Present':r.status==='half'?'Half day':'Absent'}</td>
-          <td style="font-size:10px;color:var(--mut)">${r.recorded_by_name||'—'}</td><td style="font-size:10px;color:var(--mut)">${r.recorded_at?new Date(r.recorded_at).toLocaleTimeString():(r.work_date||'—')}</td><td>${distanceTag(r.lat,r.lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
+          <td style="font-size:10px;color:var(--mut)">${r.recorded_by_name||'—'}</td><td style="font-size:10px;color:var(--mut)">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString()+(r.sign_out_at?' → '+new Date(r.sign_out_at).toLocaleTimeString():' → still in')+' · '+crewHours(r).toFixed(1)+'h':(r.recorded_at?new Date(r.recorded_at).toLocaleTimeString():(r.work_date||'—'))}</td><td>${distanceTag(r.lat,r.lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty">No crew marked for today yet.</div>'}
     </div>
     <div class="card">
@@ -4917,6 +4969,8 @@ function wire(){
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
     });
     document.querySelectorAll('[data-setrole="tracker"]').forEach(b=>b.onclick=()=>{store.seShowTracker=!store.seShowTracker;render();});
+    document.querySelectorAll('[data-crewin]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewin,'in'));
+    document.querySelectorAll('[data-crewout]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewout,'out'));
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
     const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
