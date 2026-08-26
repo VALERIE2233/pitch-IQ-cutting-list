@@ -3216,7 +3216,7 @@ function attendanceHTML(){
             ${openProjects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
           </select></label>
         ${!openProjects.length?'<div class="hint" style="padding:0 0 8px;color:var(--amber)">No projects visible yet — ask your supervisor to save one.</div>':''}
-        <button class="add" id="attSignIn" style="width:100%" ${store.attBusy?'disabled':''}>${store.attBusy?'…':t('sign_in')}</button>`}
+        ${(store.attProject && !projectSiteSet(store.attProject))?siteLocationGateHTML(store.attProject):`<button class="add" id="attSignIn" style="width:100%" ${store.attBusy?'disabled':''}>${store.attBusy?'…':t('sign_in')}</button>`}`}
       <div style="margin-top:10px;font-size:11px;color:var(--mut);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         ${hasBio?`<span style="color:var(--green)">👆 ${t('fingerprint_active')}</span>`
                 :`<span>Fingerprint not set up on this device.</span>
@@ -3356,6 +3356,7 @@ async function saveCrewAttendance(){
 // person pressed the button.
 async function crewPunch(memberId, direction){
   const pid=store.crewProject; if(!pid){alert('Pick a project first.');return;}
+  if(!projectSiteSet(pid)){alert("This project's site location hasn't been set yet. Set it while standing on site, then sign workers in.");return;}
   const c=(store.crew||[]).find(x=>String(x.id)===String(memberId)); if(!c)return;
   const d=store.crewDate||todayStr();
   const pos=await getPosition();
@@ -3435,7 +3436,8 @@ function crewAttendanceHTML(){
         <strong style="color:var(--green)">${signedInToday} signed in</strong> ·
         ${stillOn} still on site · ${dayHours.toFixed(1)}h logged today · ${crew.length} ${t('on_roster')}
       </div>
-      ${crew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Sign in / out</th><th></th></tr></thead><tbody>
+      ${store.crewProject?siteLocationGateHTML(store.crewProject):''}
+      ${(store.crewProject && !projectSiteSet(store.crewProject))?'':`${crew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Sign in / out</th><th></th></tr></thead><tbody>
         ${crew.map(c=>{
           const rec=crewRecordFor(c.id);
           return `<tr>
@@ -3455,7 +3457,7 @@ function crewAttendanceHTML(){
             <td style="font-size:10px;color:var(--mut);white-space:nowrap">${rec?'saved':''}
               <button data-crewdel="${c.id}" title="Remove from roster" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">×</button></td>
           </tr>`;}).join('')}
-      </tbody></table></div>`:'<div class="empty">No workers on the roster yet — add them below.</div>'}
+      </tbody></table></div>`:'<div class="empty">No workers on the roster yet — add them below.</div>'}`}
     `}
     <div style="padding:0 12px 12px;border-top:1px solid var(--line)">
       <div style="font-size:11px;color:var(--mut);margin:10px 0 6px">${t('add_worker_to_roster')}<span style="color:var(--mut)"> — shared across every project, add each person once</span></div>
@@ -3966,6 +3968,25 @@ function distanceTag(lat,lng,proj){
   if(m<=200)return `<span style="color:var(--green);font-size:10px">✓ ${txt} from site</span>`;
   if(m<=1000)return `<span style="color:var(--amber);font-size:10px">⚠ ${txt} from site</span>`;
   return `<span style="color:var(--red);font-size:10px;font-weight:700">⚠ ${txt} from site</span>`;
+}
+// A project must have its site location registered before anyone can sign in
+// on it. Without it every GPS reading is just a pair of numbers with nothing
+// to compare against — the whole point of capturing location is knowing
+// whether someone was actually at the site. Whoever is standing on site sets
+// it once, and every sign-in from then on is measured against that point.
+function projectSiteSet(pid){
+  const pr=(store.projects||[]).find(x=>String(x.id)===String(pid));
+  return !!(pr && pr.site_lat!==null && pr.site_lat!==undefined);
+}
+function siteLocationGateHTML(pid){
+  if(!pid || projectSiteSet(pid))return '';
+  const pr=(store.projects||[]).find(x=>String(x.id)===String(pid));
+  return `<div class="card" style="border-color:var(--amber);margin:0 12px 12px">
+    <div style="padding:12px 14px">
+      <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:6px">📍 SET THIS PROJECT'S SITE LOCATION FIRST</div>
+      <div class="hint" style="padding:0 0 10px">Attendance can't start on <strong>${pr?pr.name:'this project'}</strong> until its location is registered. Stand where the site actually is, then tap below — every sign-in after that is measured against this point, so you can tell who was really on site.</div>
+      <button class="add" data-setsiteloc="${pid}" style="width:100%;background:var(--amber);border-color:var(--amber);color:#000">📍 I AM ON SITE — SET LOCATION NOW</button>
+    </div></div>`;
 }
 async function setPlannedHours(pid){
   const pr=(store.projects||[]).find(x=>String(x.id)===String(pid));
@@ -5229,6 +5250,8 @@ function wire(){
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
     });
     document.querySelectorAll('[data-setrole="tracker"]').forEach(b=>b.onclick=()=>{store.seShowTracker=!store.seShowTracker;render();});
+    {const ap=document.getElementById('att_project'); if(ap)ap.onchange=()=>{store.attProject=ap.value;render();};}
+    document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
     document.querySelectorAll('[data-crewin]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewin,'in'));
     document.querySelectorAll('[data-crewout]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewout,'out'));
     if(!store.svDraft)store.svDraft={};
