@@ -3292,7 +3292,13 @@ function crewRecordsFor(memberId){
   return (store.crewAtt||[]).filter(a=>a.crew_member_id===memberId && a.project_id===pid && a.work_date===d);
 }
 function crewOpenRecord(memberId){
-  return crewRecordsFor(memberId).find(r=>r.sign_in_at&&!r.sign_out_at)||null;
+  // Deliberately NOT limited to today's date: a shift that ran past midnight
+  // still belongs to yesterday, but it is still open. Filtering by date made
+  // those shifts disappear from the screen entirely, so nobody could close
+  // them — while they carried on silently accumulating hours.
+  const pid=store.crewProject;
+  return (store.crewAtt||[]).find(a=>a.crew_member_id===memberId
+    && String(a.project_id)===String(pid) && a.sign_in_at && !a.sign_out_at)||null;
 }
 // An open shift on ANY project. Nobody can physically be on two sites at once,
 // so signing in here has to close whatever is still open elsewhere — otherwise
@@ -3398,6 +3404,44 @@ async function crewPunch(memberId, direction){
   }catch(e){alert('Could not save: '+(e.message||'error'));}
   store.crewBusy=false; render();
 }
+// A shift that is still open after local midnight almost always means someone
+// forgot to sign out — an open shift keeps counting with no ceiling, so left
+// alone it quietly inflates both the worker's hours and the project's labour
+// budget. Using the device's own date means this works in whatever timezone
+// the person is actually in, with no configuration.
+function crossedMidnight(r){
+  if(!r||!r.sign_in_at||r.sign_out_at)return false;
+  return new Date(r.sign_in_at).toDateString()!==new Date().toDateString();
+}
+// Correcting a forgotten sign-out is legitimate, but it is NOT the same as a
+// real punch — so it's recorded as an adjustment, with who made it and when.
+// Anyone reading the timesheet later can see which times were measured and
+// which were entered by hand.
+async function adjustSignOut(recId){
+  const rec=(store.crewAtt||[]).find(x=>String(x.id)===String(recId));
+  if(!rec||!rec.sign_in_at){alert('No open shift to correct.');return;}
+  const inAt=new Date(rec.sign_in_at);
+  const v=prompt(`${rec.worker_name||'This worker'} signed in at ${inAt.toLocaleString()} and never signed out.\n\nWhat time did they actually finish? Use 24-hour time, e.g. 17:30`,'17:00');
+  if(v===null)return;
+  const m=String(v).trim().match(/^(\d{1,2})[:.](\d{2})$/);
+  if(!m){alert('Please enter the time as HH:MM, for example 17:30');return;}
+  const hh=+m[1], mm=+m[2];
+  if(hh>23||mm>59){alert('That is not a valid time.');return;}
+  const out=new Date(inAt); out.setHours(hh,mm,0,0);
+  if(out<=inAt)out.setDate(out.getDate()+1); // finished after midnight
+  if(out>new Date()){alert('That time is in the future — check it and try again.');return;}
+  const patch={sign_out_at:out.toISOString(), status:'closed', sign_out_manual:true,
+    adjusted_by:store.account.name||store.account.email, adjusted_at:new Date().toISOString()};
+  Object.assign(rec,patch);
+  store.crewBusy=true; render();
+  try{ await sb.from('crew_attendance').update(patch).eq('id',rec.id); }
+  catch(e){ alert('Could not save: '+(e.message||'error')); }
+  store.crewBusy=false; render();
+}
+function adjustedTag(r){
+  if(!r||!r.sign_out_manual)return '';
+  return `<span title="Set by hand${r.adjusted_by?' by '+r.adjusted_by:''}${r.adjusted_at?' on '+new Date(r.adjusted_at).toLocaleString():''}, not captured by a sign-out" style="font-size:9px;color:var(--amber);margin-left:4px">✎ adjusted${r.adjusted_by?' · '+r.adjusted_by:''}</span>`;
+}
 function crewHours(r){
   if(!r||!r.sign_in_at)return 0;
   const end=r.sign_out_at?new Date(r.sign_out_at):new Date();
@@ -3450,8 +3494,11 @@ function crewAttendanceHTML(){
                 const dayH=crewDayHours(c.id);
                 const elsewhere=!open?crewOpenAnywhere(c.id):null;
                 const doneNote=done.length?`<div style="font-size:9px;color:var(--mut);margin-top:3px">${done.length} shift${done.length>1?'s':''} today · ${dayH.toFixed(1)}h${done.map(r=>` · ${new Date(r.sign_in_at).toLocaleTimeString()}→${new Date(r.sign_out_at).toLocaleTimeString()}`).join('')}</div>`:'';
-                if(open)return `<span style="font-size:10px;color:var(--green)">in ${new Date(open.sign_in_at).toLocaleTimeString()}</span>
-                  <button class="zadd" data-crewout="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--amber);color:var(--amber);margin-left:4px" ${store.crewBusy?'disabled':''}>■ OUT</button>${doneNote}`;
+                if(open){const stale=crossedMidnight(open);
+                  return `<span style="font-size:10px;color:${stale?'var(--red)':'var(--green)'}">in ${new Date(open.sign_in_at).toLocaleString()}</span>
+                  <button class="zadd" data-crewout="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--amber);color:var(--amber);margin-left:4px" ${store.crewBusy?'disabled':''}>■ OUT</button>
+                  ${stale?`<button class="zadd" data-fixout="${open.id}" style="font-size:10px;padding:5px 9px;border-color:var(--red);color:var(--red);margin-left:4px">✎ FIX OUT TIME</button>
+                    <div style="font-size:9px;color:var(--red);margin-top:3px">⚠ still open past midnight — hours are still counting. Correct the finish time.</div>`:''}${doneNote}`;}
                 return `<button class="zadd" data-crewin="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--green);color:var(--green)" ${store.crewBusy?'disabled':''}>▶ ${done.length?'IN AGAIN':'IN'}</button>${elsewhere?`<span style="font-size:9px;color:var(--amber);margin-left:6px">⚠ on "${elsewhere.project_name||'another project'}"</span>`:''}${doneNote}`;
               })()}
             </td>
@@ -4109,8 +4156,9 @@ function manpowerRows(){
     Hours:+crewHours(r).toFixed(2),
     'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
     'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
-    Method:'Recorded on site',
-    'Recorded by':r.recorded_by_name||''}));
+    Method:r.sign_out_manual?'Recorded on site (out time adjusted)':'Recorded on site',
+    'Recorded by':r.recorded_by_name||'',
+    'Adjusted by':r.sign_out_manual?(r.adjusted_by||'yes'):''}));
   rows.sort((a,b)=>(b.Date||'').localeCompare(a.Date||'')||String(a.Name).localeCompare(String(b.Name)));
   return rows;
 }
@@ -4260,6 +4308,13 @@ function manpowerHTML(){
       <div class="stat"><div class="sv" style="color:var(--amber)">${manDays.toFixed(1)}</div><div class="sl">CREW SHIFTS</div></div>
       <div class="stat"><div class="sv">${present}<span style="font-size:12px;color:var(--mut)">/${todayCrew.length}</span></div><div class="sl">CREW SIGNED IN TODAY</div></div>
     </div>
+    ${(()=>{const stale=(store.crewAtt||[]).filter(crossedMidnight).concat((store.attendance||[]).filter(crossedMidnight));
+      if(!stale.length)return '';
+      return `<div class="card" style="border-color:var(--red)"><div style="padding:12px 14px">
+        <div style="font-size:13px;font-weight:700;color:var(--red)">⚠ ${stale.length} SHIFT${stale.length>1?'S':''} NEVER SIGNED OUT</div>
+        <div class="hint" style="padding:6px 0 0">These are still counting hours, which inflates both the timesheet and the labour budget below. ${stale.map(r=>`<div style="margin-top:4px">• <strong>${r.worker_name||r.user_name||'—'}</strong> — in ${new Date(r.sign_in_at).toLocaleString()} on ${r.project_name||'—'}</div>`).join('')}
+        <div style="margin-top:6px">The site engineer can correct the finish time on their Crew Attendance screen.</div></div>
+      </div></div>`;})()}
     ${timesheetHTML()}
     <div class="card" style="border-color:var(--green)">
       <div class="cardHead" style="color:var(--green)"><span>🟢 ON SITE RIGHT NOW — ${totalOnNow}</span></div>
@@ -4286,7 +4341,7 @@ function manpowerHTML(){
           <td style="font-size:11px">${r.work_date||''}</td>
           <td style="font-size:11px">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'—'}</td>
           <td>${distanceTag(r.sign_in_lat!=null?r.sign_in_lat:r.lat,r.sign_in_lng!=null?r.sign_in_lng:r.lng,pr)}</td>
-          <td style="font-size:11px">${r.sign_out_at?new Date(r.sign_out_at).toLocaleTimeString():(r.sign_in_at?'<span style="color:var(--green)">still on site</span>':'—')}</td>
+          <td style="font-size:11px">${r.sign_out_at?new Date(r.sign_out_at).toLocaleTimeString()+adjustedTag(r):(r.sign_in_at?(crossedMidnight(r)?'<span style="color:var(--red);font-weight:700">⚠ never signed out</span>':'<span style="color:var(--green)">still on site</span>'):'—')}</td>
           <td>${r.sign_out_at?distanceTag(r.sign_out_lat,r.sign_out_lng,pr):''}</td>
           <td class="r">${crewHours(r).toFixed(1)}</td></tr>`;}).join('')}
       </tbody></table></div>`:'<div class="empty">No crew attendance recorded yet.</div>'}
@@ -5254,6 +5309,7 @@ function wire(){
     {const ap=document.getElementById('att_project'); if(ap)ap.onchange=()=>{store.attProject=ap.value;render();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
     document.querySelectorAll('[data-crewin]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewin,'in'));
+    document.querySelectorAll('[data-fixout]').forEach(b=>b.onclick=()=>adjustSignOut(b.dataset.fixout));
     document.querySelectorAll('[data-crewout]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewout,'out'));
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
