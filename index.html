@@ -4084,6 +4084,8 @@ function manpowerHTML(){
   // crew man-days across the whole period (half day counts as 0.5)
   const manDays=C.filter(r=>r.sign_in_at).length; // one man-day per recorded sign-in
   const crewHrsTotal=C.reduce((a,r)=>a+crewHours(r),0);
+  const Cs=[...C].sort((a,b)=>(b.work_date||'').localeCompare(a.work_date||'')||new Date(b.sign_in_at||0)-new Date(a.sign_in_at||0));
+  const stillOnCrew=C.filter(r=>r.sign_in_at&&!r.sign_out_at).length;
   const grandHrs=totalHrs+crewHrsTotal;
   return `<div class="body">
     <div class="hint" style="padding-top:14px">Who is signed in right now, and how much labour this project has taken. Covers both staff who sign in with their own account and crew marked by the site engineer. Read-only — nobody's attendance can be changed from here.</div>
@@ -4154,15 +4156,24 @@ function manpowerHTML(){
       </tbody></table></div>`:'<div class="empty">Nobody is signed in right now.</div>'}
     </div>
     <div class="card" style="border-color:var(--amber)">
-      <div class="cardHead" style="color:var(--amber)"><span>👷 CREW TODAY — ${present} present · ${half} half day · ${absent} absent</span></div>
-      ${todayCrew.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Status</th><th>Recorded by</th><th>When</th><th>Where</th></tr></thead><tbody>
-        ${todayCrew.map(r=>`<tr><td>${r.worker_name||cName(r.crew_member_id)}</td><td style="font-size:11px;color:var(--mut)">${r.trade||cTrade(r.crew_member_id)}</td>
-          <td style="font-size:11px;color:${(r.sign_in_at&&!r.sign_out_at)?'var(--green)':r.sign_out_at?'var(--blue)':'var(--mut)'}">${(r.sign_in_at&&!r.sign_out_at)?'On site':r.sign_out_at?'End of duty':'No sign-in'}</td>
-          <td style="font-size:10px;color:var(--mut)">${r.recorded_by_name||'—'}</td><td style="font-size:10px;color:var(--mut)">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString()+(r.sign_out_at?' → '+new Date(r.sign_out_at).toLocaleTimeString():' → still in')+' · '+crewHours(r).toFixed(1)+'h':(r.recorded_at?new Date(r.recorded_at).toLocaleTimeString():(r.work_date||'—'))}</td><td>${distanceTag(r.lat,r.lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
-      </tbody></table></div>`:'<div class="empty">No crew marked for today yet.</div>'}
+      <div class="cardHead" style="color:var(--amber)"><span>👷 RECENT CREW ATTENDANCE</span><small style="color:var(--mut)">${present} signed in today${stillOnCrew?' · '+stillOnCrew+' still on site':''}</small></div>
+      ${Cs.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Trade</th><th>Project</th><th>Date</th><th>In</th><th>In: where</th><th>Out</th><th>Out: where</th><th class="r">Hours</th></tr></thead><tbody>
+        ${Cs.slice(0,40).map(r=>{const pr=(store.projects||[]).find(x=>String(x.id)===String(r.project_id));return `<tr>
+          <td>${r.worker_name||cName(r.crew_member_id)}</td>
+          <td style="font-size:11px;color:var(--mut)">${r.trade||cTrade(r.crew_member_id)}</td>
+          <td style="font-size:11px">${r.project_name||'—'}</td>
+          <td style="font-size:11px">${r.work_date||''}</td>
+          <td style="font-size:11px">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'—'}</td>
+          <td>${distanceTag(r.sign_in_lat!=null?r.sign_in_lat:r.lat,r.sign_in_lng!=null?r.sign_in_lng:r.lng,pr)}</td>
+          <td style="font-size:11px">${r.sign_out_at?new Date(r.sign_out_at).toLocaleTimeString():(r.sign_in_at?'<span style="color:var(--green)">still on site</span>':'—')}</td>
+          <td>${r.sign_out_at?distanceTag(r.sign_out_lat,r.sign_out_lng,pr):''}</td>
+          <td class="r">${crewHours(r).toFixed(1)}</td></tr>`;}).join('')}
+      </tbody></table></div>`:'<div class="empty">No crew attendance recorded yet.</div>'}
+      ${Cs.length>40?`<div class="hint">Showing the 40 most recent of ${Cs.length}.</div>`:''}
+      <div class="hint">Recorded on site by the site engineer for workers who don't sign in themselves — same times, same GPS, same hours as a self sign-in.</div>
     </div>
     <div class="card">
-      <div class="cardHead"><span>🕐 RECENT STAFF ATTENDANCE</span></div>
+      <div class="cardHead"><span>🕐 RECENT STAFF ATTENDANCE</span><small style="color:var(--mut)">signed in with their own account</small></div>
       ${A.length?`<div class="scroll"><table><thead><tr><th>Name</th><th>Project</th><th>Date</th><th>In</th><th>In: where</th><th>Out</th><th>Out: where</th><th class="r">Hours</th></tr></thead><tbody>
         ${A.slice(0,40).map(r=>`<tr><td>${r.user_name||'—'}</td><td style="font-size:11px">${r.project_name||'—'}</td>
           <td style="font-size:11px">${r.work_date||''}</td>
