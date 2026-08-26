@@ -382,6 +382,7 @@ function projectPayload(){
 }
 async function cloudSave(){
   if(!sb||!store.account)return;
+  if(store._bootstrapping)return; // still deciding which project to open
   // if a shared project (someone else's) is open, this account is VIEW-ONLY — don't
   // try to save, since only the owning contractor can edit the cut-list data.
   if(_workspaceId && _workspaceOwnerId && _workspaceOwnerId!==store.account.uid){ store.syncState='view-only'; updateSyncBadge(); return; }
@@ -5975,7 +5976,21 @@ async function loadSession(){
     store.myOrders=[]; store.myOrdersLoaded=false;
     store._loadedUid=uid;
   }
+  store._bootstrapping=true;
   if(acctType!=='supplier'){ await cloudLoad(); }
+  // Join the company's existing work instead of starting yet another blank
+  // "My First Project". Only the very first person in a company should ever
+  // see that starting point — everyone after them picks up where the team
+  // already is, otherwise five colleagues produce five identical empty
+  // projects cluttering the same list.
+  if(acctType!=='supplier' && !_workspaceId){
+    try{
+      await loadProjects();
+      const existing=(store.projects||[]);
+      if(existing.length){ await openProject(existing[0].id); }
+    }catch(e){}
+  }
+  store._bootstrapping=false;
   subscribeOrders();
   loadUnread();
   render();
