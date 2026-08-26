@@ -1936,7 +1936,7 @@ function mgrSiteVisitsTabHTML(){
       <div class="hint" style="padding:0 12px 8px">Only projects you open here can have site visits logged against them — this keeps site measurements tied to a real project.</div>
       ${projects.length?`<div class="scroll"><table><thead><tr><th>Project</th><th>Last updated</th><th></th></tr></thead><tbody>
       ${projects.map(p=>`<tr><td>${p.name}</td><td style="font-size:11px;color:var(--mut)">${new Date(p.updated_at).toLocaleDateString()}</td>
-        <td><button class="zadd" data-toggleopen="${p.id}" style="font-size:10px;padding:4px 10px;${p.open_for_site_visit?'background:var(--green);color:#000;border-color:var(--green)':''}">${p.open_for_site_visit?'🔓 OPEN':'🔒 CLOSED'}</button></td></tr>`).join('')}
+        <td style="font-size:10px;color:var(--green)">✓ available to everyone</td></tr>`).join('')}
       </tbody></table></div>`:'<div class="empty">No projects yet — ask your contractor to save one.</div>'}
     </div>
     <div class="card" style="border-color:var(--amber)">
@@ -2704,7 +2704,7 @@ function siteEngineerHTML(){
   if(!store.projectsLoaded){loadProjects();}
   const visits=store.siteVisits||[];
   const d=store.svDraft||{};
-  const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
+  const openProjects=(store.projects||[]); // no gate: every company project is available
   const itemOptions=store.svItemOptions||[];
   return `<div ${isRTL()?'dir="rtl"':''}><header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · ${t('site_engineer')}</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight">${langSwitcherHTML()}<a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
@@ -3524,7 +3524,7 @@ function snagListHTML(){
   if(!store.snagsLoaded){loadSnags();}
   if(!store.projectsLoaded){loadProjects();}
   const snags=store.snags||[];
-  const openProjects=(store.projects||[]).filter(p=>p.open_for_site_visit);
+  const openProjects=(store.projects||[]); // no gate: every company project is available
   const d=store.snagDraft||{};
   const projName=(id)=>{const p=(store.projects||[]).find(x=>x.id===id);return p?p.name:'—';};
   return `<div class="card" style="border-color:var(--red)">
@@ -4335,7 +4335,7 @@ function appHTML(){
   </div>
   ${store.showProjects?`<div style="padding:12px 14px;background:#15181d;border-bottom:1px solid var(--line)">
     <div style="font-size:11px;color:var(--mut);margin-bottom:8px">YOUR SAVED PROJECTS — tap to open</div>
-    ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px"><span style="cursor:pointer;flex:1" data-openproj="${p.id}">${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut);margin-right:8px">${new Date(p.updated_at).toLocaleDateString()}</span>${p.owner_id===store.account.uid?`<button data-delproj="${p.id}" data-delprojname="${p.name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Delete this project">🗑</button>`:''}</div>`).join('')||'<div class="empty">No projects yet.</div>'}
+    ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px"><span style="cursor:pointer;flex:1" data-openproj="${p.id}">${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut);margin-right:8px">${new Date(p.updated_at).toLocaleDateString()}</span>${(p.owner_id===store.account.uid||p.name==='My First Project')?`<button data-delproj="${p.id}" data-delprojname="${p.name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Delete this project">🗑</button>`:''}</div>`).join('')||'<div class="empty">No projects yet.</div>'}
   </div>`:''}
   <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">FIT-OUT&nbsp;IQ</div><div class="sub">ESTIMATE · PRODUCE · FIT OUT</div></div></div>
     <div class="headBtns">
