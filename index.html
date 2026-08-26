@@ -3996,6 +3996,69 @@ async function setProjectSiteLocation(pid){
 // Attendance records need to leave the app — for payroll, for a client
 // asking how much labour went into their job, or just for filing. Excel for
 // working with the numbers, print for signing and filing.
+// Per-person timesheet across every project. A worker can move between sites
+// in one day — 2h here, 3h there — and what matters at the end of the day is
+// the person's total, not each project's slice. Overtime is calculated per
+// DAY (anything past the threshold), never on the period total, because
+// 40 hours across five days is normal while 12 hours in one day is not.
+const tsHours = r => crewHours(r); // numeric hours for any record with sign_in_at/sign_out_at
+function timesheetData(){
+  const period=store.tsPeriod||'today';
+  const now=new Date(); const start=new Date(now);
+  if(period==='today'){start.setHours(0,0,0,0);}
+  else if(period==='week'){start.setDate(now.getDate()-6);start.setHours(0,0,0,0);}
+  else {start.setDate(1);start.setHours(0,0,0,0);}
+  const startStr=start.toISOString().slice(0,10);
+  const people={};
+  const add=(key,name,type,date,project,hours)=>{
+    if(hours<=0)return;
+    if(!people[key])people[key]={name,type,dates:{},projects:{},total:0};
+    const p=people[key];
+    p.total+=hours;
+    p.projects[project]=(p.projects[project]||0)+hours;
+    p.dates[date]=(p.dates[date]||0)+hours;
+  };
+  (store.attendance||[]).filter(r=>(r.work_date||'')>=startStr).forEach(r=>
+    add('s:'+(r.user_id||r.user_name), r.user_name||'—','Staff', r.work_date||'', r.project_name||'—', tsHours(r)));
+  (store.crewAtt||[]).filter(r=>(r.work_date||'')>=startStr).forEach(r=>
+    add('c:'+(r.crew_member_id||r.worker_name), r.worker_name||'—','Crew', r.work_date||'', r.project_name||'—', tsHours(r)));
+  const thr=+store.otThreshold||8;
+  const list=Object.values(people);
+  list.forEach(p=>{
+    p.normal=0; p.ot=0; p.days=Object.keys(p.dates).length;
+    Object.values(p.dates).forEach(h=>{ p.normal+=Math.min(h,thr); p.ot+=Math.max(0,h-thr); });
+  });
+  return list.sort((a,b)=>b.total-a.total);
+}
+function timesheetHTML(){
+  const rows=timesheetData();
+  const period=store.tsPeriod||'today';
+  const thr=+store.otThreshold||8;
+  const label=period==='today'?'Today':period==='week'?'Last 7 days':'This month';
+  const tN=rows.reduce((a,p)=>a+p.normal,0), tO=rows.reduce((a,p)=>a+p.ot,0);
+  return `<div class="card" style="border-color:var(--blue)">
+    <div class="cardHead" style="color:var(--blue)"><span>🧾 WORKER TIMESHEET — ${label}</span>
+      <span style="display:flex;gap:4px">
+        ${['today','week','month'].map(k=>`<button class="zadd" data-tsperiod="${k}" style="font-size:10px;padding:4px 8px;${period===k?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">${k==='today'?'TODAY':k==='week'?'7 DAYS':'MONTH'}</button>`).join('')}
+        <button class="zadd" id="tsThreshold" style="font-size:10px;padding:4px 8px">⚙ OT after ${thr}h</button>
+      </span></div>
+    <div class="hint" style="padding:0 12px 8px">Every project a person worked on, added together. Overtime counts anything past ${thr} hours <strong>in a single day</strong> — so a long week of normal days stays normal. This section always covers all projects, regardless of the filter above.</div>
+    ${rows.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Type</th><th>Projects worked</th><th class="r">Days</th><th class="r">Normal</th><th class="r">Overtime</th><th class="r">Total</th></tr></thead><tbody>
+      ${rows.map(p=>`<tr>
+        <td><strong>${p.name}</strong></td>
+        <td style="font-size:10px;color:${p.type==='Staff'?'var(--blue)':'var(--amber)'}">${p.type.toLowerCase()}</td>
+        <td style="font-size:11px">${Object.entries(p.projects).sort((a,b)=>b[1]-a[1]).map(([n,h])=>`${n} <span style="color:var(--mut)">${h.toFixed(1)}h</span>`).join(' · ')}</td>
+        <td class="r" style="font-size:11px">${p.days}</td>
+        <td class="r">${p.normal.toFixed(1)}</td>
+        <td class="r"><strong style="color:${p.ot>0?'var(--amber)':'var(--mut)'}">${p.ot>0?p.ot.toFixed(1):'—'}</strong></td>
+        <td class="r"><span class="cost">${p.total.toFixed(1)}h</span></td></tr>`).join('')}
+      <tr style="border-top:2px solid var(--line)"><td colspan="4" class="r"><strong>TOTALS</strong></td>
+        <td class="r"><strong>${tN.toFixed(1)}</strong></td>
+        <td class="r"><strong style="color:${tO>0?'var(--amber)':'var(--mut)'}">${tO>0?tO.toFixed(1):'—'}</strong></td>
+        <td class="r"><strong style="color:var(--blue)">${(tN+tO).toFixed(1)}h</strong></td></tr>
+    </tbody></table></div>`:`<div class="empty">No hours recorded for ${label.toLowerCase()}.</div>`}
+  </div>`;
+}
 function manpowerRows(){
   const att=store.attendance||[], crewAtt=store.crewAtt||[];
   const sel=store.manpowerProject||'';
@@ -4041,6 +4104,10 @@ function exportManpowerExcel(){
   if(!rows.length){alert('No attendance records to export yet.');return;}
   const staffH=rows.filter(r=>r.Type==='Staff').reduce((a,r)=>a+r.Hours,0);
   const crewH=rows.filter(r=>r.Type!=='Staff').reduce((a,r)=>a+r.Hours,0);
+  const ts=timesheetData();
+  const tsRows=ts.map(p=>({Worker:p.name, Type:p.type,
+    Projects:Object.entries(p.projects).map(([n,h])=>n+' '+h.toFixed(1)+'h').join('; '),
+    Days:p.days, 'Normal hours':+p.normal.toFixed(2), 'Overtime hours':+p.ot.toFixed(2), 'Total hours':+p.total.toFixed(2)}));
   const summary=[
     ['FIT-OUT IQ — Attendance & Manpower'],
     ['Project', manpowerProjectLabel()],
@@ -4055,6 +4122,7 @@ function exportManpowerExcel(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Attendance');
+  if(tsRows.length)XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tsRows), 'Timesheet');
   const safe=manpowerProjectLabel().replace(/[^a-z0-9]+/gi,'-').toLowerCase();
   XLSX.writeFile(wb, `attendance-${safe}-${new Date().toISOString().slice(0,10)}.xlsx`);
 }
@@ -4170,6 +4238,7 @@ function manpowerHTML(){
       <div class="stat"><div class="sv" style="color:var(--amber)">${manDays.toFixed(1)}</div><div class="sl">CREW SHIFTS</div></div>
       <div class="stat"><div class="sv">${present}<span style="font-size:12px;color:var(--mut)">/${todayCrew.length}</span></div><div class="sl">CREW SIGNED IN TODAY</div></div>
     </div>
+    ${timesheetHTML()}
     <div class="card" style="border-color:var(--green)">
       <div class="cardHead" style="color:var(--green)"><span>🟢 ON SITE RIGHT NOW — ${totalOnNow}</span></div>
       ${(onNow.length||crewOnNow.length)?`<div class="scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Project</th><th>Since</th><th class="r">Hours so far</th><th>Method</th><th>Where</th></tr></thead><tbody>
@@ -5216,6 +5285,10 @@ function wire(){
     {const mr=document.getElementById('manpowerRefresh'); if(mr)mr.onclick=()=>{store.attLoaded=false;store.crewAttLoaded=false;loadAttendance();loadCrewAttendance();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
     document.querySelectorAll('[data-setplanned]').forEach(b=>b.onclick=()=>setPlannedHours(b.dataset.setplanned));
+    document.querySelectorAll('[data-tsperiod]').forEach(b=>b.onclick=()=>{store.tsPeriod=b.dataset.tsperiod;render();});
+    {const tt=document.getElementById('tsThreshold'); if(tt)tt.onclick=()=>{
+      const v=prompt('Overtime starts after how many hours in a single day?',(+store.otThreshold||8));
+      if(v===null)return; const n=Math.max(1,+v||8); store.otThreshold=n; render();};}
     {const mx=document.getElementById('manpowerExcel'); if(mx)mx.onclick=exportManpowerExcel;}
     {const mpr=document.getElementById('manpowerPrint'); if(mpr)mpr.onclick=printManpower;}
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
