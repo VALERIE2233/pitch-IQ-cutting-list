@@ -405,7 +405,7 @@ async function cloudSave(){
 async function loadProjects(){
   if(!sb||!store.account)return;
   try{
-    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id,open_for_site_visit,site_lat,site_lng').order('updated_at',{ascending:false});
+    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id,open_for_site_visit,site_lat,site_lng,planned_hours').order('updated_at',{ascending:false});
     if(store.account.companyId){
       q=q.or(`owner_id.eq.${store.account.uid},company_id.eq.${store.account.companyId}`);
     }else{
@@ -3266,6 +3266,8 @@ async function addCrewMember(){
   const nm=(document.getElementById('crew_name')||{}).value||'';
   const tr=(document.getElementById('crew_trade')||{}).value||'';
   if(!nm.trim()){alert('Enter the worker\'s name.');return;}
+  const dupe=(store.crew||[]).find(c=>(c.name||'').trim().toLowerCase()===nm.trim().toLowerCase());
+  if(dupe){alert(`"${dupe.name}" is already on the roster${dupe.trade?' ('+dupe.trade+')':''}. The roster is shared across every project — you only need to add someone once.`);return;}
   const row={company_id:store.account.companyId, name:nm.trim(), trade:tr.trim(), active:true};
   try{
     const {data,error}=await sb.from('crew_members').insert(row).select().single();
@@ -3426,10 +3428,12 @@ function crewAttendanceHTML(){
       </tbody></table></div>`:'<div class="empty">No workers on the roster yet — add them below.</div>'}
     `}
     <div style="padding:0 12px 12px;border-top:1px solid var(--line)">
-      <div style="font-size:11px;color:var(--mut);margin:10px 0 6px">${t('add_worker_to_roster')}</div>
+      <div style="font-size:11px;color:var(--mut);margin:10px 0 6px">${t('add_worker_to_roster')}<span style="color:var(--mut)"> — shared across every project, add each person once</span></div>
+      <datalist id="crewNameList">${(store.crew||[]).map(c=>`<option value="${(c.name||'').replace(/"/g,'&quot;')}">`).join('')}</datalist>
+      <datalist id="crewTradeList">${[...new Set((store.crew||[]).map(c=>c.trade).filter(Boolean))].map(tr=>`<option value="${tr.replace(/"/g,'&quot;')}">`).join('')}</datalist>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input class="fi" id="crew_name" placeholder="${t('worker_name')}" style="flex:2;min-width:130px">
-        <input class="fi" id="crew_trade" placeholder="${t('trade')}" style="flex:2;min-width:130px">
+        <input class="fi" id="crew_name" placeholder="${t('worker_name')}" list="crewNameList" style="flex:2;min-width:130px">
+        <input class="fi" id="crew_trade" placeholder="${t('trade')}" list="crewTradeList" style="flex:2;min-width:130px">
         <button class="zadd" id="crewAdd" style="padding:8px 14px">${t('add')}</button>
       </div>
     </div>
@@ -3933,6 +3937,19 @@ function distanceTag(lat,lng,proj){
   if(m<=1000)return `<span style="color:var(--amber);font-size:10px">⚠ ${txt} from site</span>`;
   return `<span style="color:var(--red);font-size:10px;font-weight:700">⚠ ${txt} from site</span>`;
 }
+async function setPlannedHours(pid){
+  const pr=(store.projects||[]).find(x=>String(x.id)===String(pid));
+  const cur=pr&&pr.planned_hours!=null?pr.planned_hours:'';
+  const v=prompt('How many labour hours are planned for this project?\n\nLeave blank to clear it.',cur);
+  if(v===null)return;
+  const num=String(v).trim()===''?null:Math.max(0,+v||0);
+  try{
+    const {error}=await sb.from('jobs').update({planned_hours:num}).eq('id',pid);
+    if(error)throw error;
+    if(pr)pr.planned_hours=num;
+    render();
+  }catch(e){alert('Could not save: '+(e.message||'error'));}
+}
 async function setProjectSiteLocation(pid){
   if(!confirm('Set this project\'s site location to where you are standing right now?\n\nDo this while you are actually on site — every future sign-in gets measured against this point.'))return;
   const pos=await getPosition();
@@ -4080,7 +4097,32 @@ function manpowerHTML(){
       <button class="zadd" id="manpowerExcel" style="align-self:flex-end;border-color:var(--green);color:var(--green)">⊞ EXCEL</button>
       <button class="zadd" id="manpowerPrint" style="align-self:flex-end">⎙ PRINT</button>
     </div>
-    ${(()=>{ if(!sel)return '<div class="hint" style="padding:0 16px 10px">Pick a single project above to set its site location and see how far each sign-in was from it.</div>';
+    ${(()=>{ if(!sel)return '<div class="hint" style="padding:0 16px 10px">Pick a single project above to set its site location, plan its hours, and see how far each sign-in was from it.</div>';
+      const pr2=(store.projects||[]).find(x=>String(x.id)===String(sel));
+      const planned=pr2&&pr2.planned_hours!=null?+pr2.planned_hours:null;
+      if(planned===null||planned<=0)return `<div class="card" style="border-color:var(--line)">
+        <div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:12px;color:var(--mut)">No hours planned for this project — set a figure to track how much of the labour budget has been used.</span>
+          <button class="zadd" data-setplanned="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--blue);color:var(--blue)">⏱ SET PLANNED HOURS</button>
+        </div></div>`;
+      const used=grandHrs, left=planned-used, pct=Math.min(100,(used/planned)*100);
+      const col=pct>=100?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
+      return `<div class="card" style="border-color:${col}">
+        <div style="padding:12px 14px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700">⏱ LABOUR BUDGET — ${used.toFixed(1)} of ${planned.toFixed(0)} hours used</span>
+            <span style="font-size:12px;color:${col};font-weight:700">${pct.toFixed(0)}%</span>
+            <button class="zadd" data-setplanned="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px">✎ CHANGE</button>
+          </div>
+          <div style="height:14px;background:var(--steel);border-radius:7px;overflow:hidden;border:1px solid var(--line)">
+            <div style="height:100%;width:${pct}%;background:${col};transition:width .3s"></div>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:${left<0?'var(--red)':'var(--mut)'}">
+            ${left>=0?`${left.toFixed(1)} hours remaining`:`⚠ ${Math.abs(left).toFixed(1)} hours OVER the planned budget`}
+          </div>
+          <div class="hint" style="padding:8px 0 0">This counts staff and crew hours together. Compare it against how far the work has actually progressed — if half the hours are gone but the job isn't half done, that's worth knowing now rather than at handover.</div>
+        </div></div>`;})()}
+    ${(()=>{ if(!sel)return '';
       const pr=(store.projects||[]).find(x=>String(x.id)===String(sel));
       const has=pr&&pr.site_lat!==null&&pr.site_lat!==undefined;
       return `<div class="card" style="border-color:${has?'var(--green)':'var(--amber)'}">
@@ -5132,6 +5174,7 @@ function wire(){
     {const mp=document.getElementById('manpowerProject'); if(mp)mp.onchange=()=>{store.manpowerProject=mp.value;render();};}
     {const mr=document.getElementById('manpowerRefresh'); if(mr)mr.onclick=()=>{store.attLoaded=false;store.crewAttLoaded=false;loadAttendance();loadCrewAttendance();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
+    document.querySelectorAll('[data-setplanned]').forEach(b=>b.onclick=()=>setPlannedHours(b.dataset.setplanned));
     {const mx=document.getElementById('manpowerExcel'); if(mx)mx.onclick=exportManpowerExcel;}
     {const mpr=document.getElementById('manpowerPrint'); if(mpr)mpr.onclick=printManpower;}
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
