@@ -3282,9 +3282,28 @@ async function removeCrewMember(id){
   try{await sb.from('crew_members').update({active:false}).eq('id',id);}catch(e){}
 }
 function crewKey(){ return (store.crewProject||'')+'|'+(store.crewDate||todayStr()); }
-function crewRecordFor(memberId){
+// A worker can now do several separate shifts on the same project on the same
+// day (in at 7, out at 12, back in at 13). So a member/project/date is a LIST
+// of records, not one — and "are they here right now" means "is any of those
+// still open", not "does a record exist".
+function crewRecordsFor(memberId){
   const pid=store.crewProject, d=store.crewDate||todayStr();
-  return (store.crewAtt||[]).find(a=>a.crew_member_id===memberId && a.project_id===pid && a.work_date===d);
+  return (store.crewAtt||[]).filter(a=>a.crew_member_id===memberId && a.project_id===pid && a.work_date===d);
+}
+function crewOpenRecord(memberId){
+  return crewRecordsFor(memberId).find(r=>r.sign_in_at&&!r.sign_out_at)||null;
+}
+// An open shift on ANY project. Nobody can physically be on two sites at once,
+// so signing in here has to close whatever is still open elsewhere — otherwise
+// the same person's hours get counted twice, on two different projects.
+function crewOpenAnywhere(memberId){
+  return (store.crewAtt||[]).find(a=>a.crew_member_id===memberId && a.sign_in_at && !a.sign_out_at)||null;
+}
+function crewDayHours(memberId){
+  return crewRecordsFor(memberId).reduce((a,r)=>a+crewHours(r),0);
+}
+function crewRecordFor(memberId){
+  return crewOpenRecord(memberId)||crewRecordsFor(memberId).slice(-1)[0]||null;
 }
 function setCrewStatus(memberId,status){
   if(!store.crewDraft)store.crewDraft={};
@@ -3342,28 +3361,37 @@ async function crewPunch(memberId, direction){
   const pos=await getPosition();
   const now=new Date().toISOString();
   const proj=(store.projects||[]).find(x=>String(x.id)===String(pid));
-  const existing=crewRecordFor(memberId);
-  store.crewBusy=true; render();
   try{
     if(direction==='in'){
-      const patch={sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present'};
-      if(existing){
-        Object.assign(existing,patch);
-        await sb.from('crew_attendance').update(patch).eq('id',existing.id);
-      }else{
-        const row={company_id:store.account.companyId, project_id:pid, project_name:proj?proj.name:'',
-          crew_member_id:c.id, worker_name:c.name, trade:c.trade, work_date:d,
-          recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
-          recorded_at:now, lat:pos?pos.lat:null, lng:pos?pos.lng:null, ...patch};
-        const {data,error}=await sb.from('crew_attendance').insert(row).select().single();
-        if(error)throw error;
-        store.crewAtt=[data,...(store.crewAtt||[])];
+      const openAnywhere=crewOpenAnywhere(memberId);
+      if(openAnywhere){
+        if(String(openAnywhere.project_id)!==String(pid)){
+          if(!confirm(`${c.name} is still signed in on "${openAnywhere.project_name||'another project'}".\n\nSign them out of there and in here instead? Nobody can be on two sites at once.`))return;
+        }else{
+          alert(`${c.name} is already signed in on this project. Sign them out first.`);return;
+        }
+        const closePatch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null, status:'closed'};
+        Object.assign(openAnywhere,closePatch);
+        store.crewBusy=true; render();
+        await sb.from('crew_attendance').update(closePatch).eq('id',openAnywhere.id);
       }
+      store.crewBusy=true; render();
+      // always a NEW record, so several shifts a day are kept separately
+      const row={company_id:store.account.companyId, project_id:pid, project_name:proj?proj.name:'',
+        crew_member_id:c.id, worker_name:c.name, trade:c.trade, work_date:d,
+        recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
+        recorded_at:now, lat:pos?pos.lat:null, lng:pos?pos.lng:null,
+        sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present'};
+      const {data,error}=await sb.from('crew_attendance').insert(row).select().single();
+      if(error)throw error;
+      store.crewAtt=[data,...(store.crewAtt||[])];
     }else{
-      if(!existing||!existing.sign_in_at){alert('Sign this worker in first.');store.crewBusy=false;render();return;}
+      const open=crewOpenRecord(memberId);
+      if(!open){alert('Sign this worker in first.');return;}
+      store.crewBusy=true; render();
       const patch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null, status:'closed'};
-      Object.assign(existing,patch);
-      await sb.from('crew_attendance').update(patch).eq('id',existing.id);
+      Object.assign(open,patch);
+      await sb.from('crew_attendance').update(patch).eq('id',open.id);
     }
   }catch(e){alert('Could not save: '+(e.message||'error'));}
   store.crewBusy=false; render();
@@ -3382,9 +3410,9 @@ function crewAttendanceHTML(){
   const crew=store.crew||[];
   // Attendance is now proven by a real sign-in time rather than a marked
   // status, so these counts come from the punch records themselves.
-  const dayRecs=crew.map(c=>crewRecordFor(c.id)).filter(Boolean);
-  const signedInToday=dayRecs.filter(r=>r.sign_in_at).length;
-  const stillOn=dayRecs.filter(r=>r.sign_in_at&&!r.sign_out_at).length;
+  const dayRecs=crew.reduce((a,c)=>a.concat(crewRecordsFor(c.id)),[]);
+  const signedInToday=crew.filter(c=>crewRecordsFor(c.id).some(r=>r.sign_in_at)).length;
+  const stillOn=crew.filter(c=>crewOpenRecord(c.id)).length;
   const dayHours=dayRecs.reduce((a,r)=>a+crewHours(r),0);
   const btn=(cid,st,label,col)=>{
     const on=crewStatusOf(cid)===st;
@@ -3414,12 +3442,14 @@ function crewAttendanceHTML(){
             <td style="font-size:12px">${c.name}</td>
             <td style="font-size:11px;color:var(--mut)">${c.trade||'—'}</td>
               <td style="white-space:nowrap">
-              ${(()=>{const r=crewRecordFor(c.id);
-                const inAt=r&&r.sign_in_at, outAt=r&&r.sign_out_at;
-                if(!inAt)return `<button class="zadd" data-crewin="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--green);color:var(--green)" ${store.crewBusy?'disabled':''}>▶ IN</button>`;
-                if(!outAt)return `<span style="font-size:10px;color:var(--green)">in ${new Date(inAt).toLocaleTimeString()}</span>
-                  <button class="zadd" data-crewout="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--amber);color:var(--amber);margin-left:4px" ${store.crewBusy?'disabled':''}>■ OUT</button>`;
-                return `<span style="font-size:10px;color:var(--mut)">${new Date(inAt).toLocaleTimeString()} → ${new Date(outAt).toLocaleTimeString()} · <strong style="color:var(--blue)">${crewHours(r).toFixed(1)}h</strong></span>`;
+              ${(()=>{const open=crewOpenRecord(c.id);
+                const done=crewRecordsFor(c.id).filter(r=>r.sign_out_at);
+                const dayH=crewDayHours(c.id);
+                const elsewhere=!open?crewOpenAnywhere(c.id):null;
+                const doneNote=done.length?`<div style="font-size:9px;color:var(--mut);margin-top:3px">${done.length} shift${done.length>1?'s':''} today · ${dayH.toFixed(1)}h${done.map(r=>` · ${new Date(r.sign_in_at).toLocaleTimeString()}→${new Date(r.sign_out_at).toLocaleTimeString()}`).join('')}</div>`:'';
+                if(open)return `<span style="font-size:10px;color:var(--green)">in ${new Date(open.sign_in_at).toLocaleTimeString()}</span>
+                  <button class="zadd" data-crewout="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--amber);color:var(--amber);margin-left:4px" ${store.crewBusy?'disabled':''}>■ OUT</button>${doneNote}`;
+                return `<button class="zadd" data-crewin="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--green);color:var(--green)" ${store.crewBusy?'disabled':''}>▶ ${done.length?'IN AGAIN':'IN'}</button>${elsewhere?`<span style="font-size:9px;color:var(--amber);margin-left:6px">⚠ on "${elsewhere.project_name||'another project'}"</span>`:''}${doneNote}`;
               })()}
             </td>
             <td style="font-size:10px;color:var(--mut);white-space:nowrap">${rec?'saved':''}
