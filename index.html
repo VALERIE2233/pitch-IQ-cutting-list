@@ -1944,13 +1944,13 @@ function mgrSiteVisitsTabHTML(){
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <label class="field"><span class="fl">PROJECT</span><input class="fi" id="req_project" value="${(rd.project_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. La Mer SC22"></label>
         <label class="field"><span class="fl">LOCATION / ZONE</span><input class="fi" id="req_location" value="${(rd.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall"></label>
-        <label class="field" style="grid-column:1/3"><span class="fl">NOTE FOR SITE ENGINEER</span><input class="fi" id="req_note" value="${(rd.note||'').replace(/"/g,'&quot;')}" placeholder="What do you need confirmed?"></label>
+        <label class="field" style="grid-column:1/-1"><span class="fl">NOTE FOR SITE ENGINEER</span><input class="fi" id="req_note" value="${(rd.note||'').replace(/"/g,'&quot;')}" placeholder="What do you need confirmed?"></label>
         <div style="grid-column:1/3;display:flex;align-items:center;gap:10px">
           ${rd.fileName?`<span style="font-size:12px;color:var(--green)">📎 ${rd.fileName} <button id="reqFileRemove" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px" title="Remove">✕</button></span>`:''}
           <label class="zadd" style="cursor:pointer">📄 Attach drawing<input type="file" id="req_file" style="display:none"></label>
         </div>
-        <button class="add" id="req_save" style="grid-column:1/3" ${store.reqBusy?'disabled':''}>${store.reqBusy?'SENDING…':'📤 SEND FOR REVIEW'}</button>
-        ${store.reqMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.reqErr?'var(--red)':'var(--green)'}">${store.reqMsg}</div>`:''}
+        <button class="add" id="req_save" style="grid-column:1/-1" ${store.reqBusy?'disabled':''}>${store.reqBusy?'SENDING…':'📤 SEND FOR REVIEW'}</button>
+        ${store.reqMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.reqErr?'var(--red)':'var(--green)'}">${store.reqMsg}</div>`:''}
       </div>
     </div>
     <div class="card">
@@ -2209,14 +2209,14 @@ function productionTabHTML(){
       <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <label class="field"><span class="fl">PROJECT</span><input class="fi" id="pi_project" list="prodProjectList" value="${(d.project_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. La Mer SC22"><datalist id="prodProjectList">${projects.map(p=>`<option value="${p.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
         <label class="field"><span class="fl">ZONE / FLOOR</span><input class="fi" id="pi_zone" list="prodZoneList" value="${(d.zone_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Ground Floor"><datalist id="prodZoneList">${zones.map(z=>`<option value="${z.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
-        <label class="field" style="grid-column:1/3"><span class="fl">ITEM / DESCRIPTION</span><input class="fi" id="pi_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Guest ensuite vanity 1750×600×430"></label>
+        <label class="field" style="grid-column:1/-1"><span class="fl">ITEM / DESCRIPTION</span><input class="fi" id="pi_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Guest ensuite vanity 1750×600×430"></label>
         <label class="field"><span class="fl">QTY</span><input class="fi" type="number" id="pi_qty" value="${d.qty||1}" min="1"></label>
         <label class="field"><span class="fl">ASSIGNEE</span><input class="fi" id="pi_assignee" list="prodAssigneeList" value="${(d.assignee||'').replace(/"/g,'&quot;')}" placeholder="Unassigned"><datalist id="prodAssigneeList">${assignees.map(a=>`<option value="${a.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
         <label class="field"><span class="fl">FLAG</span><select class="fi" id="pi_flag">${PROD_FLAGS.map(f=>`<option value="${f}" ${f===(d.flag||'—')?'selected':''}>${f}</option>`).join('')}</select></label>
         <label class="field"><span class="fl">STAGE</span><select class="fi" id="pi_stage">${PROD_STAGES.map(s=>`<option value="${s}" ${s===(d.stage||'Not Started')?'selected':''}>${s}</option>`).join('')}</select></label>
-        <label class="field" style="grid-column:1/3"><span class="fl">STATUS NOTE</span><input class="fi" id="pi_note" value="${(d.status_note||'').replace(/"/g,'&quot;')}" placeholder="optional note"></label>
-        <button class="add" id="pi_save" style="grid-column:1/3" ${store.prodBusy?'disabled':''}>${store.prodBusy?'ADDING…':'+ ADD ITEM'}</button>
-        ${store.prodMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.prodErr?'var(--red)':'var(--green)'}">${store.prodMsg}</div>`:''}
+        <label class="field" style="grid-column:1/-1"><span class="fl">STATUS NOTE</span><input class="fi" id="pi_note" value="${(d.status_note||'').replace(/"/g,'&quot;')}" placeholder="optional note"></label>
+        <button class="add" id="pi_save" style="grid-column:1/-1" ${store.prodBusy?'disabled':''}>${store.prodBusy?'ADDING…':'+ ADD ITEM'}</button>
+        ${store.prodMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.prodErr?'var(--red)':'var(--green)'}">${store.prodMsg}</div>`:''}
       </div>
     </div>
     <div class="card">
@@ -2720,26 +2720,26 @@ function siteEngineerHTML(){
     ${crewAttendanceHTML()}
     <div class="card" style="border-color:var(--blue)">
       <div class="cardHead" style="color:var(--blue)"><span>➕ ${t('new_site_visit')}</span></div>
-      <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <label class="field" style="grid-column:1/3"><span class="fl">PROJECT</span>
+      <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end">
+        <label class="field" style="grid-column:1/-1"><span class="fl">PROJECT</span>
           <select class="fi" id="sv_project">
             <option value="">${t('pick_project')}</option>
             ${openProjects.map(p=>`<option value="${p.id}" ${d.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}
           </select>
           ${!openProjects.length?'<div class="hint" style="padding:4px 0 0;color:var(--amber)">No projects are open for site visits yet — ask your manager to open one.</div>':''}
         </label>
-        <label class="field" style="grid-column:1/3"><span class="fl">${t('item_measured')}</span>
+        <label class="field" style="grid-column:1/-1"><span class="fl">${t('item_measured')}</span>
           <select class="fi" id="sv_item" ${!d.project_id?'disabled':''}>
             <option value="">${d.project_id?t('pick_item'):t('pick_item')}</option>
             ${itemOptions.map(n=>`<option value="${n}" ${d.item_name===n?'selected':''}>${n}</option>`).join('')}
           </select>
         </label>
-        <label class="field" style="grid-column:1/3"><span class="fl">${t('location')}</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
+        <label class="field" style="grid-column:1/-1"><span class="fl">${t('location')}</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
         <label class="field"><span class="fl">${t('site_width')} (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
         <label class="field"><span class="fl">${t('site_height')} (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
         <label class="field"><span class="fl">${t('site_depth')} (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
-        <label class="field" style="grid-column:1/3"><span class="fl">${t('notes')}</span><textarea class="fi" id="sv_notes" rows="2" placeholder="Anything the factory needs to know…">${(d.notes||'').replace(/</g,'&lt;')}</textarea></label>
-        <div style="grid-column:1/3">
+        <label class="field" style="grid-column:1/-1"><span class="fl">${t('notes')}</span><textarea class="fi" id="sv_notes" rows="2" placeholder="Anything the factory needs to know…">${(d.notes||'').replace(/</g,'&lt;')}</textarea></label>
+        <div style="grid-column:1/-1">
           <span class="fl" style="display:block;margin-bottom:6px">${t('site_documents')}</span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             ${(d.photos||[]).map((url,i)=>`<div style="position:relative">${attachCell(url,60,'draft')}<button data-svremovephoto="${i}" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>`).join('')}
@@ -2748,8 +2748,8 @@ function siteEngineerHTML(){
           </div>
           ${store.svUploading?'<div style="font-size:11px;color:var(--amber);margin-top:4px">Uploading…</div>':''}
         </div>
-        <button class="add" id="sv_save" style="grid-column:1/3" ${store.svBusy?'disabled':''}>${store.svBusy?'…':'✓ '+t('save_site_visit')}</button>
-        ${store.svMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.svErr?'var(--red)':'var(--green)'}">${store.svMsg}</div>`:''}
+        <button class="add" id="sv_save" style="grid-column:1/-1" ${store.svBusy?'disabled':''}>${store.svBusy?'…':'✓ '+t('save_site_visit')}</button>
+        ${store.svMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.svErr?'var(--red)':'var(--green)'}">${store.svMsg}</div>`:''}
       </div>
     </div>
     <div class="card">
@@ -3578,20 +3578,20 @@ function snagListHTML(){
     <div class="cardHead" style="color:var(--red)"><span>🔧 ${t('snag_list')}</span><button class="zadd" id="snagRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
     <div class="hint" style="padding:0 12px 8px">Log a snag with a "before" photo — either side can log one, either side can close it out with an "after" photo once fixed.</div>
     <div style="padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <label class="field" style="grid-column:1/3"><span class="fl">${t('project')}</span>
+      <label class="field" style="grid-column:1/-1"><span class="fl">${t('project')}</span>
         <select class="fi" id="snag_project">
           <option value="">${t('pick_project')}</option>
           ${openProjects.map(p=>`<option value="${p.id}" ${d.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}
         </select>
       </label>
-      <label class="field" style="grid-column:1/3"><span class="fl">${t('description')}</span><input class="fi" id="snag_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Scratched laminate on vanity door"></label>
+      <label class="field" style="grid-column:1/-1"><span class="fl">${t('description')}</span><input class="fi" id="snag_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Scratched laminate on vanity door"></label>
       <div style="grid-column:1/3;display:flex;align-items:center;gap:10px">
         ${d.beforeUrl?`<span style="font-size:12px;color:var(--green)">📎 Before photo attached <button id="snagBeforeRemove" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px" title="Remove">✕</button></span>`:''}
         <label class="zadd" style="cursor:pointer">📷 ${d.beforeUrl?'Retake':'Take'} before photo<input type="file" id="snag_before_photo" accept="image/*" capture="environment" style="display:none"></label>
         <label class="zadd" style="cursor:pointer">🖼 Choose photo<input type="file" id="snag_before_choose" accept="image/*" style="display:none"></label>
       </div>
-      <button class="add" id="snag_save" style="grid-column:1/3" ${store.snagBusy?'disabled':''}>${store.snagBusy?'…':'+ '+t('log_snag')}</button>
-      ${store.snagMsg?`<div style="grid-column:1/3;font-size:12px;color:${store.snagErr?'var(--red)':'var(--green)'}">${store.snagMsg}</div>`:''}
+      <button class="add" id="snag_save" style="grid-column:1/-1" ${store.snagBusy?'disabled':''}>${store.snagBusy?'…':'+ '+t('log_snag')}</button>
+      ${store.snagMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.snagErr?'var(--red)':'var(--green)'}">${store.snagMsg}</div>`:''}
     </div>
     ${snags.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Description</th><th>Before</th><th>After</th><th>Status</th></tr></thead><tbody>
     ${snags.map(s=>`<tr>
