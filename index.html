@@ -4043,6 +4043,17 @@ function siteLocationGateHTML(pid){
       <button class="add" data-setsiteloc="${pid}" style="width:100%;background:var(--amber);border-color:var(--amber);color:#000">📍 I AM ON SITE — SET LOCATION NOW</button>
     </div></div>`;
 }
+async function startNewProjectAsRole(){
+  const name=prompt('Name for the new project:','');
+  if(name===null)return;
+  if(!name.trim()){alert('Give the project a name.');return;}
+  _workspaceId=null; _workspaceOwnerId=null;
+  store.projectName=name.trim();
+  applyProject({});
+  store.fullEditorMode=true; store.showProjects=false;
+  render();
+  cloudSave(); // creates the row immediately so colleagues see it
+}
 async function setPlannedHours(pid){
   const pr=(store.projects||[]).find(x=>String(x.id)===String(pid));
   const cur=pr&&pr.planned_hours!=null?pr.planned_hours:'';
@@ -4374,8 +4385,9 @@ function fullEditorPickerHTML(){
   if(!store.projectsLoaded){loadProjects();}
   const projects=store.projects||[];
   return `<div class="card" style="border-color:var(--amber)">
-    <div class="cardHead" style="color:var(--amber)"><span>🔧 FULL PROJECT EDITOR</span></div>
-    <div class="hint" style="padding:0 12px 8px">Open a project's complete cutting list, price book and order tools — the same editor Supervisor uses. Changes here affect the shared project for everyone, including pricing.</div>
+    <div class="cardHead" style="color:var(--amber)"><span>🔧 ALL COMPANY PROJECTS — ${projects.length}</span>
+      <button class="zadd" id="mgrNewProject" style="font-size:10px;padding:4px 10px;border-color:var(--green);color:var(--green)">+ NEW PROJECT</button></div>
+    <div class="hint" style="padding:0 12px 8px">Every project in ${store.account.company}, whoever created it. Open one to work on its cutting list, price book and orders — the same editor the supervisor uses. Changes affect the shared project for everyone, including pricing.</div>
     ${projects.length?`<div style="padding:0 12px 12px">${projects.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:5px;margin-bottom:6px">
       <span>${p.name}</span>
       <button class="zadd" data-openfulleditor="${p.id}" style="border-color:var(--amber);color:var(--amber)">OPEN EDITOR →</button>
@@ -5120,6 +5132,33 @@ function lipSel(val,id){return `<select class="sel" data-sheet="${id}" data-k="l
 function edgeSel(val,id){return `<select class="sel" data-sheet="${id}" data-k="edge">${EDGE_OPTS.map(o=>`<option value="${o.v}" ${o.v===(val||'0')?'selected':''}>${o.t}</option>`).join('')}</select>`;}
 
 // ============================ WIRING ============================
+// Production tracker wiring, shared by the Manager's Production tab and the
+// Site Engineer's embedded tracker. This lived inside the manager block, so
+// the site engineer's copy rendered but none of its buttons did anything —
+// which is why they could see the tracker but never add or edit an item.
+function wireProduction(){
+    const pkeep=()=>{const g=id=>(document.getElementById(id)||{}).value;if(!store.prodDraft)store.prodDraft={};Object.assign(store.prodDraft,{project_id:g('pi_project'),zone_name:g('pi_zone'),description:g('pi_desc'),qty:g('pi_qty'),assignee:g('pi_assignee'),flag:g('pi_flag'),stage:g('pi_stage'),status_note:g('pi_note')});};
+    ['pi_project','pi_zone','pi_desc','pi_qty','pi_assignee','pi_flag','pi_stage','pi_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=pkeep;});
+    const pisave=document.getElementById('pi_save');if(pisave)pisave.onclick=()=>{pkeep();addProductionItem();};
+    document.querySelectorAll('[data-pistage]').forEach(sel=>sel.onchange=()=>updateProductionItem(sel.dataset.pistage,{stage:sel.value}));
+    document.querySelectorAll('[data-piflag]').forEach(sel=>sel.onchange=()=>updateProductionItem(sel.dataset.piflag,{flag:sel.value}));
+    document.querySelectorAll('[data-piqty]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.piqty,{qty:Math.max(1,+inp.value||1)}));
+    document.querySelectorAll('[data-pidesc]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.pidesc,{description:inp.value.trim()}));
+    document.querySelectorAll('[data-pizone]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.pizone,{zone_name:inp.value.trim()}));
+    document.querySelectorAll('[data-piassignee]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.piassignee,{assignee:inp.value||'Unassigned'}));
+    document.querySelectorAll('[data-pidelete]').forEach(b=>b.onclick=()=>deleteProductionItem(b.dataset.pidelete));
+    document.querySelectorAll('[data-piready]').forEach(b=>b.onclick=()=>{store.prodReadyId=b.dataset.piready;render();});
+    const prc=document.getElementById('prodReadyClose');if(prc)prc.onclick=()=>{store.prodReadyId=null;render();};
+    document.querySelectorAll('[data-readycheck]').forEach(cb=>cb.onchange=()=>{updateProductionItem(store.prodReadyId,{[cb.dataset.readycheck]:cb.checked});});
+    document.querySelectorAll('[data-prodview]').forEach(b=>b.onclick=()=>{store.prodView=b.dataset.prodview;render();});
+    (()=>{if(!store.dashFilter)store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};
+      const dp=document.getElementById('dash_project');if(dp)dp.onchange=()=>{store.dashFilter.project=dp.value;render();};
+      const da=document.getElementById('dash_assignee');if(da)da.onchange=()=>{store.dashFilter.assignee=da.value;render();};
+      const dz=document.getElementById('dash_zone');if(dz)dz.onchange=()=>{store.dashFilter.zone=dz.value;render();};
+    })();
+    if((store.managerTab==='production'||store.seShowTracker) && (!store.prodView||store.prodView==='dashboard')){renderProdCharts(store.prodItems||[]);}
+    const pix=document.getElementById('prodImportXlsx');if(pix)pix.onchange=(e)=>{const f=e.target.files[0];if(f)importProductionItemsExcel(f);e.target.value='';};
+}
 function wire(){
   if(!store.account){
     document.querySelectorAll('[data-authmode]').forEach(b=>b.onclick=()=>{store.authMode=b.dataset.authmode;store.authMsg='';render();});
@@ -5312,7 +5351,9 @@ function wire(){
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
     });
+    {const mnp=document.getElementById('mgrNewProject'); if(mnp)mnp.onclick=startNewProjectAsRole;}
     document.querySelectorAll('[data-setrole="tracker"]').forEach(b=>b.onclick=()=>{store.seShowTracker=!store.seShowTracker;render();});
+    if(store.seShowTracker)wireProduction();
     {const ap=document.getElementById('att_project'); if(ap)ap.onchange=()=>{store.attProject=ap.value;render();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
     document.querySelectorAll('[data-crewin]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewin,'in'));
@@ -5381,28 +5422,10 @@ function wire(){
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
     });
+    {const mnp=document.getElementById('mgrNewProject'); if(mnp)mnp.onclick=startNewProjectAsRole;}
     // production tracker (Coordinator) bindings
-    const pkeep=()=>{const g=id=>(document.getElementById(id)||{}).value;if(!store.prodDraft)store.prodDraft={};Object.assign(store.prodDraft,{project_id:g('pi_project'),zone_name:g('pi_zone'),description:g('pi_desc'),qty:g('pi_qty'),assignee:g('pi_assignee'),flag:g('pi_flag'),stage:g('pi_stage'),status_note:g('pi_note')});};
-    ['pi_project','pi_zone','pi_desc','pi_qty','pi_assignee','pi_flag','pi_stage','pi_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=pkeep;});
-    const pisave=document.getElementById('pi_save');if(pisave)pisave.onclick=()=>{pkeep();addProductionItem();};
-    document.querySelectorAll('[data-pistage]').forEach(sel=>sel.onchange=()=>updateProductionItem(sel.dataset.pistage,{stage:sel.value}));
-    document.querySelectorAll('[data-piflag]').forEach(sel=>sel.onchange=()=>updateProductionItem(sel.dataset.piflag,{flag:sel.value}));
-    document.querySelectorAll('[data-piqty]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.piqty,{qty:Math.max(1,+inp.value||1)}));
-    document.querySelectorAll('[data-pidesc]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.pidesc,{description:inp.value.trim()}));
-    document.querySelectorAll('[data-pizone]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.pizone,{zone_name:inp.value.trim()}));
-    document.querySelectorAll('[data-piassignee]').forEach(inp=>inp.onchange=()=>updateProductionItem(inp.dataset.piassignee,{assignee:inp.value||'Unassigned'}));
-    document.querySelectorAll('[data-pidelete]').forEach(b=>b.onclick=()=>deleteProductionItem(b.dataset.pidelete));
-    document.querySelectorAll('[data-piready]').forEach(b=>b.onclick=()=>{store.prodReadyId=b.dataset.piready;render();});
-    const prc=document.getElementById('prodReadyClose');if(prc)prc.onclick=()=>{store.prodReadyId=null;render();};
-    document.querySelectorAll('[data-readycheck]').forEach(cb=>cb.onchange=()=>{updateProductionItem(store.prodReadyId,{[cb.dataset.readycheck]:cb.checked});});
-    document.querySelectorAll('[data-prodview]').forEach(b=>b.onclick=()=>{store.prodView=b.dataset.prodview;render();});
-    (()=>{if(!store.dashFilter)store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};
-      const dp=document.getElementById('dash_project');if(dp)dp.onchange=()=>{store.dashFilter.project=dp.value;render();};
-      const da=document.getElementById('dash_assignee');if(da)da.onchange=()=>{store.dashFilter.assignee=da.value;render();};
-      const dz=document.getElementById('dash_zone');if(dz)dz.onchange=()=>{store.dashFilter.zone=dz.value;render();};
-    })();
-    if(store.managerTab==='production' && (!store.prodView||store.prodView==='dashboard')){renderProdCharts(store.prodItems||[]);}
-    const pix=document.getElementById('prodImportXlsx');if(pix)pix.onchange=(e)=>{const f=e.target.files[0];if(f)importProductionItemsExcel(f);e.target.value='';};
+
+    wireProduction();
     // Site Visits tab (factory-sends-drawing-for-review loop)
     if(!store.reqDraft)store.reqDraft={};
     const rkeep=()=>{const g=id=>(document.getElementById(id)||{}).value;Object.assign(store.reqDraft,{project_name:g('req_project'),location_name:g('req_location'),note:g('req_note')});};
