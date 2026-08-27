@@ -358,8 +358,8 @@ const store={
   projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
-  const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+  const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;Object.assign(store,j);}}catch(e){}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -3214,7 +3214,7 @@ function attendanceHTML(){
       :`<label class="field" style="margin-bottom:8px"><span class="fl">${t('project')}</span>
           <select class="fi" id="att_project">
             <option value="">${t('pick_project')}</option>
-            ${openProjects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+            ${openProjects.map(p=>`<option value="${p.id}" ${String(store.attProject||'')===String(p.id)?'selected':''}>${p.name}</option>`).join('')}
           </select></label>
         ${!openProjects.length?'<div class="hint" style="padding:0 0 8px;color:var(--amber)">No projects visible yet — ask your supervisor to save one.</div>':''}
         ${(store.attProject && !projectSiteSet(store.attProject))?siteLocationGateHTML(store.attProject):`<button class="add" id="attSignIn" style="width:100%" ${store.attBusy?'disabled':''}>${store.attBusy?'…':t('sign_in')}</button>`}`}
