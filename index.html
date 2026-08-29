@@ -2253,7 +2253,7 @@ function productionTabHTML(){
         <button class="add" id="pi_save" style="grid-column:1/-1" ${store.prodBusy?'disabled':''}>${store.prodBusy?'ADDING…':'+ ADD ITEM'}</button>
         ${store.prodMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.prodErr?'var(--red)':'var(--green)'}">${store.prodMsg}</div>`:''}
       </div>
-    </div>`:'<div class="hint" style="padding:0 0 10px">View only. Who does what, and how items move through production, is decided by the supervisor, manager, foreman or site engineer — your job is recording the hours.</div>'}
+    </div>`:'<div class="hint" style="padding:0 0 10px">You can assign a worker to an item so their hours are recorded against it. Creating items and moving them through production stages is done by the supervisor, manager or site engineer.</div>'}
     <div class="card">
       <div class="cardHead"><span>🏭 PRODUCTION ITEMS (${items.length})</span></div>
       ${items.length?`<div class="scroll"><table><thead><tr><th>Project</th><th>Zone</th><th>Item</th><th class="r">Qty</th><th>Assignee</th><th>Flag</th><th>Ready</th><th>Stage</th><th class="r">Progress</th><th>Aging</th><th class="r">Cycle</th><th></th></tr></thead><tbody>
@@ -2269,7 +2269,7 @@ function productionTabHTML(){
           :`<td style="font-size:11px">${it.zone_name||'—'}</td>
           <td style="font-size:11px;max-width:190px">${it.description||''}</td>
           <td class="r" style="font-size:11px">${it.qty||1}</td>`}
-          ${canEditProduction()?`<td><input class="cell" style="width:100px;font-size:11px" list="prodAssigneeList" value="${(it.assignee||'').replace(/"/g,'&quot;')}" data-piassignee="${it.id}"></td>`:`<td style="font-size:11px">${it.assignee||'—'}</td>`}
+          <td><input class="cell" style="width:100px;font-size:11px" list="prodAssigneeList" value="${(it.assignee||'').replace(/"/g,'&quot;')}" data-piassignee="${it.id}"></td>
           <td><select class="sel" style="font-size:11px" data-piflag="${it.id}">${PROD_FLAGS.map(f=>`<option value="${f}" ${f===it.flag?'selected':''}>${f}</option>`).join('')}</select></td>
           <td><button class="zadd" data-piready="${it.id}" style="font-size:10px;padding:4px 8px;${r.ready?'border-color:var(--green);color:var(--green)':'border-color:var(--amber);color:var(--amber)'}">${r.ready?'✓ READY':`⏳ ${r.toApprove} left`}</button></td>
           ${canEditProduction()?`<td><select class="sel" style="font-size:11px" data-pistage="${it.id}">${PROD_STAGES.map(s=>`<option value="${s}" ${s===it.stage?'selected':''}>${s}</option>`).join('')}</select></td>`:`<td style="font-size:11px">${it.stage||'—'}</td>`}
