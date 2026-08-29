@@ -5227,7 +5227,7 @@ function wireProduction(){
       const da=document.getElementById('dash_assignee');if(da)da.onchange=()=>{store.dashFilter.assignee=da.value;render();};
       const dz=document.getElementById('dash_zone');if(dz)dz.onchange=()=>{store.dashFilter.zone=dz.value;render();};
     })();
-    if((store.managerTab==='production'||store.seShowTracker) && (!store.prodView||store.prodView==='dashboard')){renderProdCharts(store.prodItems||[]);}
+    if((store.managerTab==='production'||store.seShowTracker||store.tkTab==='items') && (!store.prodView||store.prodView==='dashboard')){renderProdCharts(store.prodItems||[]);}
     const pix=document.getElementById('prodImportXlsx');if(pix)pix.onchange=(e)=>{const f=e.target.files[0];if(f)importProductionItemsExcel(f);e.target.value='';};
 }
 function wire(){
