@@ -2189,6 +2189,7 @@ function prodDashboardHTML(items){
     <div style="padding:12px 16px;height:260px"><canvas id="releaseChart"></canvas></div>
   </div>`;
 }
+function canEditProduction(){ return store.account && store.account.accountType!=='timekeeper'; }
 function productionTabHTML(){
   if(!store.prodItemsLoaded){loadProductionItems();}
   const items=store.prodItems||[];
@@ -2217,6 +2218,7 @@ function productionTabHTML(){
     </div>
     ${(!store.prodView||store.prodView==='dashboard')?prodDashboardHTML(items):''}
     ${store.prodView==='items'?`
+    ${canEditProduction()?`
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
       <label class="zadd" style="cursor:pointer">⬆ IMPORT FROM EXCEL (Items sheet)<input type="file" id="prodImportXlsx" accept=".xlsx,.xls" style="display:none"></label>
     </div>
@@ -2238,7 +2240,7 @@ function productionTabHTML(){
         <button class="add" id="pi_save" style="grid-column:1/-1" ${store.prodBusy?'disabled':''}>${store.prodBusy?'ADDING…':'+ ADD ITEM'}</button>
         ${store.prodMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.prodErr?'var(--red)':'var(--green)'}">${store.prodMsg}</div>`:''}
       </div>
-    </div>
+    </div>`:'<div class="hint" style="padding:0 0 10px">View only. Who does what, and how items move through production, is decided by the supervisor, manager, foreman or site engineer — your job is recording the hours.</div>'}
     <div class="card">
       <div class="cardHead"><span>🏭 PRODUCTION ITEMS (${items.length})</span></div>
       ${items.length?`<div class="scroll"><table><thead><tr><th>Project</th><th>Zone</th><th>Item</th><th class="r">Qty</th><th>Assignee</th><th>Flag</th><th>Ready</th><th>Stage</th><th class="r">Progress</th><th>Aging</th><th class="r">Cycle</th><th></th></tr></thead><tbody>
@@ -2248,13 +2250,16 @@ function productionTabHTML(){
         const agingColor=c.aging==='Aging'?'var(--red)':c.aging==='On track'?'var(--green)':c.aging==='Done'?'var(--mut)':'var(--mut)';
         return `<tr>
           <td style="font-size:11px">${it.project_name||'—'}</td>
-          <td><input class="cell" style="width:90px;font-size:11px" value="${(it.zone_name||'').replace(/"/g,'&quot;')}" data-pizone="${it.id}" placeholder="zone"></td>
+          ${canEditProduction()?`<td><input class="cell" style="width:90px;font-size:11px" value="${(it.zone_name||'').replace(/"/g,'&quot;')}" data-pizone="${it.id}" placeholder="zone"></td>
           <td><input class="cell" style="width:190px;font-size:11px" value="${(it.description||'').replace(/"/g,'&quot;')}" data-pidesc="${it.id}"></td>
-          <td class="r"><input class="num numS" type="number" min="1" value="${it.qty||1}" data-piqty="${it.id}"></td>
-          <td><input class="cell" style="width:100px;font-size:11px" list="prodAssigneeList" value="${(it.assignee||'').replace(/"/g,'&quot;')}" data-piassignee="${it.id}"></td>
+          <td class="r"><input class="num numS" type="number" min="1" value="${it.qty||1}" data-piqty="${it.id}"></td>`
+          :`<td style="font-size:11px">${it.zone_name||'—'}</td>
+          <td style="font-size:11px;max-width:190px">${it.description||''}</td>
+          <td class="r" style="font-size:11px">${it.qty||1}</td>`}
+          ${canEditProduction()?`<td><input class="cell" style="width:100px;font-size:11px" list="prodAssigneeList" value="${(it.assignee||'').replace(/"/g,'&quot;')}" data-piassignee="${it.id}"></td>`:`<td style="font-size:11px">${it.assignee||'—'}</td>`}
           <td><select class="sel" style="font-size:11px" data-piflag="${it.id}">${PROD_FLAGS.map(f=>`<option value="${f}" ${f===it.flag?'selected':''}>${f}</option>`).join('')}</select></td>
           <td><button class="zadd" data-piready="${it.id}" style="font-size:10px;padding:4px 8px;${r.ready?'border-color:var(--green);color:var(--green)':'border-color:var(--amber);color:var(--amber)'}">${r.ready?'✓ READY':`⏳ ${r.toApprove} left`}</button></td>
-          <td><select class="sel" style="font-size:11px" data-pistage="${it.id}">${PROD_STAGES.map(s=>`<option value="${s}" ${s===it.stage?'selected':''}>${s}</option>`).join('')}</select></td>
+          ${canEditProduction()?`<td><select class="sel" style="font-size:11px" data-pistage="${it.id}">${PROD_STAGES.map(s=>`<option value="${s}" ${s===it.stage?'selected':''}>${s}</option>`).join('')}</select></td>`:`<td style="font-size:11px">${it.stage||'—'}</td>`}
           <td class="r" style="font-size:11px">${Math.round(c.progress*100)}%</td>
           <td style="font-size:11px;color:${agingColor};font-weight:${c.aging==='Aging'?'700':'400'}">${c.aging}${typeof c.daysInStage==='number'?` (${c.daysInStage}d)`:''}</td>
           <td class="r" style="font-size:11px">${c.cycleDays!==null?c.cycleDays+'d':'—'}</td>
@@ -4115,7 +4120,18 @@ async function setProjectSiteLocation(pid){
 // the person's total, not each project's slice. Overtime is calculated per
 // DAY (anything past the threshold), never on the period total, because
 // 40 hours across five days is normal while 12 hours in one day is not.
-const tsHours = r => crewHours(r); // numeric hours for any record with sign_in_at/sign_out_at
+const tsHours = r => crewHours(r);
+// Which weekdays count as rest days for this company. 0=Sunday … 6=Saturday.
+// Defaults to Friday, the usual site rest day in the UAE, but it's editable
+// because companies genuinely differ.
+const WEEKDAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function isOffDay(dateStr){
+  if(!dateStr)return false;
+  const off=store.offDays||[5];
+  const dt=new Date(dateStr+'T00:00:00');
+  if(isNaN(dt))return false;
+  return off.indexOf(dt.getDay())!==-1;
+} // numeric hours for any record with sign_in_at/sign_out_at
 function timesheetData(){
   const period=store.tsPeriod||'today';
   const now=new Date(); const start=new Date(now);
@@ -4137,10 +4153,16 @@ function timesheetData(){
   (store.crewAtt||[]).filter(r=>(r.work_date||'')>=startStr).forEach(r=>
     add('c:'+(r.crew_member_id||r.worker_name), r.worker_name||'—','Crew', r.work_date||'', r.project_name||'—', tsHours(r)));
   const thr=+store.otThreshold||8;
+  const off=store.offDays||[5]; // default Friday; set per company
   const list=Object.values(people);
   list.forEach(p=>{
-    p.normal=0; p.ot=0; p.days=Object.keys(p.dates).length;
-    Object.values(p.dates).forEach(h=>{ p.normal+=Math.min(h,thr); p.ot+=Math.max(0,h-thr); });
+    p.normal=0; p.ot=0; p.offHrs=0; p.days=Object.keys(p.dates).length;
+    Object.entries(p.dates).forEach(([d,h])=>{
+      // A day off is a day off — every hour worked on one is overtime, no
+      // threshold applies. Working a rest day is different from a long day.
+      if(isOffDay(d)){ p.ot+=h; p.offHrs+=h; }
+      else { p.normal+=Math.min(h,thr); p.ot+=Math.max(0,h-thr); }
+    });
   });
   return list.sort((a,b)=>b.total-a.total);
 }
@@ -4155,19 +4177,22 @@ function timesheetHTML(){
       <span style="display:flex;gap:4px">
         ${['today','week','month'].map(k=>`<button class="zadd" data-tsperiod="${k}" style="font-size:10px;padding:4px 8px;${period===k?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">${k==='today'?'TODAY':k==='week'?'7 DAYS':'MONTH'}</button>`).join('')}
         <button class="zadd" id="tsThreshold" style="font-size:10px;padding:4px 8px">⚙ OT after ${thr}h</button>
+        <button class="zadd" id="tsOffDays" style="font-size:10px;padding:4px 8px">📅 Rest: ${(store.offDays||[5]).map(i=>WEEKDAY_NAMES[i].slice(0,3)).join(', ')||'none'}</button>
       </span></div>
-    <div class="hint" style="padding:0 12px 8px">Every project a person worked on, added together. Overtime counts anything past ${thr} hours <strong>in a single day</strong> — so a long week of normal days stays normal. This section always covers all projects, regardless of the filter above.</div>
-    ${rows.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Type</th><th>Projects worked</th><th class="r">Days</th><th class="r">Normal</th><th class="r">Overtime</th><th class="r">Total</th></tr></thead><tbody>
+    <div class="hint" style="padding:0 12px 8px">Every project a person worked on, added together. Hours worked on a rest day (${(store.offDays||[5]).map(i=>WEEKDAY_NAMES[i]).join(', ')||'none set'}) are <strong>all</strong> overtime. On a working day, overtime is anything past ${thr} hours <strong>in that day</strong> — so a long week of normal days stays normal. This section always covers all projects, regardless of the filter above.</div>
+    ${rows.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Type</th><th>Projects worked</th><th class="r">Days</th><th class="r">Normal</th><th class="r">Off-day</th><th class="r">Overtime</th><th class="r">Total</th></tr></thead><tbody>
       ${rows.map(p=>`<tr>
         <td><strong>${p.name}</strong></td>
         <td style="font-size:10px;color:${p.type==='Staff'?'var(--blue)':'var(--amber)'}">${p.type.toLowerCase()}</td>
         <td style="font-size:11px">${Object.entries(p.projects).sort((a,b)=>b[1]-a[1]).map(([n,h])=>`${n} <span style="color:var(--mut)">${h.toFixed(1)}h</span>`).join(' · ')}</td>
         <td class="r" style="font-size:11px">${p.days}</td>
         <td class="r">${p.normal.toFixed(1)}</td>
+        <td class="r"><span style="color:${p.offHrs>0?'var(--red)':'var(--mut)'}">${p.offHrs>0?p.offHrs.toFixed(1):'—'}</span></td>
         <td class="r"><strong style="color:${p.ot>0?'var(--amber)':'var(--mut)'}">${p.ot>0?p.ot.toFixed(1):'—'}</strong></td>
         <td class="r"><span class="cost">${p.total.toFixed(1)}h</span></td></tr>`).join('')}
       <tr style="border-top:2px solid var(--line)"><td colspan="4" class="r"><strong>TOTALS</strong></td>
         <td class="r"><strong>${tN.toFixed(1)}</strong></td>
+        <td class="r"><strong style="color:${rows.reduce((a,p)=>a+p.offHrs,0)>0?'var(--red)':'var(--mut)'}">${rows.reduce((a,p)=>a+p.offHrs,0).toFixed(1)}</strong></td>
         <td class="r"><strong style="color:${tO>0?'var(--amber)':'var(--mut)'}">${tO>0?tO.toFixed(1):'—'}</strong></td>
         <td class="r"><strong style="color:var(--blue)">${(tN+tO).toFixed(1)}h</strong></td></tr>
     </tbody></table></div>`:`<div class="empty">No hours recorded for ${label.toLowerCase()}.</div>`}
@@ -4222,7 +4247,7 @@ function exportManpowerExcel(){
   const ts=timesheetData();
   const tsRows=ts.map(p=>({Worker:p.name, Type:p.type,
     Projects:Object.entries(p.projects).map(([n,h])=>n+' '+h.toFixed(1)+'h').join('; '),
-    Days:p.days, 'Normal hours':+p.normal.toFixed(2), 'Overtime hours':+p.ot.toFixed(2), 'Total hours':+p.total.toFixed(2)}));
+    Days:p.days, 'Normal hours':+p.normal.toFixed(2), 'Rest-day hours':+(p.offHrs||0).toFixed(2), 'Overtime hours':+p.ot.toFixed(2), 'Total hours':+p.total.toFixed(2)}));
   const summary=[
     ['FIT-OUT IQ — Attendance & Manpower'],
     ['Project', manpowerProjectLabel()],
@@ -4276,9 +4301,18 @@ function timekeeperHTML(){
     <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.tkTab||store.tkTab==='manpower')?'on':''}" data-tktab="manpower" style="color:var(--green)">👷 MANPOWER</button>
+    <button class="tab ${store.tkTab==='record'?'on':''}" data-tktab="record" style="color:var(--blue)">🕐 RECORD ATTENDANCE</button>
+    <button class="tab ${store.tkTab==='items'?'on':''}" data-tktab="items" style="color:var(--blue)">🏭 PROJECTS & ITEMS</button>
     <button class="tab ${store.tkTab==='ral'?'on':''}" data-tktab="ral" style="color:var(--amber)">🎨 RAL MIXER</button>
   </div>
-  ${(!store.tkTab||store.tkTab==='manpower')?manpowerHTML():`<div class="body">${ralMixerHTML()}</div>`}
+  ${(!store.tkTab||store.tkTab==='manpower')?manpowerHTML()
+    :store.tkTab==='record'?`<div class="body">
+      <div class="hint" style="padding-top:14px">Sign yourself in and out, and record the crew's hours. This is the recording side — what you enter here is what appears in the timesheet and the manpower figures.</div>
+      ${attendanceHTML()}
+      ${crewAttendanceHTML()}
+    </div>`
+    :store.tkTab==='items'?productionTabHTML()
+    :`<div class="body">${ralMixerHTML()}</div>`}
   ${accountOverlayHTML()}`;
 }
 function manpowerHTML(){
@@ -5473,7 +5507,22 @@ function wire(){
     {const tt=document.getElementById('tsThreshold'); if(tt)tt.onclick=()=>{
       const v=prompt('Overtime starts after how many hours in a single day?',(+store.otThreshold||8));
       if(v===null)return; const n=Math.max(1,+v||8); store.otThreshold=n; render();};}
+    {const od=document.getElementById('tsOffDays'); if(od)od.onclick=()=>{
+      const cur=(store.offDays||[5]).map(i=>WEEKDAY_NAMES[i]).join(', ');
+      const v=prompt('Which days are rest days? Hours worked on these count entirely as overtime.\n\nType day names separated by commas, e.g. Friday  or  Friday, Saturday\nLeave blank for none.',cur);
+      if(v===null)return;
+      const picked=String(v).split(',').map(x=>x.trim().toLowerCase()).filter(Boolean)
+        .map(x=>WEEKDAY_NAMES.findIndex(d=>d.toLowerCase().startsWith(x.slice(0,3)))).filter(i=>i>=0);
+      store.offDays=picked; render();};}
     document.querySelectorAll('[data-fixout]').forEach(b=>b.onclick=()=>adjustSignOut(b.dataset.fixout));
+    if(store.tkTab==='items')wireProduction();
+    if(store.tkTab==='record'){ wireAttendance(); wireCrewAttendance();
+      document.querySelectorAll('[data-crewin]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewin,'in'));
+      document.querySelectorAll('[data-crewout]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewout,'out'));
+      document.querySelectorAll('[data-delcrew]').forEach(b=>b.onclick=()=>deleteCrewMember(b.dataset.delcrew));
+      {const ap=document.getElementById('att_project'); if(ap)ap.onchange=()=>{store.attProject=ap.value;render();};}
+      document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
+    }
     wireAccountOverlay();
     // The RAL mixer runs in an isolated iframe; its content is injected here
     // because the timekeeper block returns before the shared wiring runs.
@@ -5505,6 +5554,13 @@ function wire(){
     {const tt=document.getElementById('tsThreshold'); if(tt)tt.onclick=()=>{
       const v=prompt('Overtime starts after how many hours in a single day?',(+store.otThreshold||8));
       if(v===null)return; const n=Math.max(1,+v||8); store.otThreshold=n; render();};}
+    {const od=document.getElementById('tsOffDays'); if(od)od.onclick=()=>{
+      const cur=(store.offDays||[5]).map(i=>WEEKDAY_NAMES[i]).join(', ');
+      const v=prompt('Which days are rest days? Hours worked on these count entirely as overtime.\n\nType day names separated by commas, e.g. Friday  or  Friday, Saturday\nLeave blank for none.',cur);
+      if(v===null)return;
+      const picked=String(v).split(',').map(x=>x.trim().toLowerCase()).filter(Boolean)
+        .map(x=>WEEKDAY_NAMES.findIndex(d=>d.toLowerCase().startsWith(x.slice(0,3)))).filter(i=>i>=0);
+      store.offDays=picked; render();};}
     {const mx=document.getElementById('manpowerExcel'); if(mx)mx.onclick=exportManpowerExcel;}
     {const mpr=document.getElementById('manpowerPrint'); if(mpr)mpr.onclick=printManpower;}
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
