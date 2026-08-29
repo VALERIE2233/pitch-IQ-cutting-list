@@ -2153,6 +2153,19 @@ function prodDashboardCalc(items){
   return {filtered,qty,onSiteQty,notStartedQty,inProgQty,agingQty,avgProgress,byRelease,pctOnSite:qty?onSiteQty/qty:0};
 }
 function prodDashboardHTML(items){
+  // With no items at all the dashboard is just zeroes and blank charts, which
+  // reads as broken rather than empty. Say so plainly instead.
+  if(!items||!items.length){
+    const canAdd=canEditProduction();
+    return `<div class="card" style="border-color:var(--blue)">
+      <div style="padding:20px;text-align:center">
+        <div style="font-size:15px;font-weight:700;color:var(--blue);margin-bottom:6px">No production items yet</div>
+        <div class="hint" style="padding:0 0 10px">Nothing is being tracked through the factory for ${store.account.company} so far. Once items are added they appear here, with charts showing how much of the work is at each stage.</div>
+        ${canAdd
+          ? `<div style="font-size:12px;color:var(--mut)">Switch to the <strong>ITEMS</strong> view above to add one, or import a batch from Excel.</div>`
+          : `<div style="font-size:12px;color:var(--mut)">Items are added by the supervisor, manager or site engineer. Once they do, everything they're producing shows up here.</div>`}
+      </div></div>`;
+  }
   const projects=['(All)',...new Set(items.map(i=>i.project_name).filter(Boolean))];
   const assignees=['(All)',...new Set(items.map(i=>i.assignee).filter(Boolean))];
   const zones=['(All)',...new Set(items.map(i=>i.zone_name).filter(Boolean))];
