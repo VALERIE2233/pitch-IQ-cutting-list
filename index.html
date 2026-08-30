@@ -3,7 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FIT-OUT IQ — Production Platform for Fit-Out</title>
+<title>FIT-OUT IQ — Cutting Lists, Site Measurements & Production Tracking for Fit-Out</title>
+<meta name="description" content="Software built for fit-out and joinery companies: cutting list optimisation, site measurements tied to real items, production tracking, procurement approvals, supplier catalogues and site attendance — in one place.">
+<link rel="canonical" href="https://fit-out-iq.com/">
+<meta name="robots" content="index, follow">
+<meta name="author" content="FIT-OUT IQ">
+<!-- Shown when the link is shared on WhatsApp, LinkedIn or Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FIT-OUT IQ">
+<meta property="og:title" content="FIT-OUT IQ — Production Platform for Fit-Out & Joinery">
+<meta property="og:description" content="Cutting lists, site measurements, production tracking, procurement and manpower — built for fit-out and joinery companies.">
+<meta property="og:url" content="https://fit-out-iq.com/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FIT-OUT IQ — Production Platform for Fit-Out & Joinery">
+<meta name="twitter:description" content="Cutting lists, site measurements, production tracking, procurement and manpower — built for fit-out and joinery companies.">
 <style>
   :root{--amber:#FFB300;--steel:#1c1f24;--panel:#24282f;--line:#363b44;--green:#3ddc84;--blue:#5db8ff;--red:#ff5d5d;--txt:#e7e9ec;--mut:#8b929c;--mono:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
@@ -431,6 +444,17 @@ async function loadProjectItems(projectId){
     const rows=(data&&data.data&&Array.isArray(data.data.sheetRows))?data.data.sheetRows:[];
     const names=[...new Set(rows.map(r=>itemName(r)).filter(Boolean))];
     return names;
+  }catch(e){return [];}
+}
+// The same fetch already carries the project's zones — the site engineer
+// should pick from the supervisor's real zone names rather than typing a
+// location that may not match anything.
+async function loadProjectZones(projectId){
+  if(!sb||!projectId)return [];
+  try{
+    const {data}=await sb.from('jobs').select('data').eq('id',projectId).maybeSingle();
+    const zones=(data&&data.data&&Array.isArray(data.data.zones))?data.data.zones:[];
+    return zones.map(z=>z.name).filter(Boolean);
   }catch(e){return [];}
 }
 // open a specific project by id
@@ -1956,19 +1980,9 @@ function mgrSiteVisitsTabHTML(){
       </tbody></table></div>`:'<div class="empty">No projects yet — ask your contractor to save one.</div>'}
     </div>
     <div class="card" style="border-color:var(--amber)">
-      <div class="cardHead" style="color:var(--amber)"><span>➕ REQUEST SITE REVIEW (send a drawing)</span></div>
-      <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <label class="field"><span class="fl">PROJECT</span><input class="fi" id="req_project" value="${(rd.project_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. La Mer SC22"></label>
-        <label class="field"><span class="fl">LOCATION / ZONE</span><input class="fi" id="req_location" value="${(rd.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall"></label>
-        <label class="field" style="grid-column:1/-1"><span class="fl">NOTE FOR SITE ENGINEER</span><input class="fi" id="req_note" value="${(rd.note||'').replace(/"/g,'&quot;')}" placeholder="What do you need confirmed?"></label>
-        <div style="grid-column:1/3;display:flex;align-items:center;gap:10px">
-          ${rd.fileName?`<span style="font-size:12px;color:var(--green)">📎 ${rd.fileName} <button id="reqFileRemove" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px" title="Remove">✕</button></span>`:''}
-          <label class="zadd" style="cursor:pointer">📄 Attach drawing<input type="file" id="req_file" style="display:none"></label>
-        </div>
-        <button class="add" id="req_save" style="grid-column:1/-1" ${store.reqBusy?'disabled':''}>${store.reqBusy?'SENDING…':'📤 SEND FOR REVIEW'}</button>
-        ${store.reqMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.reqErr?'var(--red)':'var(--green)'}">${store.reqMsg}</div>`:''}
-      </div>
+      <div style="display:none"></div>
     </div>
+    ${sendDrawingFormHTML()}
     <div class="card">
       <div class="cardHead"><span>👷 SITE VISITS (${visits.length})</span><button class="zadd" id="svRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
       ${visits.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Site Engineer</th><th>Sent for review</th><th style="color:var(--green)">Marked-up (received)</th><th></th></tr></thead><tbody>
@@ -1995,14 +2009,81 @@ function mgrSiteVisitsTabHTML(){
 }
 // ---- Manager: create a new site-visit review request, or attach another drawing
 // to an existing one — the "factory sends a drawing" half of the loop. ----
+// Sending a drawing to site, shared by the Manager and the Supervisor. The
+// drawing now attaches to a specific ITEM on a specific project, not just a
+// project name typed by hand — so what comes back can be matched to the thing
+// it actually describes. The Manager sees every request regardless of who
+// sent it, since it all lands in the same shared site_visits list.
+function sendDrawingFormHTML(){
+  if(!store.projectsLoaded){loadProjects();}
+  const rd=store.reqDraft||{};
+  return `<div class="card" style="border-color:var(--amber)">
+      <div class="cardHead" style="color:var(--amber)"><span>➕ SEND A DRAWING TO SITE</span></div>
+      <div class="hint" style="padding:0 12px 8px">Attach it to the item it describes. The site engineer marks it up and it comes back against that same item — and your manager sees it either way.</div>
+      <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end">
+        <label class="field"><span class="fl">PROJECT</span>
+          <select class="fi" id="req_project">
+            <option value="">— pick a project —</option>
+            ${(store.projects||[]).map(p=>`<option value="${p.id}" ${String(rd.project_id||'')===String(p.id)?'selected':''}>${p.name}</option>`).join('')}
+          </select></label>
+        <label class="field"><span class="fl">ZONE</span>
+          <select class="fi" id="req_zone">
+            <option value="">${rd.project_id?'— pick a zone —':'pick a project first'}</option>
+            ${(store.reqZoneOptions||[]).map(z=>`<option value="${z.replace(/"/g,'&quot;')}" ${rd.location_name===z?'selected':''}>${z}</option>`).join('')}
+          </select></label>
+        <label class="field"><span class="fl">ITEM</span>
+          <select class="fi" id="req_item">
+            <option value="">${rd.project_id?'— pick an item —':'pick a project first'}</option>
+            ${(store.reqItemOptions||[]).map(it=>`<option value="${it.replace(/"/g,'&quot;')}" ${rd.item_name===it?'selected':''}>${it}</option>`).join('')}
+          </select></label>
+        <label class="field" style="grid-column:1/-1"><span class="fl">NOTE FOR SITE ENGINEER</span><input class="fi" id="req_note" value="${(rd.note||'').replace(/"/g,'&quot;')}" placeholder="What should they check?"></label>
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          ${rd.fileName?`<span style="font-size:12px;color:var(--green)">📎 ${rd.fileName} <button id="reqFileRemove" style="background:none;border:none;color:var(--red);cursor:pointer">✕</button></span>`:''}
+          <label class="zadd" style="cursor:pointer">📄 Attach drawing<input type="file" id="req_file" style="display:none"></label>
+        </div>
+        <button class="add" id="req_save" style="grid-column:1/-1" ${store.reqBusy?'disabled':''}>${store.reqBusy?'SENDING…':'📤 SEND TO SITE'}</button>
+        ${store.reqMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.reqErr?'var(--red)':'var(--green)'}">${store.reqMsg}</div>`:''}
+      </div>
+    </div>`;
+}
+// Wiring for the send-drawing form, shared by Manager and Supervisor.
+function wireSendDrawing(){
+  if(!store.reqDraft)store.reqDraft={};
+  const g=id=>(document.getElementById(id)||{}).value;
+  const rkeep=()=>{Object.assign(store.reqDraft,{location_name:g('req_zone'),item_name:g('req_item'),note:g('req_note')});};
+  ['req_zone','req_item','req_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=rkeep;});
+  const rp=document.getElementById('req_project');
+  if(rp)rp.onchange=async()=>{
+    store.reqDraft.project_id=rp.value;
+    store.reqDraft.location_name=''; store.reqDraft.item_name='';
+    store.reqZoneOptions=[]; store.reqItemOptions=[]; render();
+    const [items,zones]=await Promise.all([loadProjectItems(rp.value),loadProjectZones(rp.value)]);
+    store.reqItemOptions=items; store.reqZoneOptions=zones; render();
+  };
+  const rkeepShared=()=>{const g=id=>(document.getElementById(id)||{}).value;Object.assign(store.reqDraft,{location_name:g('req_zone'),item_name:g('req_item'),note:g('req_note')});};
+  const rf=document.getElementById('req_file');if(rf)rf.onchange=async(e)=>{
+    const f=e.target.files[0];if(!f)return; rkeepShared();
+    store.reqBusy=true;render();
+    try{const url=await uploadSiteVisitPhoto(f);store.reqDraft.fileUrl=url;store.reqDraft.fileName=f.name;store.reqMsg='';store.reqErr=false;}
+    catch(ex){store.reqMsg='Upload failed: '+(ex.message||'error');store.reqErr=true;}
+    store.reqBusy=false;render();
+  };
+  const rsave=document.getElementById('req_save');if(rsave)rsave.onclick=()=>{rkeepShared();saveReviewRequest();};
+  const rfr=document.getElementById('reqFileRemove');if(rfr)rfr.onclick=(e)=>{e.preventDefault();e.stopPropagation();store.reqDraft.fileUrl=null;store.reqDraft.fileName=null;render();};
+}
 async function saveReviewRequest(){
   const rd=store.reqDraft||{};
-  if(!(rd.project_name||'').trim()){store.reqMsg='Please enter a project name.';store.reqErr=true;render();return;}
+  if(!rd.project_id){store.reqMsg='Pick which project this drawing is for.';store.reqErr=true;render();return;}
+  if(!(rd.item_name||'').trim()){store.reqMsg='Pick which item this drawing describes.';store.reqErr=true;render();return;}
   if(!rd.fileUrl){store.reqMsg='Please attach a drawing first.';store.reqErr=true;render();return;}
   store.reqBusy=true;store.reqMsg='';store.reqErr=false;render();
   const row={
     company_id:store.account.companyId, site_engineer_id:store.account.uid, site_engineer_name:'Unassigned',
-    project_name:(rd.project_name||'').trim(), location_name:(rd.location_name||'').trim(),
+    project_id:rd.project_id||null,
+    project_name:(()=>{const pr=(store.projects||[]).find(x=>String(x.id)===String(rd.project_id));return pr?pr.name:'';})(),
+    location_name:(rd.location_name||'').trim(), item_name:(rd.item_name||'').trim(),
+    sent_by_name:store.account.name||store.account.email,
+    sent_by_role:store.account.accountType,
     notes:(rd.note||'').trim(), status:'open',
     factory_attachments:[{url:rd.fileUrl, note:(rd.note||'').trim(), sent_by:store.account.name||store.account.email, sent_at:new Date().toISOString(), status:'pending'}]
   };
@@ -2750,7 +2831,7 @@ function siteEngineerHTML(){
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
     <div class="card" style="border-color:var(--blue)">
       <div class="cardHead" style="color:var(--blue)"><span>🏭 PRODUCTION TRACKER</span><button class="zadd" data-setrole="tracker" style="font-size:10px;padding:4px 8px">${store.seShowTracker?'HIDE':'OPEN'}</button></div>
-      ${store.seShowTracker?'':'<div class="hint" style="padding:0 12px 8px">Log an item straight into the factory tracker — no cutting list needed. Your manager sees it immediately.</div>'}
+      ${store.seShowTracker?'':'<div class="hint" style="padding:0 12px 8px">Add items straight into the factory tracker — pick the project, describe the item, set the quantity. No cutting list needed, and your manager sees it immediately.</div>'}
     </div>
     ${store.seShowTracker?productionTabHTML():''}
     ${fullEditorPickerHTML()}
@@ -2772,7 +2853,11 @@ function siteEngineerHTML(){
             ${itemOptions.map(n=>`<option value="${n}" ${d.item_name===n?'selected':''}>${n}</option>`).join('')}
           </select>
         </label>
-        <label class="field" style="grid-column:1/-1"><span class="fl">${t('location')}</span><input class="fi" id="sv_location" value="${(d.location_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Reception wall, Unit B"></label>
+        <label class="field"><span class="fl">ZONE</span>
+          <select class="fi" id="sv_zone">
+            <option value="">${d.project_id?'— pick a zone —':'pick a project first'}</option>
+            ${(store.svZoneOptions||[]).map(z=>`<option value="${z.replace(/"/g,'&quot;')}" ${d.zone_name===z?'selected':''}>${z}</option>`).join('')}
+          </select></label>
         <label class="field"><span class="fl">${t('site_width')} (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
         <label class="field"><span class="fl">${t('site_height')} (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
         <label class="field"><span class="fl">${t('site_depth')} (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
@@ -3698,7 +3783,7 @@ async function saveSiteVisit(){
   const d=store.svDraft||{};
   const projectId=(document.getElementById('sv_project')||{}).value||'';
   const itemName=(document.getElementById('sv_item')||{}).value||'';
-  const location=(document.getElementById('sv_location')||{}).value||'';
+  const location=(document.getElementById('sv_zone')||{}).value||'';
   const w=+(document.getElementById('sv_w')||{}).value||null;
   const h=+(document.getElementById('sv_h')||{}).value||null;
   const dep=+(document.getElementById('sv_d')||{}).value||null;
@@ -4533,7 +4618,8 @@ function appHTML(){
 function siteDrawingsHTML(){
   if(!store.siteVisitsLoaded){loadSiteVisits();}
   const visits=(store.siteVisits||[]).filter(v=>Array.isArray(v.forwarded_attachments)&&v.forwarded_attachments.length);
-  return `<div class="card">
+  return `${sendDrawingFormHTML()}
+  <div class="card">
     <div class="cardHead"><span>📐 SITE DRAWINGS (${visits.length})</span><button class="zadd" id="sdRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
     <div class="hint" style="padding:12px 12px 0">Marked-up drawings the manager has forwarded from the site engineer, with the corrections and dimensions from their site visit.</div>
     ${visits.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Marked-up drawing</th></tr></thead><tbody>
@@ -5464,7 +5550,7 @@ function wire(){
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
     });
     {const mnp=document.getElementById('mgrNewProject'); if(mnp)mnp.onclick=startNewProjectAsRole;}
-    document.querySelectorAll('[data-setrole="tracker"]').forEach(b=>b.onclick=()=>{store.seShowTracker=!store.seShowTracker;render();});
+    document.querySelectorAll('[data-setrole="tracker"]').forEach(b=>b.onclick=()=>{store.seShowTracker=!store.seShowTracker;if(store.seShowTracker)store.prodView='items';render();});
     if(store.seShowTracker)wireProduction();
     {const ap=document.getElementById('att_project'); if(ap)ap.onchange=()=>{store.attProject=ap.value;render();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
@@ -5474,11 +5560,12 @@ function wire(){
     document.querySelectorAll('[data-crewout]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewout,'out'));
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
-    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
+    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.zone_name=g('sv_zone');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
     const svProj=document.getElementById('sv_project');if(svProj)svProj.onchange=async()=>{
-      keep(); store.svDraft.item_name=''; store.svItemOptions=[]; render();
-      const items=await loadProjectItems(svProj.value);
-      store.svItemOptions=items; render();
+      keep(); store.svDraft.item_name=''; store.svDraft.zone_name='';
+      store.svItemOptions=[]; store.svZoneOptions=[]; render();
+      const [items,zones]=await Promise.all([loadProjectItems(svProj.value),loadProjectZones(svProj.value)]);
+      store.svItemOptions=items; store.svZoneOptions=zones; render();
     };
     const handlePhoto=async(e)=>{
       const f=e.target.files[0];if(!f)return;
@@ -5585,17 +5672,7 @@ function wire(){
     wireProduction();
     // Site Visits tab (factory-sends-drawing-for-review loop)
     if(!store.reqDraft)store.reqDraft={};
-    const rkeep=()=>{const g=id=>(document.getElementById(id)||{}).value;Object.assign(store.reqDraft,{project_name:g('req_project'),location_name:g('req_location'),note:g('req_note')});};
-    ['req_project','req_location','req_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=rkeep;});
-    const rf=document.getElementById('req_file');if(rf)rf.onchange=async(e)=>{
-      const f=e.target.files[0];if(!f)return; rkeep();
-      store.reqBusy=true;render();
-      try{const url=await uploadSiteVisitPhoto(f);store.reqDraft.fileUrl=url;store.reqDraft.fileName=f.name;store.reqMsg='';store.reqErr=false;}
-      catch(ex){store.reqMsg='Upload failed: '+(ex.message||'error');store.reqErr=true;}
-      store.reqBusy=false;render();
-    };
-    const rsave=document.getElementById('req_save');if(rsave)rsave.onclick=()=>{rkeep();saveReviewRequest();};
-    const rfr=document.getElementById('reqFileRemove');if(rfr)rfr.onclick=(e)=>{e.preventDefault();e.stopPropagation();store.reqDraft.fileUrl=null;store.reqDraft.fileName=null;render();};
+    wireSendDrawing();
     document.querySelectorAll('[data-cancelsend]').forEach(b=>b.onclick=()=>{
       const [visitId,idx]=b.dataset.cancelsend.split(':');
       cancelSentAttachment(visitId,+idx);
@@ -5691,6 +5768,7 @@ function wire(){
     render();
   };}
   wireQuickOrder();
+  if(store.tab==='sitedrawings')wireSendDrawing();
   document.querySelectorAll('[data-viewsent]').forEach(b=>b.onclick=()=>{store.viewSentId=b.dataset.viewsent;render();});
   {const sc2=document.getElementById('sentClose'); if(sc2)sc2.onclick=()=>{store.viewSentId=null;render();};}
   const pl=document.getElementById('projList');if(pl)pl.onclick=()=>{store.showProjects=!store.showProjects;if(store.showProjects){store.projectsLoaded=false;loadProjects();}else{render();}};
