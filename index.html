@@ -442,13 +442,50 @@ async function loadProjectItems(projectId){
   try{
     const {data}=await sb.from('jobs').select('data').eq('id',projectId).maybeSingle();
     const rows=(data&&data.data&&Array.isArray(data.data.sheetRows))?data.data.sheetRows:[];
-    const names=[...new Set(rows.map(r=>itemName(r)).filter(Boolean))];
-    return names;
+    const zones=(data&&data.data&&Array.isArray(data.data.zones))?data.data.zones:[];
+    const zoneName=id=>{const z=zones.find(x=>String(x.id)===String(id));return z?z.name:'';};
+    // Keep the zone with each item so picking a zone can narrow the list —
+    // a site engineer on Zone A shouldn't scroll past every item in the villa.
+    const seen={}; const out=[];
+    rows.forEach(r=>{const n=itemName(r); if(!n)return;
+      const key=n+'|'+zoneName(r.zone);
+      if(seen[key])return; seen[key]=1;
+      out.push({name:n, zone:zoneName(r.zone)});});
+    return out;
   }catch(e){return [];}
 }
 // The same fetch already carries the project's zones — the site engineer
 // should pick from the supervisor's real zone names rather than typing a
 // location that may not match anything.
+// Add a zone or an item to a project from outside the estimator. Reads the
+// project fresh and appends, so it doesn't overwrite work someone else did
+// in between. It still can't protect against a supervisor saving the same
+// project at the exact same moment — rare, but worth knowing.
+async function addToProject(projectId, {zoneName, itemName}){
+  if(!sb||!projectId)return false;
+  try{
+    const {data}=await sb.from('jobs').select('data').eq('id',projectId).maybeSingle();
+    const d=(data&&data.data)?data.data:{};
+    d.zones=Array.isArray(d.zones)?d.zones:[];
+    d.sheetRows=Array.isArray(d.sheetRows)?d.sheetRows:[];
+    let zoneId=null;
+    if(zoneName){
+      const existing=d.zones.find(z=>(z.name||'').toLowerCase()===zoneName.toLowerCase());
+      if(existing){ zoneId=existing.id; }
+      else { zoneId=(d.zones.reduce((m,z)=>Math.max(m,+z.id||0),0))+1;
+             d.zones.push({id:zoneId,name:zoneName}); }
+    }
+    if(itemName){
+      const already=d.sheetRows.some(r=>String(r.item||'').toLowerCase()===itemName.toLowerCase());
+      if(!already){
+        d.sheetRows.push({id:Date.now(), zone:zoneId||(d.zones[0]&&d.zones[0].id)||1,
+          item:itemName, part:'', code:'', thk:0, w:0, h:0, qty:1});
+      }
+    }
+    await sb.from('jobs').update({data:d, updated_at:new Date().toISOString()}).eq('id',projectId);
+    return true;
+  }catch(e){ return false; }
+}
 async function loadProjectZones(projectId){
   if(!sb||!projectId)return [];
   try{
@@ -1663,12 +1700,12 @@ function authHTML(){
     ${m==='signup'?`
       <label class="lbl">WHAT KIND OF ACCOUNT?</label>
       <select class="inp" id="signupTypeSel" style="margin-bottom:14px">
-        <option value="contractor" ${store.signupType==='contractor'?'selected':''}>Supervisor — estimating, cutting lists, orders</option>
-        <option value="manager" ${store.signupType==='manager'?'selected':''}>Manager — approvals, production, manpower</option>
-        <option value="siteEngineer" ${store.signupType==='siteEngineer'?'selected':''}>Site Engineer — site measurements, attendance</option>
-        <option value="timekeeper" ${store.signupType==='timekeeper'?'selected':''}>Timekeeper — manpower hours, RAL mixer</option>
-        <option value="procurement" ${store.signupType==='procurement'?'selected':''}>Procurement — purchasing, LPOs</option>
-        <option value="supplier" ${store.signupType==='supplier'?'selected':''}>Supplier — catalogue, incoming orders</option>
+        <option value="contractor" ${store.signupType==='contractor'?'selected':''}>Supervisor</option>
+        <option value="manager" ${store.signupType==='manager'?'selected':''}>Manager</option>
+        <option value="siteEngineer" ${store.signupType==='siteEngineer'?'selected':''}>Site Engineer</option>
+        <option value="timekeeper" ${store.signupType==='timekeeper'?'selected':''}>Timekeeper</option>
+        <option value="procurement" ${store.signupType==='procurement'?'selected':''}>Procurement</option>
+        <option value="supplier" ${store.signupType==='supplier'?'selected':''}>Supplier</option>
       </select>
       ${store.signupType==='contractor'?`
         <label class="lbl">COMPANY NAME</label><input class="inp" id="f_company" list="companyOptions" placeholder="Type your company — pick if it exists" autocomplete="off"><datalist id="companyOptions">${(store.companyList||[]).map(nm=>`<option value="${nm.replace(/"/g,'&quot;')}">`).join('')}</datalist>
@@ -2847,17 +2884,24 @@ function siteEngineerHTML(){
           </select>
           ${!openProjects.length?'<div class="hint" style="padding:4px 0 0;color:var(--amber)">No projects are open for site visits yet — ask your manager to open one.</div>':''}
         </label>
-        <label class="field" style="grid-column:1/-1"><span class="fl">${t('item_measured')}</span>
-          <select class="fi" id="sv_item" ${!d.project_id?'disabled':''}>
-            <option value="">${d.project_id?t('pick_item'):t('pick_item')}</option>
-            ${itemOptions.map(n=>`<option value="${n}" ${d.item_name===n?'selected':''}>${n}</option>`).join('')}
-          </select>
-        </label>
         <label class="field"><span class="fl">ZONE</span>
-          <select class="fi" id="sv_zone">
+          <select class="fi" id="sv_zone" ${!d.project_id?'disabled':''}>
             <option value="">${d.project_id?'— pick a zone —':'pick a project first'}</option>
             ${(store.svZoneOptions||[]).map(z=>`<option value="${z.replace(/"/g,'&quot;')}" ${d.zone_name===z?'selected':''}>${z}</option>`).join('')}
-          </select></label>
+            ${d.project_id?`<option value="__new__" ${d.zone_name==='__new__'?'selected':''}>+ Add a new zone…</option>`:''}
+          </select>
+          ${d.zone_name==='__new__'?`<input class="fi" id="sv_zone_new" placeholder="New zone name" style="margin-top:6px" value="${(d.zone_new||'').replace(/"/g,'&quot;')}">`:''}
+        </label>
+        <label class="field" style="grid-column:1/-1"><span class="fl">${t('item_measured')}</span>
+          <select class="fi" id="sv_item" ${!d.project_id?'disabled':''}>
+            <option value="">${!d.project_id?'pick a project first':(!d.zone_name?'pick a zone first':t('pick_item'))}</option>
+            ${(()=>{const zn=d.zone_name;
+              const list=(itemOptions||[]).filter(o=>!zn||zn==='__new__'||!o.zone||o.zone===zn);
+              return list.map(o=>`<option value="${String(o.name).replace(/"/g,'&quot;')}" ${d.item_name===o.name?'selected':''}>${o.name}</option>`).join('');})()}
+            ${d.project_id?`<option value="__new__" ${d.item_name==='__new__'?'selected':''}>+ Add a new item…</option>`:''}
+          </select>
+          ${d.item_name==='__new__'?`<input class="fi" id="sv_item_new" placeholder="New item name, e.g. Guest ensuite vanity" style="margin-top:6px" value="${(d.item_new||'').replace(/"/g,'&quot;')}">`:''}
+        </label>
         <label class="field"><span class="fl">${t('site_width')} (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
         <label class="field"><span class="fl">${t('site_height')} (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
         <label class="field"><span class="fl">${t('site_depth')} (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
@@ -3686,6 +3730,7 @@ async function addSnag(){
   store.snagBusy=true;store.snagMsg='';store.snagErr=false;render();
   const row={
     company_id:store.account.companyId, project_id:d.project_id, description:d.description.trim(),
+    zone_name:(d.zone_name||'').trim(), item_name:(d.item_name||'').trim(),
     before_photo_url:d.beforeUrl, before_by:store.account.name||store.account.email, status:'open'
   };
   try{
@@ -3707,7 +3752,7 @@ async function resolveSnag(snagId,url){
 function snagListHTML(){
   if(!store.snagsLoaded){loadSnags();}
   if(!store.projectsLoaded){loadProjects();}
-  const snags=store.snags||[];
+  const snags=(store.snags||[]).filter(x=>!store.snagFilter||String(x.project_id)===String(store.snagFilter));
   const openProjects=(store.projects||[]); // no gate: every company project is available
   const d=store.snagDraft||{};
   const projName=(id)=>{const p=(store.projects||[]).find(x=>x.id===id);return p?p.name:'—';};
@@ -3721,6 +3766,20 @@ function snagListHTML(){
           ${openProjects.map(p=>`<option value="${p.id}" ${d.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}
         </select>
       </label>
+      <label class="field"><span class="fl">ZONE</span>
+        <select class="fi" id="snag_zone" ${!d.project_id?'disabled':''}>
+          <option value="">${!d.project_id?'pick a project first':'— pick a zone —'}</option>
+          ${(store.snagZoneOptions||[]).map(z=>`<option value="${z.replace(/"/g,'&quot;')}" ${d.zone_name===z?'selected':''}>${z}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field"><span class="fl">ITEM</span>
+        <select class="fi" id="snag_item" ${!d.project_id?'disabled':''}>
+          <option value="">${!d.project_id?'pick a project first':(!d.zone_name?'pick a zone first':'— pick an item —')}</option>
+          ${(()=>{const zn=d.zone_name;
+            const list=(store.snagItemOptions||[]).filter(o=>!zn||!o.zone||o.zone===zn);
+            return list.map(o=>`<option value="${String(o.name).replace(/"/g,'&quot;')}" ${d.item_name===o.name?'selected':''}>${o.name}</option>`).join('');})()}
+        </select>
+      </label>
       <label class="field" style="grid-column:1/-1"><span class="fl">${t('description')}</span><input class="fi" id="snag_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Scratched laminate on vanity door"></label>
       <div style="grid-column:1/3;display:flex;align-items:center;gap:10px">
         ${d.beforeUrl?`<span style="font-size:12px;color:var(--green)">📎 Before photo attached <button id="snagBeforeRemove" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px" title="Remove">✕</button></span>`:''}
@@ -3730,10 +3789,19 @@ function snagListHTML(){
       <button class="add" id="snag_save" style="grid-column:1/-1" ${store.snagBusy?'disabled':''}>${store.snagBusy?'…':'+ '+t('log_snag')}</button>
       ${store.snagMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.snagErr?'var(--red)':'var(--green)'}">${store.snagMsg}</div>`:''}
     </div>
-    ${snags.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Description</th><th>Before</th><th>After</th><th>Status</th></tr></thead><tbody>
+    <div class="settings" style="padding:0 12px">
+      <label class="field" style="flex:1"><span class="fl">SHOW SNAGS FOR</span>
+        <select class="fi" id="snagFilterProject">
+          <option value="">All projects</option>
+          ${openProjects.map(p=>`<option value="${p.id}" ${String(store.snagFilter||'')===String(p.id)?'selected':''}>${p.name}</option>`).join('')}
+        </select></label>
+    </div>
+    ${snags.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Zone</th><th>Item</th><th>Description</th><th>Before</th><th>After</th><th>Status</th></tr></thead><tbody>
     ${snags.map(s=>`<tr>
       <td style="font-size:11px;white-space:nowrap">${(s.created_at||'').slice(0,10)}</td>
       <td style="font-size:11px">${projName(s.project_id)}</td>
+      <td style="font-size:11px;color:var(--mut)">${s.zone_name||'—'}</td>
+      <td style="font-size:11px">${s.item_name||'—'}</td>
       <td style="font-size:11px;max-width:180px">${s.description||''}</td>
       <td>${s.before_photo_url?attachCell(s.before_photo_url,44):'—'}</td>
       <td>${s.after_photo_url?attachCell(s.after_photo_url,44):(s.status!=='resolved'?`<label class="zadd" style="cursor:pointer;font-size:10px">📷 Add after<input type="file" data-snagafter="${s.id}" accept="image/*" capture="environment" style="display:none"></label>`:'—')}</td>
@@ -3744,7 +3812,20 @@ function snagListHTML(){
 }
 function wireSnagList(){
   if(!store.snagDraft)store.snagDraft={};
-  const sp=document.getElementById('snag_project');if(sp)sp.onchange=()=>{store.snagDraft.project_id=sp.value;};
+  const sp=document.getElementById('snag_project');if(sp)sp.onchange=async()=>{
+    if(!store.snagDraft)store.snagDraft={};
+    store.snagDraft.project_id=sp.value; store.snagDraft.zone_name=''; store.snagDraft.item_name='';
+    store.snagZoneOptions=[]; store.snagItemOptions=[]; render();
+    const [items,zones]=await Promise.all([loadProjectItems(sp.value),loadProjectZones(sp.value)]);
+    store.snagItemOptions=items; store.snagZoneOptions=zones; render();
+  };
+  {const sz=document.getElementById('snag_zone'); if(sz)sz.onchange=()=>{
+    if(!store.snagDraft)store.snagDraft={};
+    store.snagDraft.zone_name=sz.value; store.snagDraft.item_name=''; render();};}
+  {const sf=document.getElementById('snagFilterProject'); if(sf)sf.onchange=()=>{store.snagFilter=sf.value;render();};}
+  {const si=document.getElementById('snag_item'); if(si)si.onchange=()=>{
+    if(!store.snagDraft)store.snagDraft={};
+    store.snagDraft.item_name=si.value;};}
   const sd=document.getElementById('snag_desc');if(sd)sd.onchange=()=>{store.snagDraft.description=sd.value;};
   const handleBefore=async(e)=>{
     const f=e.target.files[0];if(!f)return;
@@ -3782,8 +3863,12 @@ async function uploadSiteVisitPhoto(file){
 async function saveSiteVisit(){
   const d=store.svDraft||{};
   const projectId=(document.getElementById('sv_project')||{}).value||'';
-  const itemName=(document.getElementById('sv_item')||{}).value||'';
-  const location=(document.getElementById('sv_zone')||{}).value||'';
+  let itemName=(document.getElementById('sv_item')||{}).value||'';
+  if(itemName==='__new__'){ itemName=((document.getElementById('sv_item_new')||{}).value||'').trim();
+    if(!itemName){alert('Type a name for the new item.');return;} }
+  let location=(document.getElementById('sv_zone')||{}).value||'';
+  if(location==='__new__'){ location=((document.getElementById('sv_zone_new')||{}).value||'').trim();
+    if(!location){alert('Type a name for the new zone.');return;} }
   const w=+(document.getElementById('sv_w')||{}).value||null;
   const h=+(document.getElementById('sv_h')||{}).value||null;
   const dep=+(document.getElementById('sv_d')||{}).value||null;
@@ -3800,6 +3885,14 @@ async function saveSiteVisit(){
     notes:notes, photos:d.photos||[], status:'open'
   };
   try{
+    const wasNewZone=((document.getElementById('sv_zone')||{}).value==='__new__');
+    const wasNewItem=((document.getElementById('sv_item')||{}).value==='__new__');
+    if(wasNewZone||wasNewItem){
+      // Always pass the zone so a new item lands in the zone actually chosen.
+      // addToProject reuses an existing zone by name and only creates one if
+      // it genuinely doesn't exist yet.
+      await addToProject(projectId,{zoneName:location||null, itemName:wasNewItem?itemName:null});
+    }
     const {data,error}=await sb.from('site_visits').insert(row).select().single();
     if(error)throw error;
     store.siteVisits=[data,...(store.siteVisits||[])];
@@ -5560,13 +5653,17 @@ function wire(){
     document.querySelectorAll('[data-crewout]').forEach(b=>b.onclick=()=>crewPunch(b.dataset.crewout,'out'));
     if(!store.svDraft)store.svDraft={};
     // keep typed fields in the draft so a re-render (e.g. after photo upload) doesn't wipe them
-    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.zone_name=g('sv_zone');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
+    const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;store.svDraft.project_id=g('sv_project');store.svDraft.item_name=g('sv_item');store.svDraft.zone_name=g('sv_zone');store.svDraft.zone_new=g('sv_zone_new');store.svDraft.item_new=g('sv_item_new');store.svDraft.location_name=g('sv_location');store.svDraft.site_w=g('sv_w');store.svDraft.site_h=g('sv_h');store.svDraft.site_d=g('sv_d');store.svDraft.notes=g('sv_notes');};
     const svProj=document.getElementById('sv_project');if(svProj)svProj.onchange=async()=>{
       keep(); store.svDraft.item_name=''; store.svDraft.zone_name='';
       store.svItemOptions=[]; store.svZoneOptions=[]; render();
       const [items,zones]=await Promise.all([loadProjectItems(svProj.value),loadProjectZones(svProj.value)]);
       store.svItemOptions=items; store.svZoneOptions=zones; render();
     };
+    {const zsel=document.getElementById('sv_zone');
+     if(zsel)zsel.onchange=()=>{keep(); store.svDraft.item_name=''; render();};}
+    {const isel=document.getElementById('sv_item');
+     if(isel)isel.onchange=()=>{keep(); render();};}
     const handlePhoto=async(e)=>{
       const f=e.target.files[0];if(!f)return;
       keep();
