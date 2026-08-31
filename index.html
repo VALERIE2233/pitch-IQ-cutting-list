@@ -1863,6 +1863,53 @@ async function deleteProductionItem(id){
 }
 // bulk-import production items from the factory's own Items-sheet Excel layout
 // (Project / Zone / Item-description / Qty / Assignee / f=Stage / Flag / Status / 8 stage dates)
+// Cutting-list items and production items have always been two separate
+// stores: the cut list lives inside the project, the tracker in its own table.
+// So a supervisor could build a full cut list and the factory tracker would
+// still be empty, with nothing explaining why. This pulls a project's items
+// across so the tracker reflects work that actually exists.
+async function pullItemsFromProject(projectId){
+  if(!projectId){alert('Pick a project first.');return;}
+  const pr=(store.projects||[]).find(x=>String(x.id)===String(projectId));
+  let rows=[], zonesById={};
+  try{
+    const {data}=await sb.from('jobs').select('data').eq('id',projectId).maybeSingle();
+    const jd=(data&&data.data)||{};
+    (Array.isArray(jd.zones)?jd.zones:[]).forEach(z=>{zonesById[String(z.id)]=z.name;});
+    rows=Array.isArray(jd.sheetRows)?jd.sheetRows:[];
+  }catch(e){alert('Could not read that project.');return;}
+  if(!rows.length){alert('That project has no cutting list items yet.');return;}
+  const grouped={};
+  rows.forEach(r=>{
+    const nm=itemName(r); if(!nm)return;
+    const zn=zonesById[String(r.zone)]||'';
+    const key=nm+'|'+zn;
+    if(!grouped[key])grouped[key]={description:nm, zone_name:zn, qty:0};
+    grouped[key].qty+=Math.max(1,+r.qty||1);
+  });
+  const list=Object.values(grouped);
+  const existing={};
+  (store.prodItems||[]).filter(i=>String(i.project_id)===String(projectId))
+    .forEach(i=>{existing[(i.description||'')+'|'+(i.zone_name||'')]=1;});
+  const fresh=list.filter(x=>!existing[x.description+'|'+x.zone_name]);
+  if(!fresh.length){alert('Every item from that project is already in the tracker.');return;}
+  if(!confirm(`Add ${fresh.length} item${fresh.length>1?'s':''} from "${pr?pr.name:'this project'}" into the production tracker?`+
+    (list.length-fresh.length?`\n\n${list.length-fresh.length} already tracked and will be skipped.`:'')))return;
+  const batch=fresh.map(x=>({
+    company_id:store.account.companyId, created_by:store.account.uid,
+    project_id:projectId, project_name:pr?pr.name:'',
+    zone_name:x.zone_name, description:x.description, qty:x.qty,
+    assignee:'Unassigned', flag:'—', status_note:'', stage:'Not Started'
+  }));
+  store.prodBusy=true; render();
+  try{
+    const {data,error}=await sb.from('production_items').insert(batch).select();
+    if(error)throw error;
+    store.prodItems=[...(data||[]),...(store.prodItems||[])];
+    alert(`Added ${batch.length} item${batch.length>1?'s':''} to the tracker.`);
+  }catch(e){alert('Could not add: '+(e.message||'error'));}
+  store.prodBusy=false; render();
+}
 function importProductionItemsExcel(file){
   if(typeof XLSX==='undefined'){alert('Excel library still loading — try again in a second.');return;}
   const reader=new FileReader();
@@ -2350,7 +2397,12 @@ function productionTabHTML(){
     ${(!store.prodView||store.prodView==='dashboard')?prodDashboardHTML(items):''}
     ${store.prodView==='items'?`
     ${canEditProduction()?`
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+    <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <select class="fi" id="pullFromProject" style="max-width:220px;font-size:11px">
+        <option value="">— pull items from a project —</option>
+        ${(store.projects||[]).map(pr=>`<option value="${pr.id}">${pr.name}</option>`).join('')}
+      </select>
+      <button class="zadd" id="pullItemsBtn" style="border-color:var(--green);color:var(--green)">⤵ PULL CUTTING LIST ITEMS</button>
       <label class="zadd" style="cursor:pointer">⬆ IMPORT FROM EXCEL (Items sheet)<input type="file" id="prodImportXlsx" accept=".xlsx,.xls" style="display:none"></label>
     </div>
     <div class="card" style="border-color:var(--blue)">
@@ -5420,6 +5472,9 @@ function wireProduction(){
       const dz=document.getElementById('dash_zone');if(dz)dz.onchange=()=>{store.dashFilter.zone=dz.value;render();};
     })();
     if((store.managerTab==='production'||store.seShowTracker||store.tkTab==='items') && (!store.prodView||store.prodView==='dashboard')){renderProdCharts(store.prodItems||[]);}
+    {const pb=document.getElementById('pullItemsBtn'); if(pb)pb.onclick=()=>{
+      const sel=document.getElementById('pullFromProject');
+      pullItemsFromProject(sel?sel.value:'');};}
     const pix=document.getElementById('prodImportXlsx');if(pix)pix.onchange=(e)=>{const f=e.target.files[0];if(f)importProductionItemsExcel(f);e.target.value='';};
 }
 function wire(){
