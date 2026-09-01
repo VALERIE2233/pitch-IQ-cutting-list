@@ -18,9 +18,9 @@
 <meta name="twitter:title" content="FIT-OUT IQ — Production Platform for Fit-Out & Joinery">
 <meta name="twitter:description" content="Cutting lists, site measurements, production tracking, procurement and manpower — built for fit-out and joinery companies.">
 <style>
-  :root{--amber:#FFB300;--steel:#1c1f24;--panel:#24282f;--line:#363b44;--green:#3ddc84;--blue:#5db8ff;--red:#ff5d5d;--txt:#e7e9ec;--mut:#8b929c;--mono:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace}
+  :root{--amber:#FFB300;--steel:#1b1e24;--panel:#22262e;--line:#333944;--bg:#15171c;--green:#3ddc84;--blue:#5db8ff;--red:#ff5d5d;--txt:#e7e9ec;--mut:#8b929c;--mono:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-  body{background:linear-gradient(165deg,#221c15 0%,#1c1f24 42%,#1c1f24 100%);color:var(--txt);font-family:var(--mono);padding-bottom:50px;overflow-x:hidden;max-width:100vw}
+  body{background:var(--bg);color:var(--txt);font-family:var(--mono);padding-bottom:50px;overflow-x:hidden;max-width:100vw}
   html{overflow-x:hidden}
   img,svg,table{max-width:100%}
   input:focus,select:focus{outline:1px solid var(--amber)}
@@ -84,7 +84,11 @@
   .gT{font-size:12px;font-weight:800;letter-spacing:1px}.gD{font-size:9px;color:var(--mut);margin-top:2px}
   .gP{font-size:24px;font-weight:800;margin-top:8px}
   .bestTag{position:absolute;top:8px;right:10px;font-size:9px;color:var(--green);font-weight:700}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-bottom:16px;overflow:hidden}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:16px;overflow:hidden;
+    box-shadow:0 1px 2px rgba(0,0,0,.4),0 4px 12px rgba(0,0,0,.18)}
+  .stat{border-radius:8px}
+  /* table rows separate more cleanly against a lighter panel */
+  table tbody tr:hover td{background:rgba(255,255,255,.025)}
   .cardHead{padding:11px 16px;font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--amber);border-bottom:1px solid var(--line);background:#1f2329;display:flex;justify-content:space-between;align-items:center}
   .scroll{overflow-x:auto}
   /* Cutting-list column control: the sheet table has 19 columns, which no
@@ -135,7 +139,7 @@
   .sheetIdx{font-size:10px;letter-spacing:1px;color:var(--mut)}
   .sheet{position:relative;background:#15181d;border:1px solid var(--line);border-radius:2px}
   .part{position:absolute;border:1px solid rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000;overflow:hidden;text-align:center}
-  .orderCard{background:linear-gradient(135deg,#2a2614,#24282f);border:1px solid var(--amber);border-radius:6px;margin-bottom:16px;overflow:hidden}
+  .orderCard{background:linear-gradient(135deg,#2a2614,var(--panel));border:1px solid var(--amber);border-radius:6px;margin-bottom:16px;overflow:hidden}
   .orderHead{padding:14px 18px;font-size:13px;font-weight:800;letter-spacing:2px;color:var(--amber);border-bottom:1px solid var(--line)}
   .orderBody{padding:8px 18px 18px}
   .orderLine{display:flex;justify-content:space-between;align-items:baseline;padding-top:16px;font-size:15px}
@@ -2271,12 +2275,18 @@ function prodByProjectZone(items){
 function prodByTeam(items){
   const map={};
   items.forEach(it=>{
-    const key=it.assignee||'Unassigned';
-    if(!map[key])map[key]={person:key,qty:0,inProduction:0,onSite:0};
+    // An item worked by several people appears under each of them, so a
+    // manager can see everyone's load rather than one combined name.
+    const people=assigneeList(it.assignee);
+    const keys=people.length?people:['Unassigned'];
     const qty=+it.qty||0;
-    map[key].qty+=qty;
-    if(it.stage==='Site')map[key].onSite+=qty;
-    else if(it.stage!=='Not Started')map[key].inProduction+=qty;
+    keys.forEach(key=>{
+      if(!map[key])map[key]={person:key,qty:0,inProduction:0,onSite:0,shared:0};
+      map[key].qty+=qty;
+      if(keys.length>1)map[key].shared+=qty;
+      if(it.stage==='Site')map[key].onSite+=qty;
+      else if(it.stage!=='Not Started')map[key].inProduction+=qty;
+    });
   });
   return Object.values(map).sort((a,b)=>b.qty-a.qty);
 }
@@ -2340,7 +2350,10 @@ function prodDashboardHTML(items){
           : `<div style="font-size:12px;color:var(--mut)">Items are added by the supervisor, manager or site engineer. Once they do, everything they're producing shows up here.</div>`}
       </div></div>`;
   }
-  const projects=['(All)',...new Set(items.map(i=>i.project_name).filter(Boolean))];
+  const projects=['(All)',...new Set([
+    ...(store.projects||[]).map(p=>p.name).filter(Boolean),
+    ...items.map(i=>i.project_name).filter(Boolean)
+  ])];
   const assignees=['(All)',...new Set(items.map(i=>i.assignee).filter(Boolean))];
   const zones=['(All)',...new Set(items.map(i=>i.zone_name).filter(Boolean))];
   const f=store.dashFilter||{project:'(All)',assignee:'(All)',zone:'(All)'};
@@ -2384,7 +2397,7 @@ function prodDashboardHTML(items){
         <td style="font-size:11px;color:var(--mut)">${it.zone_name||'—'}</td>
         <td style="font-size:11px"><strong>${it.description||'—'}</strong></td>
         <td class="r" style="font-size:11px">${it.qty||1}</td>
-        <td style="font-size:11px">${(it.assignee&&it.assignee!=='Unassigned')?it.assignee:'<span style="color:var(--mut)">unassigned</span>'}</td>
+        <td style="font-size:11px">${assigneeChips(it.assignee)}</td>
         <td style="font-size:11px;color:var(--amber)">${it.stage||'—'}</td></tr>`).join('')}
     </tbody></table></div>${items.length>60?`<div class="hint">Showing the first 60 of ${items.length}.</div>`:''}`
     :'<div class="empty">Nothing matches the filters above.</div>'}
@@ -2416,7 +2429,7 @@ function drillHTML(allItems){
       <div style="padding:14px">
         ${crumb}
         <div style="font-size:17px;font-weight:800;margin-bottom:2px">${it.description||'—'}</div>
-        <div style="font-size:12px;color:var(--mut);margin-bottom:12px">${it.project_name||''}${it.zone_name?' · '+it.zone_name:''} · qty ${it.qty||1} · ${it.assignee&&it.assignee!=='Unassigned'?'assigned to '+it.assignee:'unassigned'}</div>
+        <div style="font-size:12px;color:var(--mut);margin-bottom:12px">${it.project_name||''}${it.zone_name?' · '+it.zone_name:''} · qty ${it.qty||1} · ${assigneeList(it.assignee).length?'assigned to '+assigneeList(it.assignee).join(', '):'unassigned'}</div>
 
         <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHERE IT IS NOW</div>
         <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:14px">
@@ -2485,11 +2498,22 @@ function drillHTML(allItems){
           <td style="font-size:11px"><strong>${i.description||'—'}</strong></td>
           ${!d.zone?`<td style="font-size:11px;color:var(--mut)">${i.zone_name||'—'}</td>`:''}
           <td class="r" style="font-size:11px">${i.qty||1}</td>
-          <td style="font-size:11px">${i.assignee&&i.assignee!=='Unassigned'?i.assignee:'<span style="color:var(--mut)">unassigned</span>'}</td>
+          <td style="font-size:11px">${assigneeChips(i.assignee)}</td>
           <td style="font-size:11px;color:var(--amber)">${i.stage||'—'}</td>
           <td style="font-size:11px;color:${rr.ready?'var(--green)':'var(--amber)'}">${rr.ready?'✓ ready':rr.toApprove+' left'}</td></tr>`;}).join('')}
       </tbody></table></div>`:'<div class="empty">No items here yet.</div>'}
     </div></div>`;
+}
+// One item is often worked by two or three people. Names are stored comma-
+// separated in the existing field, so this needs no schema change, but they
+// display and count as individuals.
+function assigneeList(v){
+  return String(v||'').split(',').map(x=>x.trim()).filter(x=>x && x.toLowerCase()!=='unassigned');
+}
+function assigneeChips(v){
+  const list=assigneeList(v);
+  if(!list.length)return '<span style="color:var(--mut);font-size:11px">unassigned</span>';
+  return list.map(n=>`<span style="display:inline-block;font-size:10px;padding:2px 7px;margin:1px;border-radius:10px;background:var(--steel);color:var(--blue)">${n}</span>`).join('');
 }
 function canEditProduction(){ return store.account && store.account.accountType!=='timekeeper'; }
 function productionTabHTML(){
@@ -2507,15 +2531,34 @@ function productionTabHTML(){
   const agingCount=items.filter(i=>prodItemCalc(i).aging==='Aging').length;
   return `<div class="body">
     ${drillHTML(store.prodItems||[])}
+    ${(()=>{ if((store.drill||{}).project)return '';   // only at the top level
+      const all=store.prodItems||[];
+      const projs=(store.projects||[]);
+      if(!projs.length)return '';
+      return `<div class="card" style="border-color:var(--blue);margin-top:14px">
+        <div class="cardHead" style="color:var(--blue)"><span>🗂 ALL PROJECTS — ${projs.length}</span></div>
+        <div class="hint" style="padding:0 12px 8px">Every project in ${store.account.company}. Click one to see its full picture. A project shows nothing until its cutting-list items have been pulled into the tracker.</div>
+        <div style="padding:0 12px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
+          ${projs.map(pr=>{
+            const mine=all.filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name);
+            const done=mine.filter(i=>i.stage==='Site').length;
+            const pct=mine.length?Math.round(done/mine.length*100):0;
+            return `<div style="border:1px solid ${mine.length?'var(--line)':'var(--amber)'};border-radius:6px;padding:10px 12px">
+              <div style="font-size:13px;font-weight:700;cursor:pointer" data-drillproject="${(pr.name||'').replace(/"/g,'&quot;')}">${pr.name}</div>
+              ${mine.length?`<div style="font-size:11px;color:var(--mut);margin:4px 0 6px">${mine.length} item${mine.length===1?'':'s'} · ${pct}% on site</div>
+                <div style="height:6px;background:var(--steel);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green)"></div></div>`
+              :`<div style="font-size:11px;color:var(--amber);margin:4px 0 6px">No items in the tracker yet</div>
+                ${canEditProduction()?`<button class="zadd" data-quickpull="${pr.id}" style="font-size:10px;padding:4px 8px;border-color:var(--green);color:var(--green)">⤵ PULL ITEMS</button>`:'<span style="font-size:10px;color:var(--mut)">Ask a supervisor to pull them in</span>'}`}
+            </div>`;}).join('')}
+        </div></div>`;})()}
     ${(()=>{const f=store.dashFilter||{};
       const active=Object.entries(f).filter(([k,v])=>v&&v!=='(All)');
       const total=(store.prodItems||[]).length;
       if(!active.length)return '';
-      return `<div class="card" style="border-color:var(--amber);margin-top:14px">
-        <div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <span style="font-size:12px;color:var(--amber)">🔎 Filtered: ${active.map(([k,v])=>k+' = '+v).join(' · ')} — showing ${items.length} of ${total} items</span>
-          <button class="zadd" id="clearDashFilter" style="margin-left:auto;font-size:10px;padding:4px 10px;border-color:var(--amber);color:var(--amber)">✕ CLEAR FILTER</button>
-        </div></div>`;})()}
+      return `<div style="display:inline-flex;gap:8px;align-items:center;margin:14px 0 0;padding:5px 8px 5px 12px;border:1px solid var(--amber);border-radius:16px">
+        <span style="font-size:11px;color:var(--amber)">🔎 ${active.map(([k,v])=>v).join(' · ')} — ${items.length} of ${total}</span>
+        <button class="zadd" id="clearDashFilter" style="font-size:10px;padding:3px 8px;border-radius:12px;border-color:var(--amber);color:var(--amber)">✕</button>
+      </div>`;})()}
     <div class="hint" style="padding-top:14px">Track every production item through the shop floor, stage by stage — the same pipeline as your factory tracking sheet. Add items here as jobs come in; move them through stages as they progress.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px">${items.length}</div><div class="sl">ITEMS</div></div>
@@ -2552,7 +2595,7 @@ function productionTabHTML(){
         <label class="field"><span class="fl">ZONE / FLOOR</span><input class="fi" id="pi_zone" list="prodZoneList" value="${(d.zone_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Ground Floor"><datalist id="prodZoneList">${zones.map(z=>`<option value="${z.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
         <label class="field" style="grid-column:1/-1"><span class="fl">ITEM / DESCRIPTION</span><input class="fi" id="pi_desc" value="${(d.description||'').replace(/"/g,'&quot;')}" placeholder="e.g. Guest ensuite vanity 1750×600×430"></label>
         <label class="field"><span class="fl">QTY</span><input class="fi" type="number" id="pi_qty" value="${d.qty||1}" min="1"></label>
-        <label class="field"><span class="fl">ASSIGNEE</span><input class="fi" id="pi_assignee" list="prodAssigneeList" value="${(d.assignee||'').replace(/"/g,'&quot;')}" placeholder="Unassigned"><datalist id="prodAssigneeList">${assignees.map(a=>`<option value="${a.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
+        <label class="field"><span class="fl">ASSIGNED TO (comma-separate several)</span><input class="fi" id="pi_assignee" placeholder="e.g. Ali, Kumar" list="prodAssigneeList" value="${(d.assignee||'').replace(/"/g,'&quot;')}" placeholder="Unassigned"><datalist id="prodAssigneeList">${assignees.map(a=>`<option value="${a.replace(/"/g,'&quot;')}">`).join('')}</datalist></label>
         <label class="field"><span class="fl">FLAG</span><select class="fi" id="pi_flag">${PROD_FLAGS.map(f=>`<option value="${f}" ${f===(d.flag||'—')?'selected':''}>${f}</option>`).join('')}</select></label>
         <label class="field"><span class="fl">STAGE</span><select class="fi" id="pi_stage">${PROD_STAGES.map(s=>`<option value="${s}" ${s===(d.stage||'Not Started')?'selected':''}>${s}</option>`).join('')}</select></label>
         <label class="field" style="grid-column:1/-1"><span class="fl">STATUS NOTE</span><input class="fi" id="pi_note" value="${(d.status_note||'').replace(/"/g,'&quot;')}" placeholder="optional note"></label>
@@ -2575,7 +2618,7 @@ function productionTabHTML(){
           :`<td style="font-size:11px">${it.zone_name||'—'}</td>
           <td style="font-size:11px;max-width:190px">${it.description||''}</td>
           <td class="r" style="font-size:11px">${it.qty||1}</td>`}
-          <td><input class="cell" style="width:100px;font-size:11px" list="prodAssigneeList" value="${(it.assignee||'').replace(/"/g,'&quot;')}" data-piassignee="${it.id}"></td>
+          <td><input class="cell" style="width:150px;font-size:11px" list="prodAssigneeList" value="${(it.assignee||'').replace(/"/g,'&quot;')}" data-piassignee="${it.id}" title="Separate several people with commas, e.g. Ali, Kumar" placeholder="name, name"></td>
           <td><select class="sel" style="font-size:11px" data-piflag="${it.id}">${PROD_FLAGS.map(f=>`<option value="${f}" ${f===it.flag?'selected':''}>${f}</option>`).join('')}</select></td>
           <td><button class="zadd" data-piready="${it.id}" style="font-size:10px;padding:4px 8px;${r.ready?'border-color:var(--green);color:var(--green)':'border-color:var(--amber);color:var(--amber)'}">${r.ready?'✓ READY':`⏳ ${r.toApprove} left`}</button></td>
           ${canEditProduction()?`<td><select class="sel" style="font-size:11px" data-pistage="${it.id}">${PROD_STAGES.map(s=>`<option value="${s}" ${s===it.stage?'selected':''}>${s}</option>`).join('')}</select></td>`:`<td style="font-size:11px">${it.stage||'—'}</td>`}
@@ -2611,8 +2654,8 @@ function prodZoneViewHTML(items){
 function prodTeamViewHTML(items){
   const rows=prodByTeam(items);
   return `<div class="card"><div class="cardHead"><span>👥 BY TEAM</span></div>
-    ${rows.length?`<div class="scroll"><table><thead><tr><th>Person</th><th class="r">Items (qty)</th><th class="r">In production</th><th class="r">On site</th></tr></thead><tbody>
-    ${rows.map(t=>`<tr><td>${t.person}</td><td class="r">${t.qty}</td><td class="r" style="color:var(--amber)">${t.inProduction}</td><td class="r" style="color:var(--green)">${t.onSite}</td></tr>`).join('')}
+    ${rows.length?`<div class="scroll"><table><thead><tr><th>Person</th><th class="r">Items (qty)</th><th class="r">Shared</th><th class="r">In production</th><th class="r">On site</th></tr></thead><tbody>
+    ${rows.map(t=>`<tr><td>${t.person}</td><td class="r">${t.qty}</td><td class="r" style="font-size:11px;color:var(--mut)">${t.shared?t.shared+" shared":"—"}</td><td class="r" style="color:var(--amber)">${t.inProduction}</td><td class="r" style="color:var(--green)">${t.onSite}</td></tr>`).join('')}
     </tbody></table></div>`:'<div class="empty">No items yet.</div>'}</div>`;
 }
 // readiness checklist overlay — matches the Excel's 6-item pre-production check
@@ -3514,6 +3557,7 @@ async function attendanceSignIn(){
   const pos=await getPosition();
   const row={company_id:store.account.companyId, project_id:projectId, project_name:proj?proj.name:'',
     user_id:store.account.uid, user_name:store.account.name||store.account.email,
+    work_location:store.workLocation||'site',
     work_date:todayStr(), sign_in_at:new Date().toISOString(),
     sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, sign_in_method:method};
   try{
@@ -3559,7 +3603,7 @@ function attendanceHTML(){
   const since=open?new Date(open.sign_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="card" style="border-color:var(--green)">
     <div class="cardHead" style="color:var(--green)"><span>🕐 ${t('site_attendance')}</span>
-      <button class="zadd" id="attRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
+      <span style="display:flex;gap:4px;margin-right:6px">${['site','factory'].map(l=>`<button class="zadd" data-worklocation="${l}" style="font-size:10px;padding:4px 9px;${(store.workLocation||'site')===l?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">${l==='site'?'🏗 SITE':'🏭 FACTORY'}</button>`).join('')}</span><button class="zadd" id="attRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
     <div style="padding:12px">
       ${open?`<div style="background:var(--steel);border:1px solid var(--green);border-radius:6px;padding:12px;margin-bottom:10px">
           <div style="font-size:12px;color:var(--green);font-weight:700">● ${t('on_site_since')} ${since}</div>
@@ -3596,6 +3640,7 @@ function wireAttendance(){
   const si=document.getElementById('attSignIn'); if(si)si.onclick=()=>attendanceSignIn();
   const so=document.getElementById('attSignOut'); if(so)so.onclick=()=>attendanceSignOut();
   const rb=document.getElementById('attRegBio'); if(rb)rb.onclick=()=>registerBiometric();
+  document.querySelectorAll('[data-worklocation]').forEach(b=>b.onclick=()=>{store.workLocation=b.dataset.worklocation;render();});
   const rf=document.getElementById('attRefresh'); if(rf)rf.onclick=()=>{store.attLoaded=false;loadAttendance();};
 }
 // ============ CREW ATTENDANCE ============
@@ -3757,6 +3802,7 @@ async function crewPunch(memberId, direction){
         crew_member_id:c.id, worker_name:c.name, trade:c.trade, work_date:d,
         recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
         recorded_at:now, lat:pos?pos.lat:null, lng:pos?pos.lng:null,
+        work_location:store.workLocation||'site',
         sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present'};
       const {data,error}=await sb.from('crew_attendance').insert(row).select().single();
       if(error)throw error;
@@ -4607,6 +4653,7 @@ function manpowerRows(){
     'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
     'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
     Method:r.sign_in_method==='biometric'?'Fingerprint':'Manual',
+    Where:r.work_location==='factory'?'Factory':'Site',
     'Recorded by':'self'}));
   crewAtt.filter(inScope).forEach(r=>rows.push({
     Name:r.worker_name||'', Type:'Crew'+(r.trade?' ('+r.trade+')':''), Project:r.project_name||'', Date:r.work_date||'',
@@ -4616,6 +4663,7 @@ function manpowerRows(){
     'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
     'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
     Method:r.sign_out_manual?'Recorded on site (out time adjusted)':'Recorded on site',
+    Where:r.work_location==='factory'?'Factory':'Site',
     'Recorded by':r.recorded_by_name||'',
     'Adjusted by':r.sign_out_manual?(r.adjusted_by||'yes'):''}));
   rows.sort((a,b)=>(b.Date||'').localeCompare(a.Date||'')||String(a.Name).localeCompare(String(b.Name)));
@@ -4779,7 +4827,12 @@ function manpowerHTML(){
           <button class="zadd" data-setsiteloc="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--amber);color:var(--amber)">📍 ${has?'UPDATE':'SET'} SITE LOCATION</button>
         </div></div>`;})()}
     <div class="settings">
-      <div class="stat"><div class="sv" style="color:var(--green)">${totalOnNow}</div><div class="sl">ON SITE NOW · ${onNow.length} staff + ${crewOnNow.length} crew</div></div>
+      <div class="stat"><div class="sv" style="color:var(--green)">${totalOnNow}</div><div class="sl">WORKING NOW · ${onNow.length} staff + ${crewOnNow.length} crew</div></div>
+      ${(()=>{const inFac=r=>r.work_location==='factory';
+        const facH=A.filter(inFac).reduce((a,r)=>a+hrs(r),0)+C.filter(inFac).reduce((a,r)=>a+crewHours(r),0);
+        const siteH=Math.max(0,grandHrs-facH);
+        return `<div class="stat"><div class="sv" style="color:var(--amber)">${facH.toFixed(1)}</div><div class="sl">🏭 FACTORY HOURS</div></div>
+        <div class="stat"><div class="sv" style="color:var(--blue)">${siteH.toFixed(1)}</div><div class="sl">🏗 SITE HOURS</div></div>`;})()}
       <div class="stat"><div class="sv" style="color:var(--blue)">${grandHrs.toFixed(1)}</div><div class="sl">TOTAL HOURS LOGGED</div></div>
       <div class="stat"><div class="sv" style="color:var(--blue)">${totalHrs.toFixed(1)}</div><div class="sl">STAFF HOURS</div></div>
       <div class="stat"><div class="sv" style="color:var(--amber)">${crewHrsTotal.toFixed(1)}</div><div class="sl">CREW HOURS</div></div>
@@ -4797,11 +4850,11 @@ function manpowerHTML(){
     <div class="card" style="border-color:var(--green)">
       <div class="cardHead" style="color:var(--green)"><span>🟢 ON SITE RIGHT NOW — ${totalOnNow}</span></div>
       ${(onNow.length||crewOnNow.length)?`<div class="scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Project</th><th>Since</th><th class="r">Hours so far</th><th>Method</th><th>Where</th></tr></thead><tbody>
-        ${onNow.map(r=>`<tr><td><strong>${r.user_name||'—'}</strong></td><td style="font-size:10px;color:var(--blue)">staff</td><td style="font-size:11px">${r.project_name||'—'}</td>
+        ${onNow.map(r=>`<tr><td><strong>${r.user_name||'—'}</strong></td><td style="font-size:10px;color:var(--blue)">staff${r.work_location==="factory"?' 🏭':''}</td><td style="font-size:11px">${r.project_name||'—'}</td>
           <td style="font-size:11px">${r.sign_in_at?new Date(r.sign_in_at).toLocaleTimeString():'—'}</td>
           <td class="r">${hrs(r).toFixed(1)}</td>
           <td style="font-size:10px;color:var(--mut)">${r.sign_in_method==='biometric'?'👆 fingerprint':'manual'}</td><td>${distanceTag(r.sign_in_lat,r.sign_in_lng,(store.projects||[]).find(x=>String(x.id)===String(r.project_id)))}</td></tr>`).join('')}
-        ${crewOnNow.map(r=>`<tr><td><strong>${r.worker_name||'—'}</strong></td><td style="font-size:10px;color:var(--amber)">crew</td>
+        ${crewOnNow.map(r=>`<tr><td><strong>${r.worker_name||'—'}</strong></td><td style="font-size:10px;color:var(--amber)">crew${r.work_location==="factory"?' 🏭':''}</td>
           <td style="font-size:11px">${r.project_name||'—'}</td>
           <td style="font-size:11px">${new Date(r.sign_in_at).toLocaleTimeString()}</td>
           <td class="r">${crewHours(r).toFixed(1)}</td>
@@ -5620,6 +5673,7 @@ function wireProduction(){
     if((store.managerTab==='production'||store.seShowTracker||store.tkTab==='items') && (!store.prodView||store.prodView==='dashboard')){renderProdCharts(store.prodItems||[]);}
     {const cdf=document.getElementById('clearDashFilter'); if(cdf)cdf.onclick=()=>{store.dashFilter={};render();};}
     document.querySelectorAll('[data-drillproject]').forEach(el=>el.onclick=(e)=>{e.stopPropagation();store.drill={project:el.dataset.drillproject};render();});
+    document.querySelectorAll('[data-quickpull]').forEach(b=>b.onclick=()=>pullItemsFromProject(b.dataset.quickpull));
     document.querySelectorAll('[data-drillzone]').forEach(el=>el.onclick=()=>{store.drill=Object.assign({},store.drill,{zone:el.dataset.drillzone,item:null});render();});
     document.querySelectorAll('[data-drillitem]').forEach(el=>el.onclick=()=>{
       const it=(store.prodItems||[]).find(x=>String(x.id)===String(el.dataset.drillitem)); if(!it)return;
