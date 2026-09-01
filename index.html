@@ -2123,7 +2123,9 @@ function sendDrawingFormHTML(){
         <label class="field"><span class="fl">ITEM</span>
           <select class="fi" id="req_item">
             <option value="">${rd.project_id?'— pick an item —':'pick a project first'}</option>
-            ${(store.reqItemOptions||[]).map(it=>`<option value="${it.replace(/"/g,'&quot;')}" ${rd.item_name===it?'selected':''}>${it}</option>`).join('')}
+            ${(()=>{const zn=rd.location_name;
+              const list=(store.reqItemOptions||[]).filter(o=>!zn||!o.zone||o.zone===zn);
+              return list.map(o=>`<option value="${String(o.name).replace(/"/g,'&quot;')}" ${rd.item_name===o.name?'selected':''}>${o.name}</option>`).join('');})()}
           </select></label>
         <label class="field" style="grid-column:1/-1"><span class="fl">NOTE FOR SITE ENGINEER</span><input class="fi" id="req_note" value="${(rd.note||'').replace(/"/g,'&quot;')}" placeholder="What should they check?"></label>
         <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -2140,7 +2142,8 @@ function wireSendDrawing(){
   if(!store.reqDraft)store.reqDraft={};
   const g=id=>(document.getElementById(id)||{}).value;
   const rkeep=()=>{Object.assign(store.reqDraft,{location_name:g('req_zone'),item_name:g('req_item'),note:g('req_note')});};
-  ['req_zone','req_item','req_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=rkeep;});
+  ['req_item','req_note'].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=rkeep;});
+  {const rz=document.getElementById('req_zone'); if(rz)rz.onchange=()=>{rkeep();store.reqDraft.item_name='';render();};}
   const rp=document.getElementById('req_project');
   if(rp)rp.onchange=async()=>{
     store.reqDraft.project_id=rp.value;
