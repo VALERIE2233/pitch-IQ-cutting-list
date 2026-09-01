@@ -1884,13 +1884,18 @@ async function pullItemsFromProject(projectId){
     const nm=itemName(r); if(!nm)return;
     const zn=zonesById[String(r.zone)]||'';
     const key=nm+'|'+zn;
-    if(!grouped[key])grouped[key]={description:nm, zone_name:zn, qty:0};
+    if(!grouped[key])grouped[key]={description:(zn?zn+' · ':'')+nm, zone_name:zn, qty:0};
     grouped[key].qty+=Math.max(1,+r.qty||1);
   });
   const list=Object.values(grouped);
   const existing={};
   (store.prodItems||[]).filter(i=>String(i.project_id)===String(projectId))
     .forEach(i=>{existing[(i.description||'')+'|'+(i.zone_name||'')]=1;});
+  // older pulls stored the bare item name, so match those too rather than
+  // creating a second copy under the new combined name
+  (store.prodItems||[]).filter(i=>String(i.project_id)===String(projectId))
+    .forEach(i=>{const d=(i.description||'');const z=(i.zone_name||'');
+      if(z && d.indexOf(z+' · ')!==0) existing[z+' · '+d+'|'+z]=1;});
   const fresh=list.filter(x=>!existing[x.description+'|'+x.zone_name]);
   if(!fresh.length){alert('Every item from that project is already in the tracker.');return;}
   if(!confirm(`Add ${fresh.length} item${fresh.length>1?'s':''} from "${pr?pr.name:'this project'}" into the production tracker?`+
