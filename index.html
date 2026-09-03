@@ -5287,7 +5287,8 @@ function sheetGrainZoneBar(){
     ${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;position:relative">
       ${(()=>{const m=(store.sheetRows||[]).find(r=>r.code);
         if(!m)return '';
-        const tex=materialTexture(m.code,panelFinishLabel(m),g.k);
+        const previewDir=g.k==='along'?'across':g.k==='across'?'along':'none';
+        const tex=materialTexture(m.code,panelFinishLabel(m),previewDir);
         if(tex.indexOf('url(')!==0)return '';
         return `<span style="position:absolute;inset:0;background-image:${tex};background-size:100% 100%;opacity:${store.grain===g.k?0.5:0.13};border-radius:4px;pointer-events:none"></span>`;})()}<div style="display:flex;align-items:center;gap:5px"><span style="font-size:17px;line-height:1;color:${store.grain===g.k?'var(--amber)':'#9aa3ad'}">${g.arrow}</span><div class="gT" style="font-size:11px">${g.t}</div></div><div class="gP" style="font-size:16px;color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag" style="font-size:8px">★ BEST</div>':''}</button>`).join('')}
     <div class="stat" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="sv" style="color:var(--amber);font-size:20px">${res.sheetCount}</div><div class="sl">SHEETS</div></div>
@@ -5375,11 +5376,11 @@ function sheetHTML(){
     <div class="hint">Auto-counted from your panel Parts: Doors→hinges (by height)+handles, Shelves→pins, Drawer fronts→runners+handles, carcass panels (Side/Top/Bottom/Back)→dowels+screws. Matching ignores case, so "door" and "Door" both work. Pick which supplier's brand/model to use for each — your choice is remembered. Click EDIT RULES to change quantities.</div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
     ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
-      const col=p.grainless?'rgba(232,234,237,.82)':hexToRgba(PAL[ci++%PAL.length],.82);
+      const pcol=p.grainless?'#e8eaed':PAL[ci++%PAL.length];const ptex=materialTexture(p.code,p.finishName);const col=hexToRgba(pcol,.20);
       const txt='#111';
       const itm=p.item||'';
       const tag=p.ref||p.label||'';
-      return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;background:${col};color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.25;padding:2px;text-align:center">${itm?`<span style="font-size:9px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${itm}</span>`:''}${tag?`<span style="font-size:7px;opacity:.8;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
+      return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;${ptex.indexOf('url(')===0?`background-image:${ptex};background-size:100% 100%;`:`background-color:${ptex};`}box-shadow:inset 0 0 0 999px ${col};outline:1.5px solid ${pcol};outline-offset:-1.5px;color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.25;padding:2px;text-align:center">${itm?`<span style="font-size:9px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${itm}</span>`:''}${tag?`<span style="font-size:7px;opacity:.8;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
     }).join('');const isOff=s.fromOffcut;const bw=isOff?s.offcutW:store.sheetW,bh=isOff?s.offcutH:store.sheetH;return `<div class="sheetWrap"><div class="sheetIdx" style="${isOff?'color:var(--green)':''}">${isOff?'♻ OFFCUT '+fmt(bw)+'×'+fmt(bh):'SHEET #'+(i+1)}</div>
       ${(()=>{const mat=sheetMaterialOf(s);if(!mat.code)return '';
         return `<div style="display:flex;align-items:center;gap:5px;font-size:9px;margin:2px 0 3px">
@@ -5438,6 +5439,33 @@ function hexToRgba(hex,a){
   const n=parseInt(c,16);
   return 'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a+')';
 }
+// Real material photos come free from the supplier catalogue: suppliers upload
+// their boards with a code, so a sheet of "OAK-CLASSIC" can show the actual
+// board rather than a generated pattern. Falls back to drawn grain when no
+// supplier has that code yet.
+function materialPhotoFor(code,finish){
+  const cat=store.catalogueAll||[];
+  if(!cat.length)return '';
+  const want=String(code||'').trim().toLowerCase();
+  const wantFin=String(finish||'').trim().toLowerCase();
+  if(!want && !wantFin)return '';
+  const photoOf=c=>{
+    const ph=c.photos;
+    if(Array.isArray(ph)&&ph.length)return ph[0];
+    if(typeof ph==='string'&&ph)return ph;
+    return '';
+  };
+  // exact code match first — that's the supplier's own reference
+  let hit=cat.find(c=>String(c.code||'').trim().toLowerCase()===want && photoOf(c));
+  // then a code contained in either direction (OAK vs OAK-18MM)
+  if(!hit && want.length>2)
+    hit=cat.find(c=>{const cc=String(c.code||'').trim().toLowerCase();
+      return cc && (cc.indexOf(want)>-1||want.indexOf(cc)>-1) && photoOf(c);});
+  // last resort: the finish name against the description, e.g. "Classic oak veneer"
+  if(!hit && wantFin.length>3)
+    hit=cat.find(c=>String(c.description||'').toLowerCase().indexOf(wantFin)>-1 && photoOf(c));
+  return hit?photoOf(hit):'';
+}
 function isGrainedMaterial(code,finish){
   const t=((code||'')+' '+(finish||'')).toLowerCase();
   if(/laminate|\blam\b|paint|primed|gyp|plaster|mfc|melamine|solid colour|solid color/.test(t))return false;
@@ -5460,6 +5488,8 @@ function shadeHex(hex,pct){
 function materialTexture(code,finish,dir){
   // dir: 'along' (default) runs the grain down the sheet length,
   // 'across' runs it across the width, 'none' shows no direction.
+  const photo=materialPhotoFor(code,finish);
+  if(photo)return "url('"+photo+"')";
 
   const base=materialSwatch(code,finish);
   if(!isGrainedMaterial(code,finish))return base;
@@ -5478,10 +5508,12 @@ function materialTexture(code,finish,dir){
     g+='<ellipse cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" rx="'+(2+rnd(3)).toFixed(1)+'" ry="'+(1+rnd(2)).toFixed(1)+'" fill="'+dark+'" opacity="0.30"/>';
   }
   const d=dir||store.grain||'along';
-  // the pattern is drawn horizontally, so rotate it for 'along'
+  // No grain means no grain — a flat board face, not faint lines that still
+  // imply a direction. Panels are then free to rotate, which is the point.
+  if(d==='none')return shadeHex(base,6);
+  // lines are drawn horizontally, so rotate them for 'along'
   const rot=(d==='across')?'':' transform="rotate(90 60 50)"';
-  const inner=(d==='none')?g.replace(/opacity="0.55"/g,'opacity="0.22"'):g;
-  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="100"><rect width="120" height="100" fill="'+base+'"/><rect width="120" height="100" fill="'+light+'" opacity="0.25"/><g'+rot+'>'+inner+'</g></svg>';
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="100"><rect width="120" height="100" fill="'+base+'"/><rect width="120" height="100" fill="'+light+'" opacity="0.25"/><g'+rot+'>'+g+'</g></svg>';
   return "url('data:image/svg+xml," + encodeURIComponent(svg) + "')";
 }
 function paintHTML(){
