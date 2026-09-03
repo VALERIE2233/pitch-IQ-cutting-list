@@ -5210,7 +5210,6 @@ function timberHTML(){
   const glist=Object.values(groups).sort((a,b)=>b.m3-a.m3);
   return `<div class="hint" style="padding-top:14px">Solid timber by species and section \u2014 for hardwood framing, lipping stock, mouldings and anything cut from the board rather than the sheet. Boards arrive in random lengths and get cut around defects, so this gives you the true requirement plus a waste allowance rather than a false nesting figure.</div>
   <div class="settings">
-    <button class="add" id="timberAdd">+ ADD TIMBER ITEM</button>
     <div class="stat"><div class="sv" style="font-size:18px">${totM3.toFixed(3)}</div><div class="sl">NET m\u00b3</div></div>
     <div class="stat"><div class="sv" style="font-size:18px;color:var(--amber)">${totM3w.toFixed(3)}</div><div class="sl">WITH WASTE</div></div>
     <div class="stat"><div class="sv" style="font-size:18px;color:var(--green)">${money(totCost)}</div><div class="sl">TIMBER COST</div></div>
@@ -5233,6 +5232,7 @@ function timberHTML(){
         <td class="r" data-label="Cost"><span class="cost">${money(c.cost)}</span></td>
         <td data-label=""><button class="del" data-deltimber="${r.id}">\u2715</button></td></tr>`;}).join('')}
     </tbody></table></div>`:'<div class="empty">No timber items yet. Add hardwood framing, lipping stock or mouldings here.</div>'}
+    <div style="padding:12px"><button class="add" id="timberAdd" style="width:100%">+ ADD TIMBER ITEM</button></div>
   </div>
   ${glist.length?`<div class="card" style="border-color:var(--amber)">
     <div class="cardHead" style="color:var(--amber)"><span>\ud83d\udccb ORDER SUMMARY \u2014 BY SPECIES &amp; SECTION</span></div>
@@ -5284,7 +5284,12 @@ function sheetGrainZoneBar(){
   const totalCost=res.sheetCount*off.price;
   const gMeta=[{k:'along',t:'ALONG',d:'with length',arrow:'→'},{k:'across',t:'ACROSS',d:'across width',arrow:'↓'},{k:'none',t:'NO GRAIN',d:'free rotate',arrow:'↻'}];
   return `<div class="zoneBar" style="gap:8px;align-items:stretch">
-    ${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px"><div style="display:flex;align-items:center;gap:5px"><span style="font-size:17px;line-height:1;color:${store.grain===g.k?'var(--amber)':'#9aa3ad'}">${g.arrow}</span><div class="gT" style="font-size:11px">${g.t}</div></div><div class="gP" style="font-size:16px;color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag" style="font-size:8px">★ BEST</div>':''}</button>`).join('')}
+    ${gMeta.map(g=>`<button class="grainBtn ${store.grain===g.k?'on':''} ${best===g.k?'best':''}" data-grain="${g.k}" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;position:relative">
+      ${(()=>{const m=(store.sheetRows||[]).find(r=>r.code);
+        if(!m)return '';
+        const tex=materialTexture(m.code,panelFinishLabel(m),g.k);
+        if(tex.indexOf('url(')!==0)return '';
+        return `<span style="position:absolute;inset:0;background-image:${tex};background-size:100% 100%;opacity:${store.grain===g.k?0.5:0.13};border-radius:4px;pointer-events:none"></span>`;})()}<div style="display:flex;align-items:center;gap:5px"><span style="font-size:17px;line-height:1;color:${store.grain===g.k?'var(--amber)':'#9aa3ad'}">${g.arrow}</span><div class="gT" style="font-size:11px">${g.t}</div></div><div class="gP" style="font-size:16px;color:${best===g.k?'var(--green)':store.grain===g.k?'var(--amber)':'#fff'}">${cmp[g.k].toFixed(1)}%</div>${best===g.k?'<div class="bestTag" style="font-size:8px">★ BEST</div>':''}</button>`).join('')}
     <div class="stat" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="sv" style="color:var(--amber);font-size:20px">${res.sheetCount}</div><div class="sl">SHEETS</div></div>
     <div class="stat" style="flex:1;min-width:110px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="sv" style="color:var(--green);font-size:20px">${money(totalCost)}</div><div class="sl">${off.supplier?off.supplier.toUpperCase():'EST. COST'}</div></div>
     <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
@@ -5452,7 +5457,10 @@ function shadeHex(hex,pct){
 // Draw the board roughly as it looks: grain running along the sheet, in the
 // material's own tone. Not photographic, but enough to tell classic oak from
 // white oak from walnut at a glance, and to read grain direction off a print.
-function materialTexture(code,finish){
+function materialTexture(code,finish,dir){
+  // dir: 'along' (default) runs the grain down the sheet length,
+  // 'across' runs it across the width, 'none' shows no direction.
+
   const base=materialSwatch(code,finish);
   if(!isGrainedMaterial(code,finish))return base;
   const t=((code||'')+' '+(finish||''));
@@ -5469,7 +5477,11 @@ function materialTexture(code,finish){
     const cx=10+rnd(100), cy=8+rnd(80);
     g+='<ellipse cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" rx="'+(2+rnd(3)).toFixed(1)+'" ry="'+(1+rnd(2)).toFixed(1)+'" fill="'+dark+'" opacity="0.30"/>';
   }
-  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="100"><rect width="120" height="100" fill="'+base+'"/><rect width="120" height="100" fill="'+light+'" opacity="0.25"/>'+g+'</svg>';
+  const d=dir||store.grain||'along';
+  // the pattern is drawn horizontally, so rotate it for 'along'
+  const rot=(d==='across')?'':' transform="rotate(90 60 50)"';
+  const inner=(d==='none')?g.replace(/opacity="0.55"/g,'opacity="0.22"'):g;
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="100"><rect width="120" height="100" fill="'+base+'"/><rect width="120" height="100" fill="'+light+'" opacity="0.25"/><g'+rot+'>'+inner+'</g></svg>';
   return "url('data:image/svg+xml," + encodeURIComponent(svg) + "')";
 }
 function paintHTML(){
@@ -6503,8 +6515,16 @@ const val=id=>document.getElementById(id).value.trim();
 function wireTimber(){
   const add=document.getElementById('timberAdd');
   if(add)add.onclick=()=>{
+    const prev=(store.timberRows||[]).slice(-1)[0]||{};
     store.timberRows=[...(store.timberRows||[]),
-      {id:Date.now(),zone:(store.zones[0]||{}).id||1,species:'Oak',label:'',thk:25,wid:100,len:2400,qty:1,wastePct:15,rate:0}];
+      {id:Date.now(),
+       zone:prev.zone||(store.zones[0]||{}).id||1,
+       species:prev.species||'Oak',
+       label:prev.label||'',
+       thk:prev.thk||25, wid:prev.wid||100, len:prev.len||2400,
+       qty:1,
+       wastePct:prev.wastePct==null?15:prev.wastePct,
+       rate:prev.rate||0}];
     render();
   };
   document.querySelectorAll('[data-timber]').forEach(el=>{
