@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FIT-OUT IQ — Cutting Lists, Site Measurements & Production Tracking for Fit-Out</title>
-<meta name="description" content="Software built for fit-out and joinery companies: cutting list optimisation, site measurements tied to real items, production tracking, procurement approvals, supplier catalogues and site attendance — in one place.">
+<meta name="description" content="Production software for fit-out and joinery companies in Dubai and the GCC: cutting list optimisation, solid timber lists, site measurements tied to real items, nine-stage production tracking, procurement approvals, supplier catalogues and labour hours. Free setup and training — fitoutiq@gmail.com">
 <link rel="canonical" href="https://fit-out-iq.com/">
 <meta name="robots" content="index, follow">
 <meta name="author" content="FIT-OUT IQ">
@@ -524,7 +524,7 @@ async function deleteProject(id,name){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','accSelections','customItemTypes','customPartTypes','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','timberRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','accSelections','customItemTypes','customPartTypes','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
 }
 // start a fresh named project (saves current first)
@@ -1790,7 +1790,57 @@ function authHTML(){
       <div class="err" id="authErr">${store.authMsg}</div>
       <button class="cta" id="doSignin" ${store.authBusy?'disabled':''}>${store.authBusy?'SIGNING IN…':'SIGN IN'}</button>
       <div style="text-align:center;margin-top:10px"><span id="doForgot" style="font-size:12px;color:var(--mut);text-decoration:underline;cursor:pointer">Forgot password?</span></div>`}
-  </div></div></div>`;}
+  </div></div>
+  <!-- Public content: what Google indexes, and what a first-time visitor reads
+       before deciding to sign up. Sits below the sign-in card, no account needed. -->
+  <div style="max-width:640px;margin:26px auto 40px;padding:0 20px;color:var(--txt)">
+    <div style="border-top:1px solid var(--line);padding-top:24px">
+      <div style="font-size:17px;font-weight:800;margin-bottom:8px">Built for fit-out and joinery. By someone who does the job.</div>
+      <p style="font-size:13px;line-height:1.7;color:var(--mut);margin:0 0 16px">
+        FIT-OUT IQ is a production platform made for interior fit-out and joinery companies &mdash; the ones
+        still running cutting lists on Excel and coordinating site work on WhatsApp. It was built on a
+        working factory floor, to fix the three things that quietly cost the most: material wasted on
+        unoptimised cutting lists, items remade because a site dimension went stale in transit, and
+        labour hours nobody could account for once the job closed.
+      </p>
+
+      <div style="font-size:12px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:8px">WHAT IT DOES</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:20px">
+        ${[
+          ['Cutting lists &amp; nesting','Sheet and linear optimisation with an offcut bank, plus a solid timber requirement by species and section.'],
+          ['Site measurements','Measured on site against the exact item &mdash; not the zone. Fit warnings before anything is cut.'],
+          ['Production tracking','Every item through nine stages, from drawing to installation, with material and approval readiness.'],
+          ['Procurement &amp; suppliers','Order approvals, LPOs, and supplier catalogues searchable across the whole network.'],
+          ['Manpower &amp; hours','Site and factory attendance with GPS, overtime and rest days, and labour hours costed per project.'],
+          ['RAL paint mixer','Match and mix to RAL references without guesswork.']
+        ].map(function(x){return '<div style="border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--panel)">'
+          +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">'+x[0]+'</div>'
+          +'<div style="font-size:11px;color:var(--mut);line-height:1.6">'+x[1]+'</div></div>';}).join('')}
+      </div>
+
+      <div style="border:1px solid var(--amber);border-radius:8px;padding:16px 18px;background:rgba(255,179,0,.06);margin-bottom:18px">
+        <div style="font-size:14px;font-weight:800;color:var(--amber);margin-bottom:6px">Setup and training are free</div>
+        <p style="font-size:12px;line-height:1.7;color:var(--txt);margin:0 0 10px">
+          Get in touch and we'll set the platform up on one of your live projects, import your price book,
+          and train your team &mdash; at no cost. You see it working on your own job before deciding anything.
+        </p>
+        <div style="font-size:12px">
+          <a href="mailto:fitoutiq@gmail.com?subject=FIT-OUT%20IQ%20setup%20and%20training"
+             style="color:var(--amber);font-weight:700;text-decoration:none">fitoutiq@gmail.com</a>
+          <span style="color:var(--mut)"> &nbsp;&middot;&nbsp; </span>
+          <a href="https://wa.me/971567257880?text=Hello%2C%20I%27d%20like%20to%20see%20FIT-OUT%20IQ"
+             target="_blank" rel="noopener" style="color:var(--green);font-weight:700;text-decoration:none">WhatsApp +971 56 725 7880</a>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:var(--mut);line-height:1.7;border-top:1px solid var(--line);padding-top:14px">
+        <strong style="color:var(--txt)">FIT-OUT IQ</strong> &middot; Production management for interior fit-out, joinery and furniture manufacturing.<br>
+        Serving fit-out contractors, joinery factories and material suppliers in Dubai, the UAE and the wider GCC.<br>
+        Contact <a href="mailto:fitoutiq@gmail.com" style="color:var(--mut)">fitoutiq@gmail.com</a> &middot;
+        <a href="https://fit-out-iq.com" style="color:var(--mut)">fit-out-iq.com</a>
+      </div>
+    </div>
+  </div></div>`;}
 
 
 // ===================== MANAGER DASHBOARD =====================
@@ -5320,7 +5370,7 @@ function sheetHTML(){
     <div class="hint">Auto-counted from your panel Parts: Doors→hinges (by height)+handles, Shelves→pins, Drawer fronts→runners+handles, carcass panels (Side/Top/Bottom/Back)→dowels+screws. Matching ignores case, so "door" and "Door" both work. Pick which supplier's brand/model to use for each — your choice is remembered. Click EDIT RULES to change quantities.</div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
     ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
-      const col=p.grainless?'#e8eaed':PAL[ci++%PAL.length];
+      const col=p.grainless?'rgba(232,234,237,.82)':hexToRgba(PAL[ci++%PAL.length],.82);
       const txt='#111';
       const itm=p.item||'';
       const tag=p.ref||p.label||'';
@@ -5328,11 +5378,11 @@ function sheetHTML(){
     }).join('');const isOff=s.fromOffcut;const bw=isOff?s.offcutW:store.sheetW,bh=isOff?s.offcutH:store.sheetH;return `<div class="sheetWrap"><div class="sheetIdx" style="${isOff?'color:var(--green)':''}">${isOff?'♻ OFFCUT '+fmt(bw)+'×'+fmt(bh):'SHEET #'+(i+1)}</div>
       ${(()=>{const mat=sheetMaterialOf(s);if(!mat.code)return '';
         return `<div style="display:flex;align-items:center;gap:5px;font-size:9px;margin:2px 0 3px">
-          <span style="width:9px;height:9px;border-radius:2px;background:${materialSwatch(mat.code,mat.finish)};border:1px solid rgba(0,0,0,.35);flex:0 0 auto"></span>
+          <span style="width:9px;height:9px;border-radius:2px;background:${materialTexture(mat.code,mat.finish)};background-size:100% 100%;border:1px solid rgba(0,0,0,.35);flex:0 0 auto"></span>
           <span style="color:var(--txt);font-weight:700">${mat.code}</span>
           ${mat.thk?`<span style="color:var(--mut)">${mat.thk}mm</span>`:''}
           ${mat.finish?`<span style="color:var(--amber)">${mat.finish}</span>`:''}
-        </div>`;})()}<div class="sheet" style="width:${bw*scale}px;height:${bh*scale}px;${isOff?'border-color:var(--green)':''}">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
+        </div>`;})()}<div class="sheet" style="width:${bw*scale}px;height:${bh*scale}px;${isOff?'border-color:var(--green)':''};${(()=>{const m=sheetMaterialOf(s);const tex=materialTexture(m.code,m.finish);return tex.indexOf('url(')===0?`background-image:${tex};background-size:100% 100%`:`background-color:${tex}`;})()}">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
 
 // Every part on a nested sheet shares the same board, so the material can be
 // read from the first part. Shown on the sheet header because a printed nest
@@ -5373,6 +5423,54 @@ function materialSwatch(code,finish){
   // consistent fallback: same name always yields the same colour
   let h=0; for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
   return `hsl(${h%360},42%,68%)`;
+}
+// Laminate, paint and gypsum have no grain — a flat colour is the honest
+// picture for those, and drawing fake grain would mislead the machinist.
+function hexToRgba(hex,a){
+  if(!/^#/.test(hex))return hex;
+  let c=hex.slice(1);
+  if(c.length===3)c=c.split('').map(x=>x+x).join('');
+  const n=parseInt(c,16);
+  return 'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a+')';
+}
+function isGrainedMaterial(code,finish){
+  const t=((code||'')+' '+(finish||'')).toLowerCase();
+  if(/laminate|\blam\b|paint|primed|gyp|plaster|mfc|melamine|solid colour|solid color/.test(t))return false;
+  return /veneer|oak|walnut|teak|maple|beech|ash|iroko|meranti|mahogany|pine|sapele|wenge|zebrano|rosewood|cherry|ebony|timber|wood/.test(t);
+}
+// lighten or darken a hex colour
+function shadeHex(hex,pct){
+  if(!/^#/.test(hex))return hex;
+  let c=hex.slice(1);
+  if(c.length===3)c=c.split('').map(x=>x+x).join('');
+  const n=parseInt(c,16), clamp=v=>Math.max(0,Math.min(255,v));
+  const r=clamp((n>>16)+Math.round(255*pct/100));
+  const g=clamp(((n>>8)&255)+Math.round(255*pct/100));
+  const b=clamp((n&255)+Math.round(255*pct/100));
+  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+}
+// Draw the board roughly as it looks: grain running along the sheet, in the
+// material's own tone. Not photographic, but enough to tell classic oak from
+// white oak from walnut at a glance, and to read grain direction off a print.
+function materialTexture(code,finish){
+  const base=materialSwatch(code,finish);
+  if(!isGrainedMaterial(code,finish))return base;
+  const t=((code||'')+' '+(finish||''));
+  let h=0; for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;
+  const rnd=(n)=>{h=(h*1103515245+12345)>>>0;return (h/4294967296)*n;};
+  const dark=shadeHex(base,-26), mid=shadeHex(base,-13), light=shadeHex(base,10);
+  let g='';
+  for(let k=0;k<9;k++){
+    const y=6+k*10+rnd(4), amp=1.5+rnd(3.5);
+    const w=(k%3===0)?1.5:0.8, col=(k%3===0)?dark:mid;
+    g+='<path d="M0 '+y.toFixed(1)+' Q 20 '+(y-amp).toFixed(1)+' 40 '+y.toFixed(1)+' T 80 '+y.toFixed(1)+' T 120 '+y.toFixed(1)+'" stroke="'+col+'" stroke-width="'+w+'" fill="none" opacity="0.55"/>';
+  }
+  for(let k=0;k<2;k++){
+    const cx=10+rnd(100), cy=8+rnd(80);
+    g+='<ellipse cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" rx="'+(2+rnd(3)).toFixed(1)+'" ry="'+(1+rnd(2)).toFixed(1)+'" fill="'+dark+'" opacity="0.30"/>';
+  }
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="120" height="100"><rect width="120" height="100" fill="'+base+'"/><rect width="120" height="100" fill="'+light+'" opacity="0.25"/>'+g+'</svg>';
+  return "url('data:image/svg+xml," + encodeURIComponent(svg) + "')";
 }
 function paintHTML(){
   const rows=store.zoneFilter==='all'?store.paintRows:store.paintRows.filter(r=>r.zone===+store.zoneFilter);
