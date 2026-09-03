@@ -373,6 +373,7 @@ const store={
   incoming:[], incomingLoaded:false,
   myOrders:[], myOrdersLoaded:false,
   projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
+  timberRows:[],
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
   const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;Object.assign(store,j);}}catch(e){}
@@ -391,7 +392,7 @@ function projectPayload(){
   return {
     unit:store.unit, currency:store.currency, zones:store.zones, zoneFilter:store.zoneFilter,
     reuse:store.reuse, stockLen:store.stockLen, linKerf:store.linKerf, linCode:store.linCode, linThk:store.linThk,
-    linRows:store.linRows, sheetW:store.sheetW, sheetH:store.sheetH, sheetKerf:store.sheetKerf, grain:store.grain,
+    linRows:store.linRows, timberRows:store.timberRows, sheetW:store.sheetW, sheetH:store.sheetH, sheetKerf:store.sheetKerf, grain:store.grain,
     sheetCode:store.sheetCode, sheetThk:store.sheetThk, sheetRows:store.sheetRows, lipWaste:store.lipWaste,
     paintRows:store.paintRows, priceBook:store.priceBook, supplierPrefs:store.supplierPrefs,
     assemblyRows:store.assemblyRows, bankedDrops:store.bankedDrops, customAssemblies:store.customAssemblies, taxPct:store.taxPct,
@@ -1421,7 +1422,7 @@ function packGuillotine(sheetW,sheetH,kerf,parts){
     }
     if(!chosen.fit)return false;
     const f=sheet.free[chosen.fit.idx];
-    sheet.placed.push({w:chosen.w,h:chosen.h,x:f.x,y:f.y,ref:p.ref,label:p.label,code:p.code,item:p.item,grainless:!!p.grainless});
+    sheet.placed.push({w:chosen.w,h:chosen.h,x:f.x,y:f.y,ref:p.ref,label:p.label,code:p.code,thk:p.thk,finishName:p.finishName,item:p.item,grainless:!!p.grainless});
     const rW=f.w-chosen.w-kerf,bH=f.h-chosen.h-kerf;
     sheet.free.splice(chosen.fit.idx,1);
     if(rW>0)sheet.free.push({x:f.x+chosen.w+kerf,y:f.y,w:rW,h:chosen.h});
@@ -1440,13 +1441,13 @@ function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
       const baseRef=(typeof pieceRef==='function')?pieceRef(p,pi):'';
       const ref=baseRef+' · '+(i+1)+' of '+p.qty;
       const item=(typeof itemName==='function')?itemName(p):'';
-      items.push({w:p.cw,h:p.ch,ref:ref,label:p.label||'',code:p.code||'',item:item});
+      items.push({w:p.cw,h:p.ch,ref:ref,label:p.label||'',code:p.code||'',thk:p.thk||'',finishName:panelFinishLabel(p),item:item});
     }
   });
   const orient=it=>{
-    if(grain==='across')return {w:it.h,h:it.w,rot:false,ref:it.ref,label:it.label,code:it.code,item:it.item};
-    if(grain==='none')return {w:it.w,h:it.h,rot:true,grainless:true,ref:it.ref,label:it.label,code:it.code,item:it.item};
-    return {w:it.w,h:it.h,rot:false,ref:it.ref,label:it.label,code:it.code,item:it.item};
+    if(grain==='across')return {w:it.h,h:it.w,rot:false,ref:it.ref,label:it.label,code:it.code,thk:it.thk,finishName:it.finishName,item:it.item};
+    if(grain==='none')return {w:it.w,h:it.h,rot:true,grainless:true,ref:it.ref,label:it.label,code:it.code,thk:it.thk,finishName:it.finishName,item:it.item};
+    return {w:it.w,h:it.h,rot:false,ref:it.ref,label:it.label,code:it.code,thk:it.thk,finishName:it.finishName,item:it.item};
   };
   let mapped=items.map(orient);
 
@@ -4946,6 +4947,7 @@ function appHTML(){
   <div class="controlBar"><div class="tabs">
     <button class="tab ${store.tab==='assembly'?'on':''}" data-tab="assembly">◇ ASSEMBLIES</button>
     <button class="tab ${store.tab==='linear'?'on':''}" data-tab="linear">LINEAR</button>
+    <button class="tab ${store.tab==='timber'?'on':''}" data-tab="timber">🪵 TIMBER</button>
     <button class="tab ${store.tab==='sheet'?'on':''}" data-tab="sheet">SHEET</button>
     <button class="tab ${store.tab==='paint'?'on':''}" data-tab="paint">PAINT</button>
     <button class="tab ${store.tab==='bank'?'on':''}" data-tab="bank">♻ OFFCUT BANK</button>
@@ -4954,7 +4956,7 @@ function appHTML(){
     <button class="tab ${store.tab==='sitedrawings'?'on':''}" data-tab="sitedrawings" style="color:var(--amber)">📐 SITE DRAWINGS</button>
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
   </div></div>
-  <div class="body">${({assembly:assemblyHTML,linear:linearHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab]||assemblyHTML)()}</div>
+  <div class="body">${({assembly:assemblyHTML,linear:linearHTML,timber:timberHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab]||assemblyHTML)()}</div>
   <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="myAccountBtn" style="cursor:pointer;text-decoration:underline">my account</span> · <a href="${helpDeskLink()}" target="_blank" rel="noopener" title="Help via WhatsApp" style="vertical-align:middle">${whatsappIcon(14)}</a> · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}${accountOverlayHTML()}`;}
 
 // export picker: choose which sheets go into the Excel
@@ -5132,6 +5134,64 @@ function assemblyHTML(){
         <button class="add" data-addcaline="${ca.id}">+ ADD ITEM</button>
       </div></div>`;}).join('');})()}`;}
 
+const TIMBER_SPECIES=['Oak','Walnut','Teak','Maple','Beech','Ash','Iroko','Meranti','Mahogany','Pine','Sapele','Wenge','Zebrano','Other'];
+function timberRowCost(r){
+  // volume in cubic metres: thickness x width x length x qty
+  const m3=((+r.thk||0)/1000)*((+r.wid||0)/1000)*((+r.len||0)/1000)*(+r.qty||0);
+  const waste=Math.max(0,+r.wastePct||0)/100;
+  const m3w=m3*(1+waste);
+  const rate=+r.rate||0;           // price per cubic metre
+  return {m3:m3, m3w:m3w, cost:m3w*rate};
+}
+function timberHTML(){
+  const rows=store.zoneFilter==='all'?(store.timberRows||[]):(store.timberRows||[]).filter(r=>r.zone===+store.zoneFilter);
+  let totM3=0, totM3w=0, totCost=0;
+  rows.forEach(r=>{const c=timberRowCost(r); totM3+=c.m3; totM3w+=c.m3w; totCost+=c.cost;});
+  // group by species + section, the way a timber order is actually placed
+  const groups={};
+  rows.forEach(r=>{
+    const key=(r.species||'—')+' '+(r.thk||0)+'\u00d7'+(r.wid||0);
+    if(!groups[key])groups[key]={species:r.species||'—',thk:r.thk,wid:r.wid,pieces:0,lm:0,m3:0};
+    const g=groups[key];
+    g.pieces+=(+r.qty||0);
+    g.lm+=((+r.len||0)/1000)*(+r.qty||0);
+    g.m3+=timberRowCost(r).m3w;
+  });
+  const glist=Object.values(groups).sort((a,b)=>b.m3-a.m3);
+  return `<div class="hint" style="padding-top:14px">Solid timber by species and section \u2014 for hardwood framing, lipping stock, mouldings and anything cut from the board rather than the sheet. Boards arrive in random lengths and get cut around defects, so this gives you the true requirement plus a waste allowance rather than a false nesting figure.</div>
+  <div class="settings">
+    <button class="add" id="timberAdd">+ ADD TIMBER ITEM</button>
+    <div class="stat"><div class="sv" style="font-size:18px">${totM3.toFixed(3)}</div><div class="sl">NET m\u00b3</div></div>
+    <div class="stat"><div class="sv" style="font-size:18px;color:var(--amber)">${totM3w.toFixed(3)}</div><div class="sl">WITH WASTE</div></div>
+    <div class="stat"><div class="sv" style="font-size:18px;color:var(--green)">${money(totCost)}</div><div class="sl">TIMBER COST</div></div>
+  </div>
+  <div class="card">
+    <div class="cardHead"><span>\ud83e\udeb5 SOLID TIMBER REQUIREMENT</span></div>
+    ${rows.length?`<div class="scroll stackable"><table><thead><tr>
+      <th>Zone</th><th>Species</th><th>Description</th><th class="r">Thk</th><th class="r">Width</th><th class="r">Length</th><th class="r">Qty</th><th class="r">Waste %</th><th class="r">Rate /m\u00b3</th><th class="r">m\u00b3</th><th class="r">Cost</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>{const c=timberRowCost(r);return `<tr>
+        <td data-label="Zone">${zoneSel(r.zone,'timber',r.id)}</td>
+        <td data-label="Species"><select class="sel" data-timber="${r.id}" data-k="species">${TIMBER_SPECIES.map(sp=>`<option ${r.species===sp?'selected':''}>${sp}</option>`).join('')}</select></td>
+        <td data-label="Description"><input class="cell" style="width:150px" value="${(r.label||'').replace(/"/g,'&quot;')}" data-timber="${r.id}" data-k="label" placeholder="e.g. door frame"></td>
+        <td class="r" data-label="Thk"><input class="num numS" type="number" value="${r.thk||0}" data-timber="${r.id}" data-k="thk"></td>
+        <td class="r" data-label="Width"><input class="num numS" type="number" value="${r.wid||0}" data-timber="${r.id}" data-k="wid"></td>
+        <td class="r" data-label="Length"><input class="num" type="number" value="${r.len||0}" data-timber="${r.id}" data-k="len"></td>
+        <td class="r" data-label="Qty"><input class="num numS" type="number" value="${r.qty||1}" data-timber="${r.id}" data-k="qty"></td>
+        <td class="r" data-label="Waste %"><input class="num numS" type="number" value="${r.wastePct==null?15:r.wastePct}" data-timber="${r.id}" data-k="wastePct"></td>
+        <td class="r" data-label="Rate"><input class="num" type="number" value="${r.rate||0}" data-timber="${r.id}" data-k="rate"></td>
+        <td class="r" data-label="m3">${c.m3w.toFixed(4)}</td>
+        <td class="r" data-label="Cost"><span class="cost">${money(c.cost)}</span></td>
+        <td data-label=""><button class="del" data-deltimber="${r.id}">\u2715</button></td></tr>`;}).join('')}
+    </tbody></table></div>`:'<div class="empty">No timber items yet. Add hardwood framing, lipping stock or mouldings here.</div>'}
+  </div>
+  ${glist.length?`<div class="card" style="border-color:var(--amber)">
+    <div class="cardHead" style="color:var(--amber)"><span>\ud83d\udccb ORDER SUMMARY \u2014 BY SPECIES &amp; SECTION</span></div>
+    <div class="hint" style="padding:0 12px 8px">What to put on the timber order. Grouped the way a merchant quotes it.</div>
+    <div class="scroll"><table><thead><tr><th>Species</th><th>Section</th><th class="r">Pieces</th><th class="r">Linear m</th><th class="r">m\u00b3 (with waste)</th></tr></thead><tbody>
+      ${glist.map(g=>`<tr><td><strong>${g.species}</strong></td><td>${g.thk}\u00d7${g.wid}mm</td>
+        <td class="r">${g.pieces}</td><td class="r">${g.lm.toFixed(2)}</td><td class="r"><span class="cost">${g.m3.toFixed(4)}</span></td></tr>`).join('')}
+    </tbody></table></div></div>`:''}`;
+}
 function linearHTML(){
   const rows=store.zoneFilter==='all'?store.linRows:store.linRows.filter(r=>r.zone===+store.zoneFilter);
   const res=optimiseLinear(store.stockLen,store.linKerf,rows.filter(r=>r.len>0&&r.qty>0));
@@ -5265,8 +5325,55 @@ function sheetHTML(){
       const itm=p.item||'';
       const tag=p.ref||p.label||'';
       return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;background:${col};color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.25;padding:2px;text-align:center">${itm?`<span style="font-size:9px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${itm}</span>`:''}${tag?`<span style="font-size:7px;opacity:.8;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
-    }).join('');const isOff=s.fromOffcut;const bw=isOff?s.offcutW:store.sheetW,bh=isOff?s.offcutH:store.sheetH;return `<div class="sheetWrap"><div class="sheetIdx" style="${isOff?'color:var(--green)':''}">${isOff?'♻ OFFCUT '+fmt(bw)+'×'+fmt(bh):'SHEET #'+(i+1)}</div><div class="sheet" style="width:${bw*scale}px;height:${bh*scale}px;${isOff?'border-color:var(--green)':''}">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
+    }).join('');const isOff=s.fromOffcut;const bw=isOff?s.offcutW:store.sheetW,bh=isOff?s.offcutH:store.sheetH;return `<div class="sheetWrap"><div class="sheetIdx" style="${isOff?'color:var(--green)':''}">${isOff?'♻ OFFCUT '+fmt(bw)+'×'+fmt(bh):'SHEET #'+(i+1)}</div>
+      ${(()=>{const mat=sheetMaterialOf(s);if(!mat.code)return '';
+        return `<div style="display:flex;align-items:center;gap:5px;font-size:9px;margin:2px 0 3px">
+          <span style="width:9px;height:9px;border-radius:2px;background:${materialSwatch(mat.code,mat.finish)};border:1px solid rgba(0,0,0,.35);flex:0 0 auto"></span>
+          <span style="color:var(--txt);font-weight:700">${mat.code}</span>
+          ${mat.thk?`<span style="color:var(--mut)">${mat.thk}mm</span>`:''}
+          ${mat.finish?`<span style="color:var(--amber)">${mat.finish}</span>`:''}
+        </div>`;})()}<div class="sheet" style="width:${bw*scale}px;height:${bh*scale}px;${isOff?'border-color:var(--green)':''}">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
 
+// Every part on a nested sheet shares the same board, so the material can be
+// read from the first part. Shown on the sheet header because a printed nest
+// with only dimensions doesn't tell anyone which board to pull.
+// A short, human label for what this panel is faced or finished with. Reads
+// from the fields already on the row rather than asking anyone to type it
+// twice: the lipping/edge code, then the paint choice, then the board code.
+function panelFinishLabel(r){
+  if(!r)return '';
+  const lip=(r.lipCode||'').trim();
+  if(lip)return lip;
+  const pf=r.pfinish;
+  if(pf==='paint')return 'Painted';
+  if(pf==='prime')return 'Primed';
+  if(pf==='both')return 'Primed + painted';
+  return '';
+}
+function sheetMaterialOf(sh){
+  const p=(sh&&sh.parts&&sh.parts[0])||{};
+  return {code:p.code||'', thk:p.thk||'', finish:p.finishName||p.veneer||p.laminate||''};
+}
+// A stable colour per material, derived from its own name — so white laminate
+// looks the same on every sheet and every job, and two materials never collide
+// visually within one nest. Known finishes get a realistic tone; anything else
+// gets a consistent generated one.
+const MATERIAL_TONES=[
+  [/zebrano/i,'#c9a06a'],[/walnut|wal[- ]?nut/i,'#6b4a2f'],[/oak/i,'#c9a76b'],
+  [/teak/i,'#a9743c'],[/maple/i,'#e5cf9e'],[/wenge/i,'#4a382c'],
+  [/ebony|black/i,'#2f2f31'],[/beech/i,'#d9b48a'],[/cherry/i,'#9b4f37'],
+  [/ash/i,'#ddc9a3'],[/rosewood/i,'#7a3b2e'],[/mahogany/i,'#8a4033'],
+  [/white/i,'#f2f2f0'],[/grey|gray/i,'#a8adb3'],[/anthracite|charcoal/i,'#4b4f55'],
+  [/mdf/i,'#c4a882'],[/ply/i,'#d8c396'],[/gyp|plaster/i,'#eceff2'],
+];
+function materialSwatch(code,finish){
+  const s=((code||'')+' '+(finish||'')).trim();
+  if(!s)return '#8b929c';
+  for(const [re,col] of MATERIAL_TONES){ if(re.test(s))return col; }
+  // consistent fallback: same name always yields the same colour
+  let h=0; for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
+  return `hsl(${h%360},42%,68%)`;
+}
 function paintHTML(){
   const rows=store.zoneFilter==='all'?store.paintRows:store.paintRows.filter(r=>r.zone===+store.zoneFilter);
   let totL=0,totC=0;rows.forEach(r=>{const p=paintCalc(r);totL+=p.litres;totC+=p.cost;});
@@ -6172,6 +6279,7 @@ function wire(){
   const az=document.getElementById('addZone');if(az)az.onclick=addZone;
   const szf=document.getElementById('sheetZoneFilter');if(szf)szf.onchange=()=>{store.zoneFilter=szf.value==='all'?'all':+szf.value;render();};
   bindNum('stockLen','stockLen');bindNum('linKerf','linKerf');bindSheetSize('sheetW','sheetW');bindSheetSize('sheetH','sheetH');bindNum('sheetKerf','sheetKerf');bindNum('sheetTrim','sheetTrim');bindNum('siteTol','siteTol');
+  wireTimber();
   {const sct=document.getElementById('sheetColsToggle'); if(sct)sct.onclick=()=>{store.sheetCols=(store.sheetCols==='all')?'essential':'all';render();};}
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
@@ -6294,6 +6402,26 @@ function importRows(text){
   const msg=document.getElementById('importMsg');if(msg)msg.textContent=added?`✓ Imported ${added} row(s)`:'No valid rows found — check the column order.';
 }
 const val=id=>document.getElementById(id).value.trim();
+function wireTimber(){
+  const add=document.getElementById('timberAdd');
+  if(add)add.onclick=()=>{
+    store.timberRows=[...(store.timberRows||[]),
+      {id:Date.now(),zone:(store.zones[0]||{}).id||1,species:'Oak',label:'',thk:25,wid:100,len:2400,qty:1,wastePct:15,rate:0}];
+    render();
+  };
+  document.querySelectorAll('[data-timber]').forEach(el=>{
+    el.onchange=()=>{
+      const id=+el.dataset.timber, k=el.dataset.k;
+      const r=(store.timberRows||[]).find(x=>x.id===id); if(!r)return;
+      r[k]=(k==='species'||k==='label')?el.value:Math.max(0,+el.value||0);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-deltimber]').forEach(b=>b.onclick=()=>{
+    const id=+b.dataset.deltimber;
+    store.timberRows=(store.timberRows||[]).filter(x=>x.id!==id); render();
+  });
+}
 function bindNum(id,key){const el=document.getElementById(id);if(!el)return;el.onchange=()=>{store[key]=Math.max(0,Math.round(toMM(+el.value||0)));render();};}
 // Standard commercial sheet sizes — pick from real stock sizes instead of
 // typing/incrementing a number one at a time. Kept editable via "Other"
