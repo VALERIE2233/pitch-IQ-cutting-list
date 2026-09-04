@@ -381,9 +381,16 @@ function persist(){try{const j={...store};delete j.account;delete j.authBusy;del
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
+function canEditProject(){
+  if(!store.account)return false;
+  if(!_workspaceId)return true;                       // unsaved local work
+  if(!_workspaceOwnerId)return true;                  // no owner recorded
+  if(_workspaceOwnerId===store.account.uid)return true; // the person who made it
+  return store.account.accountType==='manager';        // manager may correct it
+}
 function scheduleCloudSave(){
   if(!sb||!store.account||store.account.accountType!=='contractor')return;
-  if(_workspaceId && _workspaceOwnerId && _workspaceOwnerId!==store.account.uid)return; // view-only shared project
+  if(!canEditProject())return; // view-only shared project
   clearTimeout(_saveTimer);
   store.syncState='saving';
   _saveTimer=setTimeout(cloudSave, 1500);
@@ -403,8 +410,16 @@ async function cloudSave(){
   if(store._bootstrapping)return; // still deciding which project to open
   // if a shared project (someone else's) is open, this account is VIEW-ONLY — don't
   // try to save, since only the owning contractor can edit the cut-list data.
-  if(_workspaceId && _workspaceOwnerId && _workspaceOwnerId!==store.account.uid){ store.syncState='view-only'; updateSyncBadge(); return; }
+  if(!canEditProject()){ store.syncState='view-only'; updateSyncBadge(); return; }
   const payload=projectPayload();
+  // per-person edit log kept on the project itself: no extra table, and it
+  // answers the manager's real question — who changed this, and when.
+  try{
+    const who=store.account.name||store.account.email||'someone';
+    payload.editors=Object.assign({},(store.projectEditors||{}));
+    payload.editors[who]={at:new Date().toISOString(), role:store.account.accountType};
+    store.projectEditors=payload.editors;
+  }catch(e){}
   try{
     if(_workspaceId){
       await sb.from('jobs').update({data:payload, name:store.projectName||'Untitled project', updated_at:new Date().toISOString()}).eq('id',_workspaceId);
@@ -424,7 +439,7 @@ async function cloudSave(){
 async function loadProjects(){
   if(!sb||!store.account)return;
   try{
-    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id,open_for_site_visit,site_lat,site_lng,planned_hours').order('updated_at',{ascending:false});
+    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id,open_for_site_visit,site_lat,site_lng,planned_hours,data->editors').order('updated_at',{ascending:false});
     if(store.account.companyId){
       q=q.or(`owner_id.eq.${store.account.uid},company_id.eq.${store.account.companyId}`);
     }else{
@@ -524,8 +539,9 @@ async function deleteProject(id,name){
 }
 // apply a loaded project's data into the store (only the project fields)
 function applyProject(d){
-  const keys=['unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','timberRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','accSelections','customItemTypes','customPartTypes','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
+  const keys=['editors','unit','currency','zones','zoneFilter','reuse','stockLen','linKerf','linCode','linThk','linRows','timberRows','sheetW','sheetH','sheetKerf','sheetTrim','siteTol','reuseSheetOffcuts','grain','sheetCode','sheetThk','sheetRows','lipWaste','sheetPaintCode','sheetPaintSpread','sheetPaintWaste','paintCoats','primerCode','primerCoats','primerSpread','primerWaste','accRules','accCodes','accSelections','customItemTypes','customPartTypes','exportSel','paintRows','priceBook','supplierPrefs','assemblyRows','bankedDrops','customAssemblies','taxPct'];
   keys.forEach(k=>{ if(d[k]!==undefined) store[k]=d[k]; });
+  store.projectEditors=d.editors||{};
 }
 // start a fresh named project (saves current first)
 async function newProject(name){
@@ -1888,8 +1904,12 @@ async function addProductionItem(){
   const d=store.prodDraft||{};
   if(!d.project_id){store.prodMsg='Pick which project this item belongs to.';store.prodErr=true;render();return;}
   if(!(d.description||'').trim()){store.prodMsg='Please enter an item description.';store.prodErr=true;render();return;}
+  const isVariation = store.account.accountType==='site_engineer';
   const row={
     company_id:store.account.companyId, created_by:store.account.uid,
+    created_by_name:store.account.name||store.account.email,
+    created_by_role:store.account.accountType,
+    origin: isVariation?'variation':'boq',
     project_id:d.project_id||null,
     project_name:(()=>{const pr=(store.projects||[]).find(x=>String(x.id)===String(d.project_id));return pr?pr.name:(d.project_name||'').trim();})(),
     zone_name:(d.zone_name||'').trim(),
@@ -1908,6 +1928,14 @@ async function addProductionItem(){
 }
 async function updateProductionItem(id,patch){
   const it=(store.prodItems||[]).find(x=>x.id===id); if(!it)return;
+  // a stage move is worth remembering: when it happened and who moved it
+  if(patch.stage && patch.stage!==it.stage){
+    const hist=Array.isArray(it.stage_history)?it.stage_history.slice():[];
+    hist.push({stage:patch.stage, at:new Date().toISOString(),
+               by:(store.account&&(store.account.name||store.account.email))||''});
+    patch.stage_history=hist.slice(-40);      // keep it bounded
+    patch.stage_since=new Date().toISOString();
+  }
   Object.assign(it,patch); render(); // optimistic local update
   try{await sb.from('production_items').update(patch).eq('id',id);}catch(e){}
 }
@@ -1923,6 +1951,19 @@ async function deleteProductionItem(id){
 // So a supervisor could build a full cut list and the factory tracker would
 // still be empty, with nothing explaining why. This pulls a project's items
 // across so the tracker reflects work that actually exists.
+async function setItemBlocks(id){
+  const it=(store.prodItems||[]).find(x=>String(x.id)===String(id)); if(!it)return;
+  const sameProject=(store.prodItems||[]).filter(x=>String(x.project_id)===String(it.project_id) && String(x.id)!==String(it.id));
+  if(!sameProject.length){alert('There are no other items on this project to link to.');return;}
+  const current=Array.isArray(it.blocks)?it.blocks.map(String):[];
+  const menu=sameProject.map((x,i)=>`${i+1}. ${current.indexOf(String(x.id))>-1?'[x] ':'[ ] '}${x.description||''}`).join('\n');
+  const v=prompt(`Which items can't proceed until "${it.description||'this item'}" is sorted?\n\nType the numbers separated by commas, or leave blank for none.\n\n${menu}`,
+    current.map(cid=>sameProject.findIndex(x=>String(x.id)===cid)+1).filter(n=>n>0).join(','));
+  if(v===null)return;
+  const picked=String(v).split(',').map(x=>parseInt(x.trim(),10)).filter(n=>n>=1&&n<=sameProject.length);
+  const blocks=[...new Set(picked.map(n=>sameProject[n-1].id))];
+  await updateProductionItem(it.id,{blocks:blocks});
+}
 async function pullItemsFromProject(projectId){
   if(!projectId){alert('Pick a project first.');return;}
   const pr=(store.projects||[]).find(x=>String(x.id)===String(projectId));
@@ -1957,6 +1998,9 @@ async function pullItemsFromProject(projectId){
     (list.length-fresh.length?`\n\n${list.length-fresh.length} already tracked and will be skipped.`:'')))return;
   const batch=fresh.map(x=>({
     company_id:store.account.companyId, created_by:store.account.uid,
+    created_by_name:store.account.name||store.account.email,
+    created_by_role:store.account.accountType,
+    origin:'boq',
     project_id:projectId, project_name:pr?pr.name:'',
     zone_name:x.zone_name, description:x.description, qty:x.qty,
     assignee:'Unassigned', flag:'—', status_note:'', stage:'Not Started'
@@ -2446,7 +2490,7 @@ function prodDashboardHTML(items){
       ${items.slice(0,60).map(it=>`<tr style="cursor:pointer" data-drillitem="${it.id}">
         <td style="font-size:11px"><span data-drillproject="${(it.project_name||'').replace(/"/g,'&quot;')}" style="text-decoration:underline">${it.project_name||'—'}</span></td>
         <td style="font-size:11px;color:var(--mut)">${it.zone_name||'—'}</td>
-        <td style="font-size:11px"><strong>${it.description||'—'}</strong></td>
+        <td style="font-size:11px"><strong>${it.description||'—'}</strong>${originBadge(it)}</td>
         <td class="r" style="font-size:11px">${it.qty||1}</td>
         <td style="font-size:11px">${assigneeChips(it.assignee)}</td>
         <td style="font-size:11px;color:var(--amber)">${it.stage||'—'}</td></tr>`).join('')}
@@ -2479,8 +2523,9 @@ function drillHTML(allItems){
     return `<div class="card" style="border-color:var(--amber)">
       <div style="padding:14px">
         ${crumb}
-        <div style="font-size:17px;font-weight:800;margin-bottom:2px">${it.description||'—'}</div>
-        <div style="font-size:12px;color:var(--mut);margin-bottom:12px">${it.project_name||''}${it.zone_name?' · '+it.zone_name:''} · qty ${it.qty||1} · ${assigneeList(it.assignee).length?'assigned to '+assigneeList(it.assignee).join(', '):'unassigned'}</div>
+        <div style="font-size:17px;font-weight:800;margin-bottom:2px">${it.description||'—'}${originBadge(it)}</div>
+        <div style="font-size:12px;color:var(--mut);margin-bottom:12px">${it.project_name||''}${it.zone_name?' · '+it.zone_name:''} · qty ${it.qty||1} · ${assigneeList(it.assignee).length?'assigned to '+assigneeList(it.assignee).join(', '):'unassigned'}
+          ${it.created_by_name?`<br><span style="font-size:11px">${isVariationItem(it)?'Added on site by':'From the BOQ, entered by'} <strong style="color:var(--txt)">${it.created_by_name}</strong>${it.created_by_role?' ('+String(it.created_by_role).replace('contractor','supervisor').replace('site_engineer','site engineer')+')':''}</span>`:''}</div>
 
         <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHERE IT IS NOW</div>
         <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:14px">
@@ -2493,8 +2538,31 @@ function drillHTML(allItems){
             <span style="color:${it[c.k]?'var(--green)':'var(--amber)'};font-weight:700">${it[c.k]?'✓':'○'}</span>
             <span style="color:${it[c.k]?'var(--green)':'var(--amber)'}">${c.label}</span></div>`).join('')}
         </div>
+        ${(()=>{const done=(READINESS_CHECKS||[]).filter(c=>it[c.k]).length, left=(READINESS_CHECKS||[]).length-done;
+          const rd=[{n:'Approved',v:done,col:'#3ddc84',sd:'#22a15c'},{n:'Outstanding',v:left,col:'#FFB300',sd:'#b37d00'}].filter(x=>x.v>0);
+          return `<div style="text-align:center;margin-bottom:12px">${pie3d(rd,240,150,100,48,18)}${pieLegend(rd,v=>v+' of '+(READINESS_CHECKS||[]).length)}</div>`;})()}
         ${canEditProduction()?`<button class="zadd" data-piready="${it.id}" style="margin-bottom:14px">✎ UPDATE THESE CHECKS</button>`:''}
 
+        ${(()=>{const blocked=blockedByItem(it); const mine=itemBlockers(it); const st=stuckLabel(it);
+          if(!blocked.length && !mine.length && !st)return '';
+          return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">HOLD-UPS</div>
+          <div style="border:1px solid ${blocked.length?'var(--red)':'var(--amber)'};border-radius:8px;padding:12px 14px;margin-bottom:14px;background:${blocked.length?'rgba(255,93,93,.07)':'rgba(255,179,0,.06)'}">
+            ${st?`<div style="font-size:12px;color:var(--amber);margin-bottom:${(mine.length||blocked.length)?'8px':'0'}">\u23f1 ${st}</div>`:''}
+            ${mine.length?`<div style="font-size:12px;margin-bottom:${blocked.length?'8px':'0'}">Waiting on: <strong style="color:var(--amber)">${mine.join(', ')}</strong></div>`:''}
+            ${blocked.length?`<div style="font-size:12px;color:var(--red);font-weight:700">This is holding up ${blocked.length} other item${blocked.length===1?'':'s'}</div>
+              <div style="font-size:11px;color:var(--mut);margin-top:4px">${blocked.map(b=>b.description||'').join(' \u00b7 ')}</div>`:''}
+          </div>`;})()}
+        ${canEditProduction()?`<div style="margin-bottom:14px"><button class="zadd" data-setblocks="${it.id}" style="font-size:10px">\u26d3 SET WHAT THIS HOLDS UP</button></div>`:''}
+        ${(()=>{const h=Array.isArray(it.stage_history)?it.stage_history:[];
+          if(!h.length)return '';
+          return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">STAGE HISTORY</div>
+          <div style="margin-bottom:14px">
+            ${h.slice(-8).map((x,i,arr)=>`<div style="display:flex;gap:10px;align-items:center;padding:7px 0;${i<arr.length-1?'border-bottom:1px solid var(--line)':''}">
+              <span style="width:9px;height:9px;border-radius:50%;background:${i===arr.length-1?'var(--amber)':'var(--green)'};flex:0 0 auto"></span>
+              <span style="flex:1;font-size:12px">${x.stage||''}</span>
+              <span style="font-size:11px;color:var(--mut)">${x.by||''}</span>
+              <span style="font-size:11px;color:var(--mut)">${x.at?new Date(x.at).toLocaleDateString():''}</span></div>`).join('')}
+          </div>`;})()}
         <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">LINKED RECORDS</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px">
           <div class="stat"><div class="sv" style="font-size:18px;color:${snags.length?'var(--red)':'var(--mut)'}">${snags.length}</div><div class="sl">SNAGS</div></div>
@@ -2527,11 +2595,119 @@ function drillHTML(allItems){
         <div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${ready}</div><div class="sl">READY TO BUILD</div></div>
         <div class="stat"><div class="sv" style="font-size:20px;color:var(--blue)">${done}</div><div class="sl">ON SITE</div></div>
         <div class="stat"><div class="sv" style="font-size:20px;color:${snagCount?'var(--red)':'var(--mut)'}">${snagCount}</div><div class="sl">SNAGS</div></div>
+        ${(()=>{const v=list.filter(isVariationItem).length;
+          return `<div class="stat"><div class="sv" style="font-size:20px;color:${v?'var(--amber)':'var(--mut)'}">${v}</div><div class="sl">VARIATIONS (EXTRA TO BOQ)</div></div>`;})()}
       </div>
       <div style="height:12px;background:var(--steel);border-radius:6px;overflow:hidden;border:1px solid var(--line);margin-bottom:4px">
         <div style="height:100%;width:${pct}%;background:var(--green)"></div></div>
       <div style="font-size:11px;color:var(--mut);margin-bottom:14px">${pct}% delivered to site</div>
 
+      ${(()=>{const pr=(store.projects||[]).find(x=>x.name===d.project);
+        const ed=(pr&&pr.editors)||(String(_workspaceId)===String(pr&&pr.id)?store.projectEditors:null)||{};
+        const list=Object.entries(ed).sort((a,b)=>new Date(b[1].at||0)-new Date(a[1].at||0));
+        if(!list.length)return '';
+        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHO LAST UPDATED THIS PROJECT</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+          ${list.map(([who,info])=>`<span style="font-size:10px;padding:5px 10px;border-radius:12px;background:var(--steel);border:1px solid var(--line)">
+            <strong style="color:var(--txt)">${who}</strong>
+            <span style="color:var(--mut)"> · ${(info.role||'').replace('contractor','supervisor').replace('site_engineer','site engineer')} · ${info.at?new Date(info.at).toLocaleString():''}</span></span>`).join('')}
+        </div>`;})()}
+      ${(()=>{
+        const notReady={}; (READINESS_CHECKS||[]).forEach(c=>{notReady[c.k]=list.filter(i=>!i[c.k] && i.stage!=='Site');});
+        const stale=list.filter(i=>daysAtStage(i)>=7 && i.stage!=='Site');
+        const unassigned=list.filter(i=>!assigneeList(i.assignee).length && i.stage!=='Site');
+        const blockers=list.filter(i=>blockedByItem(i).length);
+        const rows=[];
+        blockers.sort((a,b)=>blockedByItem(b).length-blockedByItem(a).length).slice(0,3).forEach(i=>{
+          const n=blockedByItem(i).length;
+          rows.push(['var(--red)','\u26d3',`${i.description||'An item'} is holding up ${n} other item${n===1?'':'s'}`, (itemBlockers(i)[0]||'Not yet cleared')]);
+        });
+        (READINESS_CHECKS||[]).forEach(c=>{const n=notReady[c.k].length;
+          if(n)rows.push(['var(--amber)','\u26a0',`${n} item${n===1?'':'s'} \u2014 ${c.label.toLowerCase()} outstanding`, notReady[c.k].slice(0,2).map(x=>x.description).join(', ')]);});
+        if(stale.length)rows.push(['var(--amber)','\u23f1',`${stale.length} item${stale.length===1?'':'s'} not moved in 7 days`, stale.slice(0,2).map(x=>x.description+' \u2014 '+stuckLabel(x)).join(', ')]);
+        if(unassigned.length)rows.push(['var(--mut)','\u1F464',`${unassigned.length} item${unassigned.length===1?'':'s'} with nobody assigned`,'Work cannot start without a name against it']);
+        if(!rows.length)return `<div style="border:1px solid var(--green);border-radius:8px;padding:12px 14px;margin-bottom:14px;background:rgba(61,220,132,.06);font-size:12px;color:var(--green)">\u2713 Nothing is blocked. Every item has what it needs.</div>`;
+        return `<div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-bottom:6px">NEEDS A DECISION FROM YOU \u2014 ${rows.length}</div>
+        <div class="card" style="border-color:var(--red);margin-bottom:14px">
+          <div style="padding:4px 14px">
+            ${rows.slice(0,6).map((r,i)=>`<div style="display:flex;gap:10px;padding:10px 0;${i<Math.min(rows.length,6)-1?'border-bottom:1px solid var(--line)':''}">
+              <span style="color:${r[0]};font-size:15px">${r[1]}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:700">${r[2]}</div>
+                <div style="font-size:10px;color:var(--mut);margin-top:2px">${r[3]||''}</div>
+              </div></div>`).join('')}
+          </div></div>`;})()}
+      ${(()=>{ if(d.zone)return '';
+        const pr0=(store.projects||[]).find(x=>x.name===d.project); if(!pr0)return '';
+        if(!store.purchasesLoaded)loadActuals();
+        const m0=(store.matCache||{})[pr0.id];
+        const act=actualsFor(pr0.id), actTot=actualsTotal(pr0.id);
+        if(!m0||m0==='loading'||m0.error)return '';
+        const estTot=m0.total;
+        const estPie=[['Sheet',m0.sheetCost],['Linear',m0.barCost],['Timber',m0.timberCost],
+                      ['Lipping',m0.lipCost],['Paint',m0.paintCost],['Assemblies',m0.assemblyCost]]
+          .map((r,i)=>({n:r[0],v:r[1],col:MAT_COLOURS[i%6][0],sd:MAT_COLOURS[i%6][1]})).filter(x=>x.v>0);
+        const bySup={}; act.forEach(x=>{const k=x.material||'Other';bySup[k]=(bySup[k]||0)+(+x.cost||0);});
+        const actPie=Object.keys(bySup).map((k,i)=>({n:k.length>18?k.slice(0,17)+String.fromCharCode(8230):k,v:bySup[k],col:MAT_COLOURS[i%6][0],sd:MAT_COLOURS[i%6][1]}));
+        const diff=actTot-estTot, pct=estTot?Math.round(diff/estTot*100):0;
+        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">MATERIAL &mdash; ESTIMATED vs ACTUALLY BOUGHT</div>
+        <div class="card" style="border-color:${!actTot?'var(--line)':diff>0?'var(--red)':'var(--green)'};margin-bottom:14px">
+          <div style="padding:12px 14px 16px">
+            <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+              <div style="text-align:center;flex:1;min-width:170px">
+                <div style="font-size:10px;color:var(--mut);letter-spacing:1px;margin-bottom:4px">ESTIMATED &middot; ${money(estTot)}</div>
+                ${pie3d(estPie,240,150,100,48,18)}</div>
+              ${actTot?`<div style="text-align:center;flex:1;min-width:170px">
+                <div style="font-size:10px;color:${diff>0?'var(--red)':'var(--green)'};letter-spacing:1px;margin-bottom:4px">ACTUALLY BOUGHT &middot; ${money(actTot)}</div>
+                ${pie3d(actPie,240,150,100,48,18)}</div>`:''}
+            </div>
+            ${pieLegend(estPie,v=>money(v))}
+            ${actTot?`<div style="text-align:center;margin:12px 0 4px">
+              <span style="font-size:20px;font-weight:800;color:${diff>0?'var(--red)':'var(--green)'}">${diff>0?'+':''}${money(diff)}</span>
+              <span style="font-size:11px;color:${diff>0?'var(--red)':'var(--green)'};margin-left:6px">${pct>0?pct+'% over':Math.abs(pct)+'% under'} estimate</span></div>
+              <div class="scroll" style="margin-top:8px"><table><thead><tr><th>Bought</th><th class="r">Qty</th><th>Supplier</th><th class="r">Cost</th></tr></thead><tbody>
+                ${act.slice(0,20).map(x=>`<tr><td style="font-size:11px">${x.material||''}</td>
+                  <td class="r" style="font-size:11px">${x.qty||0} ${x.unit||''}</td>
+                  <td style="font-size:11px;color:var(--mut)">${x.supplier||'&mdash;'}</td>
+                  <td class="r"><span class="cost">${money(x.cost||0)}</span></td></tr>`).join('')}
+              </tbody></table></div>`
+            :`<div class="hint" style="padding:10px 0 0">No purchases recorded against this project yet. Procurement records them on their Purchases tab, and the comparison appears here.</div>`}
+          </div></div>`;})()}
+      ${(()=>{ if(d.zone)return '';   // material is a project-level figure
+        const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
+        const m=(store.matCache||{})[pr.id];
+        if(m===undefined){ loadProjectMaterials(pr.id);
+          return `<div class="hint" style="padding:0 0 12px">Working out material used\u2026</div>`; }
+        if(m==='loading')return `<div class="hint" style="padding:0 0 12px">Working out material used\u2026</div>`;
+        if(!m||m.error)return `<div class="hint" style="padding:0 0 12px">Material figures unavailable for this project.</div>`;
+        const rows=[
+          ['Sheet material', m.sheets+' sheet'+(m.sheets===1?'':'s'), m.sheetCost],
+          ['Linear profile', m.bars+' bar'+(m.bars===1?'':'s'), m.barCost],
+          ['Solid timber', m.timberM3.toFixed(3)+' m\u00b3', m.timberCost],
+          ['Lipping / edging', m.lipLM.toFixed(1)+' m', m.lipCost],
+          ['Paint &amp; finish', m.paintL.toFixed(1)+' L', m.paintCost],
+          ['Assemblies', '', m.assemblyCost]
+        ].filter(r=>r[2]>0 || (r[1]&&parseFloat(r[1])>0));
+        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">MATERIAL USED &amp; COST</div>
+        <div class="card" style="border-color:var(--green);margin-bottom:14px">
+          <div style="padding:12px 14px">
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+              <span style="font-size:24px;font-weight:800;color:var(--green)">${money(m.total)}</span>
+              <span style="font-size:11px;color:var(--mut)">total material on this project</span>
+              ${m.waste?`<span style="margin-left:auto;font-size:11px;color:${m.waste>15?'var(--amber)':'var(--mut)'}">${m.waste.toFixed(1)}% sheet waste</span>`:''}
+            </div>
+            ${rows.length?`<div class="scroll"><table><thead><tr><th>Material</th><th class="r">Quantity</th><th class="r">Cost</th></tr></thead><tbody>
+              ${rows.map(r=>`<tr><td style="font-size:11px">${r[0]}</td>
+                <td class="r" style="font-size:11px;color:var(--mut)">${r[1]||'\u2014'}</td>
+                <td class="r"><span class="cost">${money(r[2])}</span></td></tr>`).join('')}
+            </tbody></table></div>`:'<div class="hint">No priced material on this project yet.</div>'}
+            <div class="hint" style="padding:8px 0 0">Calculated from the project\u2019s own cutting list and price book \u2014 the same figures the estimator sees.</div>
+          </div></div>`;})()}
+      ${(()=>{const sg=stageGroups(list); if(!sg.length)return '';
+        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHERE THE WORK IS</div>
+        <div class="card" style="margin-bottom:14px"><div style="padding:10px 14px 16px;text-align:center">
+          ${pie3d(sg,300,190,126,60,22)}${pieLegend(sg,v=>v+' pcs')}
+        </div></div>`;})()}
       <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">BY STAGE</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px">
         ${PROD_STAGES.filter(st=>byStage[st]).map(st=>`<span style="font-size:10px;padding:5px 9px;border-radius:4px;background:var(--steel);color:var(--txt)">${st}: <strong style="color:var(--amber)">${byStage[st]}</strong></span>`).join('')||'<span style="color:var(--mut);font-size:11px">No items</span>'}
@@ -2546,7 +2722,7 @@ function drillHTML(allItems){
       <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">ITEMS — click for full detail</div>
       ${list.length?`<div class="scroll"><table><thead><tr><th>Item</th>${!d.zone?'<th>Zone</th>':''}<th class="r">Qty</th><th>Assigned to</th><th>Stage</th><th>Ready</th></tr></thead><tbody>
         ${list.slice(0,80).map(i=>{const rr=prodReadyCalc(i);return `<tr style="cursor:pointer" data-drillitem="${i.id}">
-          <td style="font-size:11px"><strong>${i.description||'—'}</strong></td>
+          <td style="font-size:11px"><strong>${i.description||'—'}</strong>${originBadge(i)}</td>
           ${!d.zone?`<td style="font-size:11px;color:var(--mut)">${i.zone_name||'—'}</td>`:''}
           <td class="r" style="font-size:11px">${i.qty||1}</td>
           <td style="font-size:11px">${assigneeChips(i.assignee)}</td>
@@ -2565,6 +2741,231 @@ function assigneeChips(v){
   const list=assigneeList(v);
   if(!list.length)return '<span style="color:var(--mut);font-size:11px">unassigned</span>';
   return list.map(n=>`<span style="display:inline-block;font-size:10px;padding:2px 7px;margin:1px;border-radius:10px;background:var(--steel);color:var(--blue)">${n}</span>`).join('');
+}
+// Anything not from the BOQ is extra scope. Shown as a badge because a manager
+// pricing a job needs to see at a glance what was contracted and what was
+// added on site afterwards.
+// How long this item has sat at its current stage. Falls back to when it was
+// created, so an item that has never moved still reports honestly.
+// What this item holds up. Stored as a list of item ids on the blocker itself,
+// so a manager can see "approve this one and four others can move".
+// Material used and what it cost, for a project the manager has selected.
+// The maths already exists in the estimating side but runs off the open
+// project, so this loads the project's own data, runs the same calculations
+// against it, and caches the result.
+async function loadProjectMaterials(projectId){
+  if(!sb||!projectId)return;
+  store.matCache=store.matCache||{};
+  if(store.matCache[projectId]==='loading')return;
+  store.matCache[projectId]='loading';
+  try{
+    const {data}=await sb.from('jobs').select('data').eq('id',projectId).maybeSingle();
+    const d=(data&&data.data)||{};
+    // run the estimating maths against this project without disturbing the
+    // supervisor's own open workspace
+    const snap={};
+    ['sheetW','sheetH','sheetKerf','grain','sheetCode','sheetThk','stockLen','linKerf','linCode','linThk',
+     'sheetRows','linRows','paintRows','timberRows','assemblyRows','customAssemblies','priceBook','zones','currency'].forEach(k=>snap[k]=store[k]);
+    try{
+      ['sheetW','sheetH','sheetKerf','grain','sheetCode','sheetThk','stockLen','linKerf','linCode','linThk',
+       'sheetRows','linRows','paintRows','timberRows','assemblyRows','customAssemblies','priceBook','zones'].forEach(k=>{ if(d[k]!==undefined)store[k]=d[k]; });
+      const shRows=(store.sheetRows||[]).filter(r=>r.w>0&&r.h>0&&r.qty>0);
+      const linRows=(store.linRows||[]).filter(r=>r.len>0&&r.qty>0);
+      const sh=optimiseSheets(store.sheetW,store.sheetH,store.sheetKerf,store.grain,shRows.map(r=>({...r,...cutSize(r)})));
+      const lin=optimiseLinear(store.stockLen,store.linKerf,linRows);
+      const shOff=offerSheet(store.sheetCode,store.sheetThk,store.sheetW,store.sheetH);
+      const linOff=offerLinear(store.linCode,store.linThk,store.stockLen);
+      let paintL=0,paintC=0;(store.paintRows||[]).forEach(r=>{const x=paintCalc(r);paintL+=x.litres;paintC+=x.cost;});
+      let assy=0;(store.assemblyRows||[]).forEach(r=>{assy+=assemblyCost(r).total;});
+      let custom=0;(store.customAssemblies||[]).forEach(c=>{custom+=customCost(c).total;});
+      let lipLM=0,lipC=0;lipDemand(shRows).forEach(l=>{lipLM+=l.totalMM/1000;lipC+=l.cost;});
+      let timM3=0,timC=0;(store.timberRows||[]).forEach(r=>{const t=timberRowCost(r);timM3+=t.m3w;timC+=t.cost;});
+      store.matCache[projectId]={
+        sheets:sh.sheetCount, sheetCost:sh.sheetCount*shOff.price,
+        bars:lin.barCount, barCost:lin.barCount*linOff.price,
+        paintL:paintL, paintCost:paintC,
+        lipLM:lipLM, lipCost:lipC,
+        timberM3:timM3, timberCost:timC,
+        assemblyCost:assy+custom,
+        waste:sh.wastePct||0,
+        total:(sh.sheetCount*shOff.price)+(lin.barCount*linOff.price)+paintC+lipC+timC+assy+custom
+      };
+    } finally {
+      Object.keys(snap).forEach(k=>{store[k]=snap[k];});   // always restore
+    }
+  }catch(e){ store.matCache[projectId]={error:true}; }
+  render();
+}
+// A pseudo-3D pie: elliptical top face with an extruded front wall. Inline SVG
+// so it prints and needs no chart library.
+// What procurement actually bought, per project. The cutting list gives the
+// estimate; this is the counterweight. Without it a manager only ever sees
+// what a job was meant to cost, never what it did.
+async function loadActuals(){
+  if(!sb||!store.account)return;
+  try{const {data}=await sb.from('purchases').select('*').eq('company_id',store.account.companyId).order('bought_on',{ascending:false});
+    store.purchases=data||[];}catch(e){store.purchases=[];}
+  store.purchasesLoaded=true; render();
+}
+function actualsFor(projectId){
+  return (store.purchases||[]).filter(x=>String(x.project_id)===String(projectId));
+}
+function actualsTotal(projectId){
+  return actualsFor(projectId).reduce((a,x)=>a+(+x.cost||0),0);
+}
+async function addPurchase(){
+  const d=store.buyDraft||{};
+  if(!d.project_id){store.buyMsg='Pick which project this was bought for.';store.buyErr=true;render();return;}
+  if(!(d.material||'').trim()){store.buyMsg='Enter what was bought.';store.buyErr=true;render();return;}
+  const pr=(store.projects||[]).find(x=>String(x.id)===String(d.project_id));
+  const row={company_id:store.account.companyId, project_id:d.project_id,
+    project_name:pr?pr.name:'', material:(d.material||'').trim(),
+    qty:+d.qty||0, unit:(d.unit||'').trim(), cost:+d.cost||0,
+    supplier:(d.supplier||'').trim(), bought_on:d.bought_on||new Date().toISOString().slice(0,10),
+    recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email};
+  store.buyBusy=true; store.buyMsg=''; render();
+  try{
+    const {data,error}=await sb.from('purchases').insert(row).select().single();
+    if(error)throw error;
+    store.purchases=[data,...(store.purchases||[])];
+    store.buyDraft={project_id:d.project_id};
+    store.buyMsg='Recorded.'; store.buyErr=false;
+  }catch(e){store.buyMsg='Could not save: '+(e.message||'error');store.buyErr=true;}
+  store.buyBusy=false; render();
+}
+async function deletePurchase(id){
+  if(!confirm('Remove this purchase record?'))return;
+  store.purchases=(store.purchases||[]).filter(x=>String(x.id)!==String(id)); render();
+  try{await sb.from('purchases').delete().eq('id',id);}catch(e){}
+}
+function purchasesHTML(){
+  if(!store.purchasesLoaded){loadActuals();}
+  if(!store.projectsLoaded){loadProjects();}
+  const d=store.buyDraft||{};
+  const rows=(store.purchases||[]).filter(x=>!d.project_id||String(x.project_id)===String(d.project_id));
+  const total=rows.reduce((a,x)=>a+(+x.cost||0),0);
+  return `<div class="hint" style="padding-top:14px">Record what was actually bought for each project. The manager compares this against the estimate from the cutting list &mdash; that gap is where a job makes or loses money.</div>
+  <div class="card" style="border-color:var(--green)">
+    <div class="cardHead" style="color:var(--green)"><span>+ RECORD A PURCHASE</span></div>
+    <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end">
+      <label class="field" style="grid-column:1/-1"><span class="fl">PROJECT</span>
+        <select class="fi" id="buy_project">
+          <option value="">&mdash; pick a project &mdash;</option>
+          ${(store.projects||[]).map(p=>`<option value="${p.id}" ${String(d.project_id||'')===String(p.id)?'selected':''}>${p.name}</option>`).join('')}
+        </select></label>
+      <label class="field" style="grid-column:1/-1"><span class="fl">WHAT WAS BOUGHT</span>
+        <input class="fi" id="buy_material" value="${(d.material||'').replace(/"/g,'&quot;')}" placeholder="e.g. MDF-OAK 18mm sheet"></label>
+      <label class="field"><span class="fl">QUANTITY</span><input class="fi" id="buy_qty" type="number" value="${d.qty||''}"></label>
+      <label class="field"><span class="fl">UNIT</span><input class="fi" id="buy_unit" value="${(d.unit||'').replace(/"/g,'&quot;')}" placeholder="sheets, m, L"></label>
+      <label class="field"><span class="fl">TOTAL COST</span><input class="fi" id="buy_cost" type="number" value="${d.cost||''}"></label>
+      <label class="field"><span class="fl">SUPPLIER</span><input class="fi" id="buy_supplier" value="${(d.supplier||'').replace(/"/g,'&quot;')}"></label>
+      <label class="field"><span class="fl">DATE</span><input class="fi" id="buy_date" type="date" value="${d.bought_on||new Date().toISOString().slice(0,10)}"></label>
+      <button class="add" id="buy_save" style="grid-column:1/-1" ${store.buyBusy?'disabled':''}>${store.buyBusy?'SAVING&hellip;':'+ RECORD PURCHASE'}</button>
+      ${store.buyMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.buyErr?'var(--red)':'var(--green)'}">${store.buyMsg}</div>`:''}
+    </div>
+  </div>
+  <div class="card">
+    <div class="cardHead"><span>PURCHASES RECORDED &mdash; ${rows.length}</span><small style="color:var(--mut)">${money(total)}</small></div>
+    ${rows.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Material</th><th class="r">Qty</th><th>Supplier</th><th class="r">Cost</th><th></th></tr></thead><tbody>
+      ${rows.map(x=>`<tr><td style="font-size:11px">${x.bought_on||''}</td>
+        <td style="font-size:11px">${x.project_name||''}</td>
+        <td style="font-size:11px"><strong>${x.material||''}</strong></td>
+        <td class="r" style="font-size:11px">${x.qty||0} ${x.unit||''}</td>
+        <td style="font-size:11px;color:var(--mut)">${x.supplier||'&mdash;'}</td>
+        <td class="r"><span class="cost">${money(x.cost||0)}</span></td>
+        <td><button class="del" data-delbuy="${x.id}">&#10005;</button></td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="empty">Nothing recorded yet. Add what has actually been purchased.</div>'}
+  </div>`;
+}
+function wirePurchases(){
+  const keep=()=>{const g=id=>(document.getElementById(id)||{}).value;
+    store.buyDraft=Object.assign({},store.buyDraft,{project_id:g('buy_project'),material:g('buy_material'),
+      qty:g('buy_qty'),unit:g('buy_unit'),cost:g('buy_cost'),supplier:g('buy_supplier'),bought_on:g('buy_date')});};
+  ['buy_material','buy_qty','buy_unit','buy_cost','buy_supplier','buy_date'].forEach(id=>{
+    const el=document.getElementById(id); if(el)el.onchange=keep;});
+  {const bp=document.getElementById('buy_project'); if(bp)bp.onchange=()=>{keep();render();};}
+  {const bs=document.getElementById('buy_save'); if(bs)bs.onclick=()=>{keep();addPurchase();};}
+  document.querySelectorAll('[data-delbuy]').forEach(b=>b.onclick=()=>deletePurchase(b.dataset.delbuy));
+}
+function pie3d(data,w,h,rx,ry,depth){
+  const total=data.reduce((a,d)=>a+(+d.v||0),0);
+  if(!total)return '';
+  const cx=w/2, cy=h/2-depth/2;
+  let a=-Math.PI/2, walls='', tops='', labs='';
+  data.forEach(d=>{
+    const sw=2*Math.PI*(+d.v||0)/total, a0=a, a1=a+sw; a=a1;
+    const P=(ang,X,Y)=>[cx+(X||rx)*Math.cos(ang), cy+(Y||ry)*Math.sin(ang)];
+    const steps=Math.max(2,Math.ceil(sw/0.06));
+    for(let i=0;i<steps;i++){
+      const b0=a0+sw*i/steps, b1=a0+sw*(i+1)/steps;
+      if(Math.sin((b0+b1)/2)<=0)continue;
+      const p0=P(b0), p1=P(b1);
+      walls+='<path d="M'+p0[0].toFixed(1)+' '+p0[1].toFixed(1)+' L'+p1[0].toFixed(1)+' '+p1[1].toFixed(1)+
+        ' L'+p1[0].toFixed(1)+' '+(p1[1]+depth).toFixed(1)+' L'+p0[0].toFixed(1)+' '+(p0[1]+depth).toFixed(1)+' Z" fill="'+d.sd+'"/>';
+    }
+    const q0=P(a0), q1=P(a1), large=sw>Math.PI?1:0;
+    tops+='<path d="M'+cx+' '+cy+' L'+q0[0].toFixed(1)+' '+q0[1].toFixed(1)+' A'+rx+' '+ry+' 0 '+large+' 1 '+
+      q1[0].toFixed(1)+' '+q1[1].toFixed(1)+' Z" fill="'+d.col+'" stroke="#15171c" stroke-width="1.5"/>';
+    if((+d.v||0)/total>0.06){
+      const m=P((a0+a1)/2,rx*0.62,ry*0.62);
+      labs+='<text x="'+m[0].toFixed(0)+'" y="'+(m[1]+4).toFixed(0)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#0d0f13">'+Math.round((+d.v||0)/total*100)+'%</text>';
+    }
+  });
+  return '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;max-width:'+w+'px;height:auto" role="img" aria-label="pie chart">'+
+    '<ellipse cx="'+cx+'" cy="'+(cy+depth)+'" rx="'+rx+'" ry="'+ry+'" fill="#0d0f13" opacity="0.45"/>'+walls+tops+labs+'</svg>';
+}
+function pieLegend(data,fmt){
+  return '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px">'+
+    data.map(d=>'<span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txt)">'+
+      '<span style="width:10px;height:10px;border-radius:2px;background:'+d.col+';border:1px solid rgba(0,0,0,.35)"></span>'+
+      d.n+' <strong style="color:var(--mut)">'+(fmt?fmt(d.v):d.v)+'</strong></span>').join('')+'</div>';
+}
+// Grouped the way a manager thinks, not by raw stage name.
+function stageGroups(items){
+  const g={'Delivered':0,'In factory':0,'Waiting approval':0,'Not started':0};
+  items.forEach(i=>{
+    const q=+i.qty||1;
+    const outstanding=(READINESS_CHECKS||[]).some(c=>!i[c.k]);
+    if(i.stage==='Site')g['Delivered']+=q;
+    else if(!i.stage||i.stage==='Not Started')g['Not started']+=q;
+    else if(outstanding)g['Waiting approval']+=q;
+    else g['In factory']+=q;
+  });
+  const cols={'Delivered':['#3ddc84','#22a15c'],'In factory':['#5db8ff','#3182b8'],
+    'Waiting approval':['#FFB300','#b37d00'],'Not started':['#8b929c','#5f6672']};
+  return Object.keys(g).filter(k=>g[k]>0).map(k=>({n:k,v:g[k],col:cols[k][0],sd:cols[k][1]}));
+}
+const MAT_COLOURS=[['#5db8ff','#3182b8'],['#3ddc84','#22a15c'],['#FFB300','#b37d00'],
+                   ['#c084fc','#8b5cc7'],['#ff8a5d','#c05a33'],['#7fd4ff','#4a98bd']];
+function blockedByItem(it){
+  if(!it||!Array.isArray(it.blocks)||!it.blocks.length)return [];
+  const byId={}; (store.prodItems||[]).forEach(x=>{byId[String(x.id)]=x;});
+  return it.blocks.map(id=>byId[String(id)]).filter(Boolean);
+}
+// Is this item itself waiting on something? Either a readiness check is
+// outstanding, or another item names it as blocked.
+function itemBlockers(it){
+  if(!it)return [];
+  const out=[];
+  (READINESS_CHECKS||[]).forEach(c=>{ if(!it[c.k])out.push(c.label); });
+  return out;
+}
+function daysAtStage(it){
+  if(!it)return 0;
+  const since=it.stage_since||it.created_at;
+  if(!since)return 0;
+  return Math.floor((Date.now()-new Date(since))/864e5);
+}
+function stuckLabel(it){
+  const d=daysAtStage(it);
+  if(d<1)return '';
+  return d+' day'+(d===1?'':'s')+' at '+(it.stage||'Not Started');
+}
+function isVariationItem(it){ return (it&&it.origin)==='variation'; }
+function originBadge(it){
+  if(!isVariationItem(it))return '';
+  const who=(it.created_by_name||'').trim();
+  return `<span title="Added after the BOQ${who?' by '+who:''} \u2014 extra to contract" style="display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;margin-left:5px;border-radius:9px;background:#3a2a10;color:var(--amber);border:1px solid var(--amber)">VARIATION</span>`;
 }
 function canEditProduction(){ return store.account && store.account.accountType!=='timekeeper'; }
 function productionTabHTML(){
@@ -2588,9 +2989,18 @@ function productionTabHTML(){
       if(!projs.length)return '';
       return `<div class="card" style="border-color:var(--blue);margin-top:14px">
         <div class="cardHead" style="color:var(--blue)"><span>🗂 ALL PROJECTS — ${projs.length}</span></div>
-        <div class="hint" style="padding:0 12px 8px">Every project in ${store.account.company}. Click one to see its full picture. A project shows nothing until its cutting-list items have been pulled into the tracker.</div>
+        <div class="hint" style="padding:0 12px 8px">Every project in ${store.account.company}. Pick one from the list to see its summary, then click its name to open the full picture. A project shows nothing until its cutting-list items have been pulled into the tracker.</div>
+        <div style="padding:0 12px 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+          <label class="field" style="flex:1;min-width:200px"><span class="fl">CHOOSE A PROJECT</span>
+            <select class="fi" id="allProjPick">
+              <option value="">— pick a project —</option>
+              ${projs.map(pr=>{
+                const n=all.filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name).length;
+                return `<option value="${pr.id}" ${String(store.allProjPick||'')===String(pr.id)?'selected':''}>${pr.name} (${n} item${n===1?'':'s'})</option>`;}).join('')}
+            </select></label>
+        </div>
         <div style="padding:0 12px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
-          ${projs.map(pr=>{
+          ${projs.filter(pr=>!store.allProjPick||String(pr.id)===String(store.allProjPick)).map(pr=>{
             const mine=all.filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name);
             const done=mine.filter(i=>i.stage==='Site').length;
             const pct=mine.length?Math.round(done/mine.length*100):0;
@@ -2616,6 +3026,8 @@ function productionTabHTML(){
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:var(--amber)">${inProd}</div><div class="sl">IN PRODUCTION</div></div>
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:var(--green)">${onSite}</div><div class="sl">ON SITE</div></div>
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:${agingCount?'var(--red)':'var(--mut)'}">${agingCount}</div><div class="sl">AGING >7d</div></div>
+      ${(()=>{const v=items.filter(isVariationItem).length;
+        return `<div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:${v?'var(--amber)':'var(--mut)'}">${v}</div><div class="sl">VARIATIONS</div></div>`;})()}
     </div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <button class="zadd" data-prodview="dashboard" style="${(!store.prodView||store.prodView==='dashboard')?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">📊 DASHBOARD</button>
@@ -4476,8 +4888,9 @@ function procurementHTML(){
     <div class="tabs" style="padding:10px 16px 0">
       <button class="tab ${store.tab!=='ralmixer'?'on':''}" data-noprojtab="projects">📁 PROJECTS</button>
       <button class="tab ${store.tab==='ralmixer'?'on':''}" data-noprojtab="ralmixer" style="color:var(--green)">🎨 RAL MIXER</button>
+      <button class="tab ${store.tab==='purchases'?'on':''}" data-noprojtab="purchases" style="color:var(--amber)">PURCHASES</button>
     </div>
-    ${store.tab==='ralmixer'?ralMixerHTML():`<div class="body">
+    ${store.tab==='ralmixer'?ralMixerHTML():store.tab==='purchases'?`<div class="body">${purchasesHTML()}</div>`:`<div class="body">
       <div class="hint" style="padding-top:14px">Pick a project to see its price book, browse the supplier catalogue, and place orders against it.</div>
       <div class="card">
         <div class="cardHead"><span>📁 SELECT A PROJECT</span></div>
@@ -4960,8 +5373,10 @@ function fullEditorPickerHTML(){
 }
 function appHTML(){
   const daysLeft=Math.max(0,Math.ceil((new Date(store.account.trialEnds)-new Date())/864e5));
-  return `${store.fullEditorMode?`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--amber);color:#000;font-size:12px;font-weight:700">
-    <span>🔧 FULL PROJECT EDITOR — you're editing pricing on a shared company project (${store.account.accountType==='manager'?'Manager':'Site Engineer'} view)</span>
+  return `${store.fullEditorMode?`<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:${canEditProject()?'var(--amber)':'var(--blue)'};color:${canEditProject()?'#000':'#fff'};font-size:12px;font-weight:700;flex-wrap:wrap">
+    <span>${canEditProject()
+      ? "\u270e FULL PROJECT EDITOR \u2014 you're editing a shared company project ("+(store.account.accountType==='manager'?'Manager':'Site Engineer')+" view). Changes affect everyone."
+      : "VIEW ONLY \u2014 this project belongs to someone else. You can look at everything, but only its owner or a manager can change it. To add your own work, use your own dashboard."}</span>
     <button class="pbtn" id="exitFullEditor" style="margin-left:auto;background:#000;color:#fff;border-color:#000">← RETURN TO MY DASHBOARD</button>
   </div>`:''}
   <div class="trialBar">✓ FREE TRIAL — ${daysLeft} day${daysLeft===1?'':'s'} left · ${store.account.company}</div>
@@ -5923,6 +6338,8 @@ function wireProduction(){
     {const cdf=document.getElementById('clearDashFilter'); if(cdf)cdf.onclick=()=>{store.dashFilter={};render();};}
     document.querySelectorAll('[data-drillproject]').forEach(el=>el.onclick=(e)=>{e.stopPropagation();store.drill={project:el.dataset.drillproject};render();});
     document.querySelectorAll('[data-quickpull]').forEach(b=>b.onclick=()=>pullItemsFromProject(b.dataset.quickpull));
+    document.querySelectorAll('[data-setblocks]').forEach(b=>b.onclick=()=>setItemBlocks(b.dataset.setblocks));
+    {const app=document.getElementById('allProjPick'); if(app)app.onchange=()=>{store.allProjPick=app.value;render();};}
     document.querySelectorAll('[data-drillzone]').forEach(el=>el.onclick=()=>{store.drill=Object.assign({},store.drill,{zone:el.dataset.drillzone,item:null});render();});
     document.querySelectorAll('[data-drillitem]').forEach(el=>el.onclick=()=>{
       const it=(store.prodItems||[]).find(x=>String(x.id)===String(el.dataset.drillitem)); if(!it)return;
@@ -6392,7 +6809,8 @@ function wire(){
   document.querySelectorAll('[data-openprocproj]').forEach(el=>el.onclick=()=>openProject(el.dataset.openprocproj));
   {const rf=document.getElementById('ralFrame');
    if(rf && !rf.dataset.mounted){ rf.dataset.mounted='1'; rf.srcdoc=b64ToUtf8(RAL_MIXER_B64); }}
-  document.querySelectorAll('[data-noprojtab]').forEach(b=>b.onclick=()=>{store.tab=b.dataset.noprojtab==='ralmixer'?'ralmixer':'';render();});
+  document.querySelectorAll('[data-noprojtab]').forEach(b=>b.onclick=()=>{store.tab=(b.dataset.noprojtab==='ralmixer'||b.dataset.noprojtab==='purchases')?b.dataset.noprojtab:'';render();});
+  wirePurchases();
   const pcp=document.getElementById('procChangeProject');if(pcp)pcp.onclick=()=>{_workspaceId=null;_workspaceOwnerId=null;store.projectName='';render();};
   document.querySelectorAll('[data-viewprocreq]').forEach(b=>b.onclick=()=>{store.procReqViewId=b.dataset.viewprocreq;render();});
   const pvc=document.getElementById('procViewClose');if(pvc)pvc.onclick=()=>{store.procReqViewId=null;render();};
