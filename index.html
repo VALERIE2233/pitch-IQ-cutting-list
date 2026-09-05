@@ -3169,6 +3169,10 @@ function productionTabHTML(){
         <button class="zadd" id="clearDashFilter" style="font-size:10px;padding:3px 8px;border-radius:12px;border-color:var(--amber);color:var(--amber)">✕</button>
       </div>`;})()}
     <div class="hint" style="padding-top:14px">Track every production item through the shop floor, stage by stage — the same pipeline as your factory tracking sheet. Add items here as jobs come in; move them through stages as they progress.</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="zadd" id="toggleTracker" style="border-color:var(--blue);color:var(--blue)">${store.showTracker?"&minus; HIDE DETAILED TRACKER":"+ OPEN DETAILED TRACKER"}</button>
+    </div>
+    <div style="${store.showTracker?'':'display:none'}">
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px">${items.length}</div><div class="sl">ITEMS</div></div>
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:var(--amber)">${inProd}</div><div class="sl">IN PRODUCTION</div></div>
@@ -3176,6 +3180,9 @@ function productionTabHTML(){
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:${agingCount?'var(--red)':'var(--mut)'}">${agingCount}</div><div class="sl">AGING >7d</div></div>
       ${(()=>{const v=items.filter(isVariationItem).length;
         return `<div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:${v?'var(--amber)':'var(--mut)'}">${v}</div><div class="sl">VARIATIONS</div></div>`;})()}
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <button class="zadd" id="toggleTracker" style="border-color:var(--blue);color:var(--blue)">${store.showTracker?"&minus; HIDE DETAILED TRACKER":"+ OPEN DETAILED TRACKER"}</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <button class="zadd" data-prodview="dashboard" style="${(!store.prodView||store.prodView==='dashboard')?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">📊 DASHBOARD</button>
@@ -3243,6 +3250,7 @@ function productionTabHTML(){
     ${store.prodView==='project'?prodProjectViewHTML(items):''}
     ${store.prodView==='zone'?prodZoneViewHTML(items):''}
     ${store.prodView==='team'?prodTeamViewHTML(items):''}
+  </div>
   </div>${prodReadyOverlay(items)}`;
 }
 // ---- rollup view renderers ----
@@ -6477,6 +6485,7 @@ function wireProduction(){
     const prc=document.getElementById('prodReadyClose');if(prc)prc.onclick=()=>{store.prodReadyId=null;render();};
     document.querySelectorAll('[data-readycheck]').forEach(cb=>cb.onchange=()=>{updateProductionItem(store.prodReadyId,{[cb.dataset.readycheck]:cb.checked});});
     document.querySelectorAll('[data-prodview]').forEach(b=>b.onclick=()=>{store.prodView=b.dataset.prodview;render();});
+    {const tt=document.getElementById('toggleTracker'); if(tt)tt.onclick=()=>{store.showTracker=!store.showTracker;render();};}
     (()=>{if(!store.dashFilter)store.dashFilter={project:'(All)',assignee:'(All)',zone:'(All)'};
       const dp=document.getElementById('dash_project');if(dp)dp.onchange=()=>{store.dashFilter.project=dp.value;render();};
       const da=document.getElementById('dash_assignee');if(da)da.onchange=()=>{store.dashFilter.assignee=da.value;render();};
