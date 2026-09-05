@@ -2680,6 +2680,8 @@ function drillHTML(allItems){
       ${(()=>{ if(d.zone)return '';
         const pr0=(store.projects||[]).find(x=>x.name===d.project); if(!pr0)return '';
         if(!store.purchasesLoaded)loadActuals();
+        if(((store.matCache||{})[pr0.id])===undefined){loadProjectMaterials(pr0.id);
+          return `<div class="hint" style="padding:0 0 12px">Working out material used&hellip;</div>`;}
         const m0=(store.matCache||{})[pr0.id];
         const act=actualsFor(pr0.id), actTot=actualsTotal(pr0.id);
         if(!m0||m0==='loading'||m0.error)return '';
@@ -2712,36 +2714,6 @@ function drillHTML(allItems){
                   <td class="r"><span class="cost">${money(x.cost||0)}</span></td></tr>`).join('')}
               </tbody></table></div>`
             :`<div class="hint" style="padding:10px 0 0">No purchases recorded against this project yet. Procurement records them on their Purchases tab, and the comparison appears here.</div>`}
-          </div></div>`;})()}
-      ${(()=>{ if(d.zone)return '';   // material is a project-level figure
-        const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
-        const m=(store.matCache||{})[pr.id];
-        if(m===undefined){ loadProjectMaterials(pr.id);
-          return `<div class="hint" style="padding:0 0 12px">Working out material used\u2026</div>`; }
-        if(m==='loading')return `<div class="hint" style="padding:0 0 12px">Working out material used\u2026</div>`;
-        if(!m||m.error)return `<div class="hint" style="padding:0 0 12px">Material figures unavailable for this project.</div>`;
-        const rows=[
-          ['Sheet material', m.sheets+' sheet'+(m.sheets===1?'':'s'), m.sheetCost],
-          ['Linear profile', m.bars+' bar'+(m.bars===1?'':'s'), m.barCost],
-          ['Solid timber', m.timberM3.toFixed(3)+' m\u00b3', m.timberCost],
-          ['Lipping / edging', m.lipLM.toFixed(1)+' m', m.lipCost],
-          ['Paint &amp; finish', m.paintL.toFixed(1)+' L', m.paintCost],
-          ['Assemblies', '', m.assemblyCost]
-        ].filter(r=>r[2]>0 || (r[1]&&parseFloat(r[1])>0));
-        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">MATERIAL USED &amp; COST</div>
-        <div class="card" style="border-color:var(--green);margin-bottom:14px">
-          <div style="padding:12px 14px">
-            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-              <span style="font-size:24px;font-weight:800;color:var(--green)">${money(m.total)}</span>
-              <span style="font-size:11px;color:var(--mut)">total material on this project</span>
-              ${m.waste?`<span style="margin-left:auto;font-size:11px;color:${m.waste>15?'var(--amber)':'var(--mut)'}">${m.waste.toFixed(1)}% sheet waste</span>`:''}
-            </div>
-            ${rows.length?`<div class="scroll"><table><thead><tr><th>Material</th><th class="r">Quantity</th><th class="r">Cost</th></tr></thead><tbody>
-              ${rows.map(r=>`<tr><td style="font-size:11px">${r[0]}</td>
-                <td class="r" style="font-size:11px;color:var(--mut)">${r[1]||'\u2014'}</td>
-                <td class="r"><span class="cost">${money(r[2])}</span></td></tr>`).join('')}
-            </tbody></table></div>`:'<div class="hint">No priced material on this project yet.</div>'}
-            <div class="hint" style="padding:8px 0 0">Calculated from the project\u2019s own cutting list and price book \u2014 the same figures the estimator sees.</div>
           </div></div>`;})()}
       ${(()=>{ if(!d.zone)return '';
         const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
@@ -2790,11 +2762,7 @@ function drillHTML(allItems){
         <div class="card" style="margin-bottom:14px"><div style="padding:10px 14px 16px;text-align:center">
           ${pie3d(sg,300,190,126,60,22)}${pieLegend(sg,v=>v+' pcs')}
         </div></div>`;})()}
-      <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">BY STAGE</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px">
-        ${PROD_STAGES.filter(st=>byStage[st]).map(st=>`<span style="font-size:10px;padding:5px 9px;border-radius:4px;background:var(--steel);color:var(--txt)">${st}: <strong style="color:var(--amber)">${byStage[st]}</strong></span>`).join('')||'<span style="color:var(--mut);font-size:11px">No items</span>'}
-      </div>
-
+      
       ${!d.zone&&zones.length?`<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">ZONES — click to open</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
         ${zones.map(z=>{const n=inProj.filter(i=>i.zone_name===z).length;
