@@ -2623,10 +2623,15 @@ function drillHTML(allItems){
           ${act?`<div style="text-align:center;margin:12px 0 4px">
             <span style="font-size:20px;font-weight:800;color:${diff>0?'var(--red)':'var(--green)'}">${diff>0?'+':''}${money(diff)}</span>
             <span style="font-size:11px;color:${diff>0?'var(--red)':'var(--green)'};margin-left:6px">${Math.abs(dpct)}% ${diff>0?'over':'under'} estimate</span></div>
-            <div class="scroll" style="margin-top:8px"><table><thead><tr><th>Bought</th><th class="r">Qty</th><th>Supplier</th><th class="r">Cost</th></tr></thead><tbody>
-              ${buys.slice(0,20).map(x=>`<tr><td style="font-size:11px">${x.material||''}</td><td class="r" style="font-size:11px">${x.qty||0} ${x.unit||''}</td>
-                <td style="font-size:11px;color:var(--mut)">${x.supplier||'&mdash;'}</td><td class="r"><span class="cost">${money(x.cost||0)}</span></td></tr>`).join('')}
-            </tbody></table></div>`
+            <div class="scroll" style="margin-top:8px"><table><thead><tr><th>Material</th><th class="r">Est.</th><th class="r">Bought</th><th class="r">Diff</th><th class="r">Cost</th></tr></thead><tbody>
+              ${materialComparison(pr.id,m).map(r=>{const dc=r.diff>0?'var(--red)':r.diff<0?'var(--green)':'var(--mut)';
+                return `<tr><td style="font-size:11px">${r.label}${r.detail?`<div style="font-size:9px;color:var(--mut)">${r.detail}</div>`:''}</td>
+                <td class="r" style="font-size:11px">${r.est?r.est+' '+r.unit:'&mdash;'}</td>
+                <td class="r" style="font-size:11px">${r.bought?r.bought+' '+r.unit:'&mdash;'}</td>
+                <td class="r"><span style="font-size:11px;font-weight:700;color:${dc}">${r.diff>0?'+':''}${r.diff===0?'&mdash;':(Math.abs(r.diff)%1?r.diff.toFixed(2):r.diff)}</span></td>
+                <td class="r"><span class="cost">${money(r.cost||r.estCost)}</span></td></tr>`;}).join('')}
+            </tbody></table></div>
+            <div class="hint" style="padding:8px 0 0">Estimated comes from the supervisor&rsquo;s cutting list. Bought comes from what procurement recorded. The gap is where the money went.</div>`
           :`<div class="hint" style="padding:10px 0 0">No purchases recorded yet. Procurement records them on their Purchases tab and the comparison appears here.</div>`}
         </div></div>
         ${m.offcutSaved?`<div class="card" style="border-color:var(--green)"><div style="padding:12px 14px">
@@ -2837,6 +2842,43 @@ async function loadActuals(){
   try{const {data}=await sb.from('purchases').select('*').eq('company_id',store.account.companyId).order('bought_on',{ascending:false});
     store.purchases=data||[];}catch(e){store.purchases=[];}
   store.purchasesLoaded=true; render();
+}
+// Which estimate line a free-text purchase belongs to. Procurement types
+// "MDF-OAK 18mm sheet", the estimate says "sheet" — this joins them.
+function purchaseCategory(txt){
+  const t=String(txt||'').toLowerCase();
+  if(/sheet|mdf|ply|board|panel|melamine|laminate/.test(t))return 'sheet';
+  if(/bar|stud|track|profile|angle|linear|section/.test(t))return 'linear';
+  if(/timber|solid|oak |walnut|teak|m3|m\u00b3/.test(t))return 'timber';
+  if(/lip|edge|band/.test(t))return 'lipping';
+  if(/paint|primer|topcoat|lacquer|stain|varnish/.test(t))return 'paint';
+  return 'other';
+}
+// Estimated vs bought, line by line, with the difference in each.
+function materialComparison(projectId,m){
+  const buys=actualsFor(projectId);
+  const byCat={};
+  buys.forEach(x=>{const c=purchaseCategory(x.material);
+    if(!byCat[c])byCat[c]={qty:0,cost:0,unit:x.unit||'',names:[]};
+    byCat[c].qty+=(+x.qty||0); byCat[c].cost+=(+x.cost||0);
+    if(byCat[c].names.indexOf(x.material)<0)byCat[c].names.push(x.material);});
+  const defs=[
+    ['sheet','Sheet material', m.sheets, 'sheets', m.sheetCost],
+    ['linear','Linear profile', m.bars, 'bars', m.barCost],
+    ['timber','Solid timber', +(m.timberM3||0).toFixed(3), 'm\u00b3', m.timberCost],
+    ['lipping','Lipping / edging', +(m.lipLM||0).toFixed(1), 'm', m.lipCost],
+    ['paint','Paint &amp; finish', +(m.paintL||0).toFixed(1), 'L', m.paintCost],
+  ];
+  const rows=defs.filter(dfn=>dfn[2]>0 || (byCat[dfn[0]]&&byCat[dfn[0]].cost>0)).map(dfn=>{
+    const got=byCat[dfn[0]]||{qty:0,cost:0};
+    return {label:dfn[1], est:dfn[2], bought:got.qty, unit:dfn[3],
+            estCost:dfn[4], cost:got.cost, diff:got.qty-dfn[2],
+            detail:(got.names||[]).join(', ')};
+  });
+  if(byCat.other && byCat.other.cost>0)
+    rows.push({label:'Other', est:0, bought:byCat.other.qty, unit:byCat.other.unit||'',
+               estCost:0, cost:byCat.other.cost, diff:byCat.other.qty, detail:byCat.other.names.join(', ')});
+  return rows;
 }
 function actualsFor(projectId){
   return (store.purchases||[]).filter(x=>String(x.project_id)===String(projectId));
