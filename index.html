@@ -2600,7 +2600,36 @@ function drillHTML(allItems){
   return `<div class="card" style="border-color:var(--blue)">
     <div style="padding:14px">
       ${crumb}
-      <div style="font-size:17px;font-weight:800;margin-bottom:10px">${d.zone||d.project}</div>
+      <div style="font-size:17px;font-weight:800;margin-bottom:6px">${d.zone||d.project}</div>
+      ${(()=>{ if(d.zone)return '';
+        const pr=(store.projects||[]).find(x=>x.name===d.project);
+        const blocked=list.filter(i=>(READINESS_CHECKS||[]).some(c=>!i[c.k]) && i.stage!=='Site').length;
+        const m=pr?(store.matCache||{})[pr.id]:null;
+        const act=pr?actualsTotal(pr.id):0;
+        const over=(m&&m.total&&act)?Math.round((act-m.total)/m.total*100):0;
+        const planned=pr&&pr.planned_hours?+pr.planned_hours:0;
+        const usedH=(()=>{const hh=r=>{if(!r.sign_in_at)return 0;const e=r.sign_out_at?new Date(r.sign_out_at):new Date();return Math.max(0,(e-new Date(r.sign_in_at))/36e5);};
+          const inP=x=>!pr||String(x.project_id)===String(pr.id);
+          return (store.attendance||[]).filter(inP).reduce((a,r)=>a+hh(r),0)+(store.crewAtt||[]).filter(inP).reduce((a,r)=>a+crewHours(r),0);})();
+        const onNow=(store.attendance||[]).filter(r=>r.sign_in_at&&!r.sign_out_at&&(!pr||String(r.project_id)===String(pr.id))).length;
+        const crewNow=(store.crewAtt||[]).filter(r=>r.sign_in_at&&!r.sign_out_at&&(!pr||String(r.project_id)===String(pr.id))).length;
+        const bad=blocked>0||over>10||(planned&&usedH/planned>pct/100+0.15);
+        const reasons=[];
+        if(over>10)reasons.push('material '+over+'% over estimate');
+        if(blocked)reasons.push(blocked+' item'+(blocked===1?'':'s')+' blocked');
+        if(planned&&usedH/planned>pct/100+0.15)reasons.push('labour ahead of progress');
+        return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;background:${bad?'#3a2a10':'#14301f'};color:${bad?'var(--amber)':'var(--green)'};border:1px solid ${bad?'var(--amber)':'var(--green)'}">${bad?'NEEDS ATTENTION':'ON TRACK'}</span>
+          ${reasons.length?`<span style="font-size:12px;color:var(--mut)">${reasons.join(' &middot; ')}</span>`:''}
+        </div>
+        <div class="settings" style="margin-bottom:12px">
+          <div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${pct}%</div><div class="sl">PROGRESS &middot; ${done} OF ${list.length} DELIVERED</div>
+            <div style="height:6px;background:var(--steel);border-radius:3px;margin-top:8px;border:1px solid var(--line)"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px"></div></div></div>
+          ${planned?`<div class="stat"><div class="sv" style="font-size:20px;color:var(--amber)">${Math.round(usedH/planned*100)}%</div><div class="sl">LABOUR &middot; ${usedH.toFixed(0)} OF ${planned}h</div>
+            <div style="height:6px;background:var(--steel);border-radius:3px;margin-top:8px;border:1px solid var(--line)"><div style="height:100%;width:${Math.min(100,usedH/planned*100)}%;background:var(--amber);border-radius:3px"></div></div></div>`
+            :`<div class="stat"><div class="sv" style="font-size:20px;color:var(--mut)">${usedH.toFixed(0)}h</div><div class="sl">LABOUR USED &middot; NO PLAN SET</div></div>`}
+          <div class="stat"><div class="sv" style="font-size:20px;color:var(--blue)">${onNow+crewNow}</div><div class="sl">ON SITE NOW &middot; ${onNow} STAFF + ${crewNow} CREW</div></div>
+        </div>`;})()}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">
         <div class="stat"><div class="sv" style="font-size:20px">${list.length}</div><div class="sl">ITEMS</div></div>
         <div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${ready}</div><div class="sl">READY TO BUILD</div></div>
@@ -2724,6 +2753,38 @@ function drillHTML(allItems){
           <div class="stat"><div class="sv" style="font-size:20px;color:var(--blue)">${list.filter(i=>assigneeList(i.assignee).length).length}</div><div class="sl">ASSIGNED</div></div>
           ${spend?`<div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${money(spend)}</div><div class="sl">BOUGHT FOR THIS ZONE</div></div>`:''}
         </div>`;})()}
+      ${(()=>{ if(d.zone)return '';
+        const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
+        const m=(store.matCache||{})[pr.id];
+        if(!m||m==='loading'||m.error||!m.offcutSaved)return '';
+        return `<div class="card" style="border-color:var(--green);margin-bottom:14px"><div style="padding:12px 14px">
+          <div style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap">
+            <div style="font-size:24px;font-weight:800;color:var(--green)">${money(m.offcutSaved)}</div>
+            <div style="font-size:12px;color:var(--mut)">saved by reusing offcuts &middot; ${m.offcutSheets} sheet${m.offcutSheets===1?'':'s'} not bought</div></div>
+          <div class="hint" style="padding:8px 0 0">Panels cut from banked offcuts instead of new board.</div>
+        </div></div>`;})()}
+      ${(()=>{ if(d.zone)return '';
+        const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
+        if(!store.myOrdersLoaded)loadMyOrders();
+        const ords=(store.myOrders||[]).filter(o=>String(o.project_id)===String(pr.id));
+        if(!ords.length)return '';
+        const lbl=o=>o.status==='actioned'?['DELIVERED','#14301f','var(--green)']
+          :o.status==='sent'?['SENT TO SUPPLIER','#12283a','var(--blue)']
+          :o.status==='approved'?['APPROVED','#14301f','var(--green)']
+          :o.status==='rejected'?['REJECTED','#3a1414','var(--red)']
+          :['AWAITING APPROVAL','var(--steel)','var(--mut)'];
+        const waiting=ords.filter(o=>o.status==='pending_approval').length;
+        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">SUPPLIER ORDERS &mdash; ${ords.length}</div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="scroll"><table><thead><tr><th>Supplier</th><th>Sent</th><th class="r">Value</th><th>Status</th></tr></thead><tbody>
+            ${ords.slice(0,10).map(o=>{const L=lbl(o);return `<tr>
+              <td style="font-size:11px">${o.supplier_name||'&mdash;'}</td>
+              <td style="font-size:11px">${o.created_at?new Date(o.created_at).toLocaleDateString():''}</td>
+              <td class="r"><span class="cost">${money(+o.total||0)}</span></td>
+              <td><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;background:${L[1]};color:${L[2]};border:1px solid ${L[2]}">${L[0]}${o.acknowledged_at?'':''}</span></td></tr>`;}).join('')}
+          </tbody></table></div>
+          ${waiting?`<div class="hint" style="padding:8px 14px 12px;color:var(--amber)">${waiting} order${waiting===1?'':'s'} waiting on your approval.</div>`:''}
+        </div>`;})()}
       ${(()=>{const sg=stageGroups(list); if(!sg.length)return '';
         return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHERE THE WORK IS</div>
         <div class="card" style="margin-bottom:14px"><div style="padding:10px 14px 16px;text-align:center">
@@ -2825,6 +2886,8 @@ async function loadProjectMaterials(projectId){
         lipLM:lipLM, lipCost:lipC,
         timberM3:timM3, timberCost:timC,
         assemblyCost:assy+custom,
+        offcutSheets:(sh.sheets||[]).filter(x=>x.fromOffcut).length,
+        offcutSaved:(sh.sheets||[]).filter(x=>x.fromOffcut).length*shOff.price,
         waste:sh.wastePct||0,
         total:(sh.sheetCount*shOff.price)+(lin.barCount*linOff.price)+paintC+lipC+timC+assy+custom
       };
