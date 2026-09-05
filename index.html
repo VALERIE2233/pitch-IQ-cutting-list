@@ -376,8 +376,8 @@ const store={
   timberRows:[],
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
-  const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+  const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;Object.assign(store,j);}}catch(e){}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -2129,19 +2129,20 @@ function managerHTML(){
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
   <div class="tabs" style="padding:10px 16px 0">
-    <button class="tab ${(!store.managerTab||store.managerTab==='approvals')?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
-    <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production" style="color:var(--blue)">🏭 PRODUCTION</button>
+    <button class="tab ${(!store.managerTab||store.managerTab==='production')?'on':''}" data-mgrtab="production" style="color:var(--blue)">OVERVIEW</button>
+    <button class="tab ${store.managerTab==='approvals'?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
+
     <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="color:var(--amber)">👷 SITE VISITS</button>
     <button class="tab ${store.managerTab==='editor'?'on':''}" data-mgrtab="editor" style="color:var(--amber)">🔧 EDITOR</button>
     <button class="tab ${store.managerTab==='manpower'?'on':''}" data-mgrtab="manpower" style="color:var(--green)">👷 MANPOWER</button>
   </div>
-  ${(!store.managerTab||store.managerTab==='approvals')?`<div class="body">
+  ${(store.managerTab==='approvals')?`<div class="body">
     <div class="hint" style="padding-top:14px">Review cutting lists and orders your estimators submit. Approve to release them to suppliers, or reject with a reason. Only orders from <strong>${store.account.company}</strong> appear here.</div>
     ${mgrProcurementSection()}
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`:store.managerTab==='production'?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
+  </div>`:(!store.managerTab||store.managerTab==='production')?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -2563,6 +2564,16 @@ function drillHTML(allItems){
               <span style="font-size:11px;color:var(--mut)">${x.by||''}</span>
               <span style="font-size:11px;color:var(--mut)">${x.at?new Date(x.at).toLocaleDateString():''}</span></div>`).join('')}
           </div>`;})()}
+        ${(()=>{const pr=(store.projects||[]).find(x=>x.name===it.project_name); if(!pr)return '';
+          const key=String(it.description||'').split(String.fromCharCode(183)).pop().trim().toLowerCase();
+          const buys=actualsFor(pr.id).filter(x=>key && (x.material||'').toLowerCase().indexOf(key)>-1);
+          if(!buys.length)return '';
+          const spend=buys.reduce((a,x)=>a+(+x.cost||0),0);
+          return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">BOUGHT FOR THIS ITEM &mdash; ${money(spend)}</div>
+          <div class="scroll" style="margin-bottom:14px"><table><thead><tr><th>Material</th><th class="r">Qty</th><th class="r">Cost</th></tr></thead><tbody>
+            ${buys.map(x=>`<tr><td style="font-size:11px">${x.material||''}</td><td class="r" style="font-size:11px">${x.qty||0} ${x.unit||''}</td>
+              <td class="r"><span class="cost">${money(x.cost||0)}</span></td></tr>`).join('')}
+          </tbody></table></div>`;})()}
         <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">LINKED RECORDS</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px">
           <div class="stat"><div class="sv" style="font-size:18px;color:${snags.length?'var(--red)':'var(--mut)'}">${snags.length}</div><div class="sl">SNAGS</div></div>
@@ -2703,6 +2714,16 @@ function drillHTML(allItems){
             </tbody></table></div>`:'<div class="hint">No priced material on this project yet.</div>'}
             <div class="hint" style="padding:8px 0 0">Calculated from the project\u2019s own cutting list and price book \u2014 the same figures the estimator sees.</div>
           </div></div>`;})()}
+      ${(()=>{ if(!d.zone)return '';
+        const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
+        const zoneBuys=actualsFor(pr.id).filter(x=>(x.material||'').toLowerCase().indexOf(String(d.zone).toLowerCase())>-1);
+        const spend=zoneBuys.reduce((a,x)=>a+(+x.cost||0),0);
+        return `<div class="settings" style="margin-bottom:12px">
+          <div class="stat"><div class="sv" style="font-size:20px">${list.reduce((a,i)=>a+(+i.qty||1),0)}</div><div class="sl">PIECES IN THIS ZONE</div></div>
+          <div class="stat"><div class="sv" style="font-size:20px;color:var(--amber)">${list.filter(i=>(READINESS_CHECKS||[]).some(c=>!i[c.k])).length}</div><div class="sl">WAITING ON APPROVAL</div></div>
+          <div class="stat"><div class="sv" style="font-size:20px;color:var(--blue)">${list.filter(i=>assigneeList(i.assignee).length).length}</div><div class="sl">ASSIGNED</div></div>
+          ${spend?`<div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${money(spend)}</div><div class="sl">BOUGHT FOR THIS ZONE</div></div>`:''}
+        </div>`;})()}
       ${(()=>{const sg=stageGroups(list); if(!sg.length)return '';
         return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHERE THE WORK IS</div>
         <div class="card" style="margin-bottom:14px"><div style="padding:10px 14px 16px;text-align:center">
@@ -2780,7 +2801,24 @@ async function loadProjectMaterials(projectId){
       let custom=0;(store.customAssemblies||[]).forEach(c=>{custom+=customCost(c).total;});
       let lipLM=0,lipC=0;lipDemand(shRows).forEach(l=>{lipLM+=l.totalMM/1000;lipC+=l.cost;});
       let timM3=0,timC=0;(store.timberRows||[]).forEach(r=>{const t=timberRowCost(r);timM3+=t.m3w;timC+=t.cost;});
+      // per-zone and per-item share, apportioned by cut area so a zone's
+      // material cost is proportional to the board it actually consumes
+      const byZone={}, byItem={};
+      const zoneName_=(zid)=>{const z=(store.zones||[]).find(x=>String(x.id)===String(zid));return z?z.name:'';};
+      let totalArea=0;
+      shRows.forEach(r=>{const cs=cutSize(r);const a=(cs.cw*cs.ch*(+r.qty||1))/1e6;totalArea+=a;});
+      const sheetTotal=sh.sheetCount*shOff.price;
+      shRows.forEach(r=>{
+        const cs=cutSize(r);const a=(cs.cw*cs.ch*(+r.qty||1))/1e6;
+        const share=totalArea?a/totalArea:0;
+        const zn=zoneName_(r.zone)||'(no zone)';
+        const inm=(typeof itemName==='function')?itemName(r):'';
+        byZone[zn]=(byZone[zn]||0)+share*sheetTotal;
+        const key=(zn?zn+' \u00b7 ':'')+inm;
+        if(inm)byItem[key]=(byItem[key]||0)+share*sheetTotal;
+      });
       store.matCache[projectId]={
+        byZone:byZone, byItem:byItem,
         sheets:sh.sheetCount, sheetCost:sh.sheetCount*shOff.price,
         bars:lin.barCount, barCost:lin.barCount*linOff.price,
         paintL:paintL, paintCost:paintC,
@@ -2982,6 +3020,53 @@ function productionTabHTML(){
   const inProd=items.length-onSite-notStarted;
   const agingCount=items.filter(i=>prodItemCalc(i).aging==='Aging').length;
   return `<div class="body">
+    ${(()=>{ if((store.drill||{}).project)return '';
+      const projs=(store.projects||[]); if(!projs.length)return '';
+      if(!store.purchasesLoaded)loadActuals();
+      let est=0, loaded=0, pending=0;
+      const byType={sheet:0,linear:0,timber:0,lipping:0,paint:0,assembly:0};
+      projs.forEach(pr=>{
+        const m=(store.matCache||{})[pr.id];
+        if(m===undefined){ loadProjectMaterials(pr.id); pending++; return; }
+        if(m==='loading'){ pending++; return; }
+        if(!m||m.error)return;
+        loaded++; est+=m.total;
+        byType.sheet+=m.sheetCost; byType.linear+=m.barCost; byType.timber+=m.timberCost;
+        byType.lipping+=m.lipCost; byType.paint+=m.paintCost; byType.assembly+=m.assemblyCost;
+      });
+      const act=(store.purchases||[]).reduce((a,x)=>a+(+x.cost||0),0);
+      const all=store.prodItems||[];
+      const sg=stageGroups(all);
+      const estPie=[['Sheet',byType.sheet],['Linear',byType.linear],['Timber',byType.timber],
+        ['Lipping',byType.lipping],['Paint',byType.paint],['Assemblies',byType.assembly]]
+        .map((r,i)=>({n:r[0],v:r[1],col:MAT_COLOURS[i%6][0],sd:MAT_COLOURS[i%6][1]})).filter(x=>x.v>0);
+      const byMat={}; (store.purchases||[]).forEach(x=>{const k=x.material||'Other';byMat[k]=(byMat[k]||0)+(+x.cost||0);});
+      const actPie=Object.keys(byMat).map((k,i)=>({n:k.length>18?k.slice(0,17)+String.fromCharCode(8230):k,v:byMat[k],col:MAT_COLOURS[i%6][0],sd:MAT_COLOURS[i%6][1]}));
+      const diff=act-est, pct=est?Math.round(diff/est*100):0;
+      const variations=all.filter(isVariationItem).length;
+      return `<div class="card" style="border-color:var(--blue);margin-top:14px">
+        <div class="cardHead" style="color:var(--blue)"><span>${store.account.company} &mdash; ALL PROJECTS</span>
+          <small style="color:var(--mut)">${projs.length} project${projs.length===1?'':'s'}${pending?' &middot; still calculating '+pending:''}</small></div>
+        <div style="padding:12px 14px 16px">
+          <div class="settings" style="margin-bottom:12px">
+            <div class="stat"><div class="sv" style="font-size:20px">${all.length}</div><div class="sl">ITEMS TRACKED</div></div>
+            <div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${all.filter(i=>i.stage==='Site').length}</div><div class="sl">DELIVERED</div></div>
+            <div class="stat"><div class="sv" style="font-size:20px;color:var(--amber)">${variations}</div><div class="sl">VARIATIONS</div></div>
+            <div class="stat"><div class="sv" style="font-size:20px;color:${diff>0?'var(--red)':'var(--green)'}">${act?money(diff):'&mdash;'}</div><div class="sl">${act?(diff>0?'OVER':'UNDER')+' ESTIMATE':'NO PURCHASES YET'}</div></div>
+          </div>
+          ${estPie.length?`<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+            <div style="text-align:center;flex:1;min-width:170px">
+              <div style="font-size:10px;color:var(--mut);letter-spacing:1px;margin-bottom:4px">ESTIMATED &middot; ${money(est)}</div>
+              ${pie3d(estPie,240,150,100,48,18)}</div>
+            ${act?`<div style="text-align:center;flex:1;min-width:170px">
+              <div style="font-size:10px;color:${diff>0?'var(--red)':'var(--green)'};letter-spacing:1px;margin-bottom:4px">ACTUALLY BOUGHT &middot; ${money(act)}</div>
+              ${pie3d(actPie,240,150,100,48,18)}</div>`:''}
+          </div>${pieLegend(estPie,v=>money(v))}
+          ${act?`<div style="text-align:center;margin-top:10px"><span style="font-size:11px;color:${diff>0?'var(--red)':'var(--green)'}">${Math.abs(pct)}% ${diff>0?'over':'under'} estimate across every project</span></div>`:''}`:''}
+          ${sg.length?`<div style="text-align:center;margin-top:14px">
+            <div style="font-size:10px;color:var(--mut);letter-spacing:1px;margin-bottom:4px">WHERE ALL THE WORK IS</div>
+            ${pie3d(sg,300,190,126,60,22)}${pieLegend(sg,v=>v+' pcs')}</div>`:''}
+        </div></div>`;})()}
     ${drillHTML(store.prodItems||[])}
     ${(()=>{ if((store.drill||{}).project)return '';   // only at the top level
       const all=store.prodItems||[];
