@@ -2507,279 +2507,241 @@ function drillHTML(allItems){
   if(!d.project && !d.zone && !d.item)return '';
   const inProj=allItems.filter(i=>!d.project||i.project_name===d.project);
   const inZone=inProj.filter(i=>!d.zone||i.zone_name===d.zone);
-  const crumb=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;margin-bottom:10px">
-    <button class="zadd" data-drillup="all" style="font-size:10px;padding:4px 10px">← All projects</button>
+  const pr=(store.projects||[]).find(x=>x.name===d.project);
+
+  const crumb=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <button class="zadd" data-drillup="all" style="font-size:10px;padding:4px 10px">&larr; All projects</button>
     ${d.project?`<span style="color:var(--mut)">/</span><button class="zadd" data-drillup="project" style="font-size:10px;padding:4px 10px;${!d.zone?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">${d.project}</button>`:''}
     ${d.zone?`<span style="color:var(--mut)">/</span><button class="zadd" data-drillup="zone" style="font-size:10px;padding:4px 10px;${!d.item?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">${d.zone}</button>`:''}
-    ${d.item?`<span style="color:var(--mut)">/</span><span style="color:var(--amber);font-weight:700">${d.item.description||''}</span>`:''}
+    ${d.item?`<span style="color:var(--mut)">/</span><span style="font-size:11px;color:var(--amber);font-weight:700">${(d.item.description||'')}</span>`:''}
   </div>`;
 
-  // ---------- ITEM LEVEL ----------
+  // ---------------- ITEM ----------------
   if(d.item){
     const it=(allItems.find(x=>String(x.id)===String(d.item.id))||d.item);
-    const r=prodReadyCalc(it);
     const stageIdx=PROD_STAGES.indexOf(it.stage||'Not Started');
+    const blocked=blockedByItem(it), waiting=itemBlockers(it), stuck=stuckLabel(it);
+    const done=(READINESS_CHECKS||[]).filter(c=>it[c.k]).length;
+    const rd=[{n:'Approved',v:done,col:'#3ddc84',sd:'#22a15c'},
+              {n:'Outstanding',v:(READINESS_CHECKS||[]).length-done,col:'#FFB300',sd:'#b37d00'}].filter(x=>x.v>0);
     const snags=(store.snags||[]).filter(x=>x.item_name && it.description && String(it.description).indexOf(x.item_name)>-1);
     const visits=(store.siteVisits||[]).filter(x=>x.item_name && it.description && String(it.description).indexOf(x.item_name)>-1);
-    return `<div class="card" style="border-color:var(--amber)">
-      <div style="padding:14px">
-        ${crumb}
-        <div style="font-size:17px;font-weight:800;margin-bottom:2px">${it.description||'—'}${originBadge(it)}</div>
-        <div style="font-size:12px;color:var(--mut);margin-bottom:12px">${it.project_name||''}${it.zone_name?' · '+it.zone_name:''} · qty ${it.qty||1} · ${assigneeList(it.assignee).length?'assigned to '+assigneeList(it.assignee).join(', '):'unassigned'}
-          ${it.created_by_name?`<br><span style="font-size:11px">${isVariationItem(it)?'Added on site by':'From the BOQ, entered by'} <strong style="color:var(--txt)">${it.created_by_name}</strong>${it.created_by_role?' ('+String(it.created_by_role).replace('contractor','supervisor').replace('site_engineer','site engineer')+')':''}</span>`:''}</div>
+    const key=String(it.description||'').split(String.fromCharCode(183)).pop().trim().toLowerCase();
+    const buys=pr?actualsFor(pr.id).filter(x=>key && (x.material||'').toLowerCase().indexOf(key)>-1):[];
+    const hist=Array.isArray(it.stage_history)?it.stage_history:[];
+    return `<div class="card" style="border-color:var(--amber)"><div style="padding:14px">
+      ${crumb}
+      <div style="font-size:19px;font-weight:800">${it.description||'&mdash;'}${originBadge(it)}</div>
+      <div style="font-size:12px;color:var(--mut);margin-top:4px">${it.project_name||''}${it.zone_name?' &middot; '+it.zone_name:''} &middot; qty ${it.qty||1} &middot; ${assigneeList(it.assignee).length?'assigned to '+assigneeList(it.assignee).join(', '):'nobody assigned'}${stuck?' &middot; '+stuck:''}
+      ${it.created_by_name?`<br><span style="font-size:11px">${isVariationItem(it)?'Added on site by':'From the BOQ, entered by'} <strong style="color:var(--txt)">${it.created_by_name}</strong></span>`:''}</div>
+    </div></div>
 
-        <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHERE IT IS NOW</div>
-        <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:14px">
-          ${PROD_STAGES.map((st,i)=>`<span style="font-size:10px;padding:5px 9px;border-radius:4px;${i<stageIdx?'background:#1d3a2a;color:var(--green)':i===stageIdx?'background:var(--amber);color:#000;font-weight:700':'background:var(--steel);color:var(--mut)'}">${st}</span>`).join('')}
-        </div>
+    ${(blocked.length||waiting.length)?`<div class="card" style="border-color:${blocked.length?'var(--red)':'var(--amber)'}"><div style="padding:12px 14px">
+      ${blocked.length?`<div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:6px">This is holding up ${blocked.length} other item${blocked.length===1?'':'s'}</div>
+        <div style="font-size:11px;color:var(--mut);margin-bottom:${waiting.length?'8px':'0'}">${blocked.map(b=>b.description||'').join(' &middot; ')}</div>`:''}
+      ${waiting.length?`<div style="font-size:12px">Waiting on: <strong style="color:var(--amber)">${waiting.join(', ')}</strong></div>`:''}
+    </div></div>`:''}
 
-        <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">MATERIAL &amp; APPROVALS — ${r.ready?'<span style="color:var(--green)">ALL READY</span>':`<span style="color:var(--amber)">${r.toApprove} of 6 outstanding</span>`}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin-bottom:14px">
-          ${READINESS_CHECKS.map(c=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 10px;border-radius:5px;background:${it[c.k]?'#14301f':'#3a2a10'};border:1px solid ${it[c.k]?'var(--green)':'var(--amber)'}">
-            <span style="color:${it[c.k]?'var(--green)':'var(--amber)'};font-weight:700">${it[c.k]?'✓':'○'}</span>
-            <span style="color:${it[c.k]?'var(--green)':'var(--amber)'}">${c.label}</span></div>`).join('')}
-        </div>
-        ${(()=>{const done=(READINESS_CHECKS||[]).filter(c=>it[c.k]).length, left=(READINESS_CHECKS||[]).length-done;
-          const rd=[{n:'Approved',v:done,col:'#3ddc84',sd:'#22a15c'},{n:'Outstanding',v:left,col:'#FFB300',sd:'#b37d00'}].filter(x=>x.v>0);
-          return `<div style="text-align:center;margin-bottom:12px">${pie3d(rd,240,150,100,48,18)}${pieLegend(rd,v=>v+' of '+(READINESS_CHECKS||[]).length)}</div>`;})()}
-        ${canEditProduction()?`<button class="zadd" data-piready="${it.id}" style="margin-bottom:14px">✎ UPDATE THESE CHECKS</button>`:''}
+    <div class="card"><div class="cardHead"><span>WHERE IT IS NOW</span></div>
+      <div style="padding:12px 14px 16px"><div style="display:flex;gap:3px;flex-wrap:wrap">
+        ${PROD_STAGES.map((st,i)=>`<span style="font-size:9px;padding:5px 8px;border-radius:4px;${i<stageIdx?'background:#14301f;color:var(--green)':i===stageIdx?'background:var(--amber);color:#000;font-weight:800':'background:var(--steel);color:var(--mut)'}">${st}</span>`).join('')}
+      </div></div></div>
 
-        ${(()=>{const blocked=blockedByItem(it); const mine=itemBlockers(it); const st=stuckLabel(it);
-          if(!blocked.length && !mine.length && !st)return '';
-          return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">HOLD-UPS</div>
-          <div style="border:1px solid ${blocked.length?'var(--red)':'var(--amber)'};border-radius:8px;padding:12px 14px;margin-bottom:14px;background:${blocked.length?'rgba(255,93,93,.07)':'rgba(255,179,0,.06)'}">
-            ${st?`<div style="font-size:12px;color:var(--amber);margin-bottom:${(mine.length||blocked.length)?'8px':'0'}">\u23f1 ${st}</div>`:''}
-            ${mine.length?`<div style="font-size:12px;margin-bottom:${blocked.length?'8px':'0'}">Waiting on: <strong style="color:var(--amber)">${mine.join(', ')}</strong></div>`:''}
-            ${blocked.length?`<div style="font-size:12px;color:var(--red);font-weight:700">This is holding up ${blocked.length} other item${blocked.length===1?'':'s'}</div>
-              <div style="font-size:11px;color:var(--mut);margin-top:4px">${blocked.map(b=>b.description||'').join(' \u00b7 ')}</div>`:''}
-          </div>`;})()}
-        ${canEditProduction()?`<div style="margin-bottom:14px"><button class="zadd" data-setblocks="${it.id}" style="font-size:10px">\u26d3 SET WHAT THIS HOLDS UP</button></div>`:''}
-        ${(()=>{const h=Array.isArray(it.stage_history)?it.stage_history:[];
-          if(!h.length)return '';
-          return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">STAGE HISTORY</div>
-          <div style="margin-bottom:14px">
-            ${h.slice(-8).map((x,i,arr)=>`<div style="display:flex;gap:10px;align-items:center;padding:7px 0;${i<arr.length-1?'border-bottom:1px solid var(--line)':''}">
-              <span style="width:9px;height:9px;border-radius:50%;background:${i===arr.length-1?'var(--amber)':'var(--green)'};flex:0 0 auto"></span>
-              <span style="flex:1;font-size:12px">${x.stage||''}</span>
-              <span style="font-size:11px;color:var(--mut)">${x.by||''}</span>
-              <span style="font-size:11px;color:var(--mut)">${x.at?new Date(x.at).toLocaleDateString():''}</span></div>`).join('')}
-          </div>`;})()}
-        ${(()=>{const pr=(store.projects||[]).find(x=>x.name===it.project_name); if(!pr)return '';
-          const key=String(it.description||'').split(String.fromCharCode(183)).pop().trim().toLowerCase();
-          const buys=actualsFor(pr.id).filter(x=>key && (x.material||'').toLowerCase().indexOf(key)>-1);
-          if(!buys.length)return '';
-          const spend=buys.reduce((a,x)=>a+(+x.cost||0),0);
-          return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">BOUGHT FOR THIS ITEM &mdash; ${money(spend)}</div>
-          <div class="scroll" style="margin-bottom:14px"><table><thead><tr><th>Material</th><th class="r">Qty</th><th class="r">Cost</th></tr></thead><tbody>
-            ${buys.map(x=>`<tr><td style="font-size:11px">${x.material||''}</td><td class="r" style="font-size:11px">${x.qty||0} ${x.unit||''}</td>
-              <td class="r"><span class="cost">${money(x.cost||0)}</span></td></tr>`).join('')}
-          </tbody></table></div>`;})()}
-        <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">LINKED RECORDS</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px">
-          <div class="stat"><div class="sv" style="font-size:18px;color:${snags.length?'var(--red)':'var(--mut)'}">${snags.length}</div><div class="sl">SNAGS</div></div>
-          <div class="stat"><div class="sv" style="font-size:18px;color:var(--blue)">${visits.length}</div><div class="sl">SITE VISITS / DRAWINGS</div></div>
+    <div class="card"><div class="cardHead"><span>MATERIAL &amp; APPROVALS</span></div>
+      <div style="padding:10px 14px 16px;text-align:center">
+        ${pie3d(rd,240,150,100,48,18)}${pieLegend(rd,v=>v+' of '+(READINESS_CHECKS||[]).length)}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-top:12px;text-align:left">
+          ${(READINESS_CHECKS||[]).map(c=>`<div style="display:flex;align-items:center;gap:8px;font-size:11px;padding:7px 10px;border-radius:5px;background:${it[c.k]?'#14301f':'#3a2a10'};border:1px solid ${it[c.k]?'var(--green)':'var(--amber)'};color:${it[c.k]?'var(--green)':'var(--amber)'}">
+            <span style="font-weight:700">${it[c.k]?'&#10003;':'&#9675;'}</span>${c.label}</div>`).join('')}
         </div>
-        ${snags.length?`<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Snag</th><th>Status</th></tr></thead><tbody>
-          ${snags.map(x=>`<tr><td style="font-size:11px">${x.description||''}</td><td style="font-size:11px;color:${x.status==='resolved'?'var(--green)':'var(--amber)'}">${x.status||''}</td></tr>`).join('')}
-        </tbody></table></div>`:''}
-        ${visits.length?`<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Date</th><th>Zone</th><th class="r">Site W×H×D</th></tr></thead><tbody>
-          ${visits.map(x=>`<tr><td style="font-size:11px">${(x.created_at||'').slice(0,10)}</td><td style="font-size:11px">${x.location_name||''}</td>
-            <td class="r" style="font-size:11px">${x.site_w||'—'} × ${x.site_h||'—'} × ${x.site_d||'—'}</td></tr>`).join('')}
-        </tbody></table></div>`:''}
-      </div></div>`;
+        ${canEditProduction()?`<div style="margin-top:12px;text-align:left"><button class="zadd" data-piready="${it.id}">&#9998; UPDATE THESE CHECKS</button>
+          <button class="zadd" data-setblocks="${it.id}" style="margin-left:6px">&#9939; SET WHAT THIS HOLDS UP</button></div>`:''}
+      </div></div>
+
+    ${buys.length?`<div class="card"><div class="cardHead"><span>BOUGHT FOR THIS ITEM</span><small style="color:var(--mut)">${money(buys.reduce((a,x)=>a+(+x.cost||0),0))}</small></div>
+      <div class="scroll"><table><thead><tr><th>Material</th><th class="r">Qty</th><th class="r">Cost</th></tr></thead><tbody>
+        ${buys.map(x=>`<tr><td style="font-size:11px">${x.material||''}</td><td class="r" style="font-size:11px">${x.qty||0} ${x.unit||''}</td>
+          <td class="r"><span class="cost">${money(x.cost||0)}</span></td></tr>`).join('')}
+      </tbody></table></div></div>`:''}
+
+    ${hist.length?`<div class="card"><div class="cardHead"><span>STAGE HISTORY</span></div><div style="padding:10px 14px 16px">
+      ${hist.slice(-8).map((x,i,arr)=>`<div style="display:flex;gap:10px;align-items:center;padding:7px 0;${i<arr.length-1?'border-bottom:1px solid var(--line)':''}">
+        <span style="width:9px;height:9px;border-radius:50%;background:${i===arr.length-1?'var(--amber)':'var(--green)'};flex:0 0 auto"></span>
+        <span style="flex:1;font-size:12px">${x.stage||''}</span><span style="font-size:11px;color:var(--mut)">${x.by||''}</span>
+        <span style="font-size:11px;color:var(--mut)">${x.at?new Date(x.at).toLocaleDateString():''}</span></div>`).join('')}
+    </div></div>`:''}
+
+    ${(snags.length||visits.length)?`<div class="card"><div class="cardHead"><span>LINKED RECORDS</span></div><div style="padding:10px 14px 14px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+        <div class="stat"><div class="sv" style="font-size:18px;color:${snags.length?'var(--red)':'var(--mut)'}">${snags.length}</div><div class="sl">SNAGS</div></div>
+        <div class="stat"><div class="sv" style="font-size:18px;color:var(--blue)">${visits.length}</div><div class="sl">SITE VISITS</div></div>
+      </div></div></div>`:''}`;
   }
 
-  // ---------- PROJECT or ZONE LEVEL ----------
+  // ---------------- PROJECT / ZONE ----------------
   const list=inZone;
-  const byStage={}; list.forEach(i=>{const st=i.stage||'Not Started';byStage[st]=(byStage[st]||0)+1;});
-  const ready=list.filter(i=>prodReadyCalc(i).ready).length;
-  const done=list.filter(i=>i.stage==='Site').length;
-  const pct=list.length?Math.round(done/list.length*100):0;
+  const doneN=list.filter(i=>i.stage==='Site').length;
+  const pct=list.length?Math.round(doneN/list.length*100):0;
+  const sg=stageGroups(list);
   const zones=[...new Set(inProj.map(i=>i.zone_name).filter(Boolean))];
-  const snagCount=(store.snags||[]).filter(x=>!d.zone||x.zone_name===d.zone).length;
-  return `<div class="card" style="border-color:var(--blue)">
-    <div style="padding:14px">
-      ${crumb}
-      <div style="font-size:17px;font-weight:800;margin-bottom:6px">${d.zone||d.project}</div>
-      ${(()=>{ if(d.zone)return '';
-        const pr=(store.projects||[]).find(x=>x.name===d.project);
-        const blocked=list.filter(i=>(READINESS_CHECKS||[]).some(c=>!i[c.k]) && i.stage!=='Site').length;
-        const m=pr?(store.matCache||{})[pr.id]:null;
-        const act=pr?actualsTotal(pr.id):0;
-        const over=(m&&m.total&&act)?Math.round((act-m.total)/m.total*100):0;
-        const planned=pr&&pr.planned_hours?+pr.planned_hours:0;
-        const usedH=(()=>{const hh=r=>{if(!r.sign_in_at)return 0;const e=r.sign_out_at?new Date(r.sign_out_at):new Date();return Math.max(0,(e-new Date(r.sign_in_at))/36e5);};
-          const inP=x=>!pr||String(x.project_id)===String(pr.id);
-          return (store.attendance||[]).filter(inP).reduce((a,r)=>a+hh(r),0)+(store.crewAtt||[]).filter(inP).reduce((a,r)=>a+crewHours(r),0);})();
-        const onNow=(store.attendance||[]).filter(r=>r.sign_in_at&&!r.sign_out_at&&(!pr||String(r.project_id)===String(pr.id))).length;
-        const crewNow=(store.crewAtt||[]).filter(r=>r.sign_in_at&&!r.sign_out_at&&(!pr||String(r.project_id)===String(pr.id))).length;
-        const bad=blocked>0||over>10||(planned&&usedH/planned>pct/100+0.15);
-        const reasons=[];
-        if(over>10)reasons.push('material '+over+'% over estimate');
-        if(blocked)reasons.push(blocked+' item'+(blocked===1?'':'s')+' blocked');
-        if(planned&&usedH/planned>pct/100+0.15)reasons.push('labour ahead of progress');
-        return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-          <span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;background:${bad?'#3a2a10':'#14301f'};color:${bad?'var(--amber)':'var(--green)'};border:1px solid ${bad?'var(--amber)':'var(--green)'}">${bad?'NEEDS ATTENTION':'ON TRACK'}</span>
-          ${reasons.length?`<span style="font-size:12px;color:var(--mut)">${reasons.join(' &middot; ')}</span>`:''}
-        </div>
-        <div class="settings" style="margin-bottom:12px">
-          <div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${pct}%</div><div class="sl">PROGRESS &middot; ${done} OF ${list.length} DELIVERED</div>
-            <div style="height:6px;background:var(--steel);border-radius:3px;margin-top:8px;border:1px solid var(--line)"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px"></div></div></div>
-          ${planned?`<div class="stat"><div class="sv" style="font-size:20px;color:var(--amber)">${Math.round(usedH/planned*100)}%</div><div class="sl">LABOUR &middot; ${usedH.toFixed(0)} OF ${planned}h</div>
-            <div style="height:6px;background:var(--steel);border-radius:3px;margin-top:8px;border:1px solid var(--line)"><div style="height:100%;width:${Math.min(100,usedH/planned*100)}%;background:var(--amber);border-radius:3px"></div></div></div>`
-            :`<div class="stat"><div class="sv" style="font-size:20px;color:var(--mut)">${usedH.toFixed(0)}h</div><div class="sl">LABOUR USED &middot; NO PLAN SET</div></div>`}
-          <div class="stat"><div class="sv" style="font-size:20px;color:var(--blue)">${onNow+crewNow}</div><div class="sl">ON SITE NOW &middot; ${onNow} STAFF + ${crewNow} CREW</div></div>
-        </div>`;})()}
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">
-        <div class="stat"><div class="sv" style="font-size:20px">${list.length}</div><div class="sl">ITEMS</div></div>
-        <div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${ready}</div><div class="sl">READY TO BUILD</div></div>
-        <div class="stat"><div class="sv" style="font-size:20px;color:var(--blue)">${done}</div><div class="sl">ON SITE</div></div>
-        <div class="stat"><div class="sv" style="font-size:20px;color:${snagCount?'var(--red)':'var(--mut)'}">${snagCount}</div><div class="sl">SNAGS</div></div>
-        ${(()=>{const v=list.filter(isVariationItem).length;
-          return `<div class="stat"><div class="sv" style="font-size:20px;color:${v?'var(--amber)':'var(--mut)'}">${v}</div><div class="sl">VARIATIONS (EXTRA TO BOQ)</div></div>`;})()}
-      </div>
-      <div style="height:12px;background:var(--steel);border-radius:6px;overflow:hidden;border:1px solid var(--line);margin-bottom:4px">
-        <div style="height:100%;width:${pct}%;background:var(--green)"></div></div>
-      <div style="font-size:11px;color:var(--mut);margin-bottom:14px">${pct}% delivered to site</div>
+  const snagCount=(store.snags||[]).filter(x=>(!pr||String(x.project_id)===String(pr.id))&&(!d.zone||x.zone_name===d.zone)).length;
+  const blockedN=list.filter(i=>(READINESS_CHECKS||[]).some(c=>!i[c.k]) && i.stage!=='Site').length;
 
-      ${(()=>{const pr=(store.projects||[]).find(x=>x.name===d.project);
-        const ed=(pr&&pr.editors)||(String(_workspaceId)===String(pr&&pr.id)?store.projectEditors:null)||{};
-        const list=Object.entries(ed).sort((a,b)=>new Date(b[1].at||0)-new Date(a[1].at||0));
-        if(!list.length)return '';
-        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHO LAST UPDATED THIS PROJECT</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-          ${list.map(([who,info])=>`<span style="font-size:10px;padding:5px 10px;border-radius:12px;background:var(--steel);border:1px solid var(--line)">
-            <strong style="color:var(--txt)">${who}</strong>
-            <span style="color:var(--mut)"> · ${(info.role||'').replace('contractor','supervisor').replace('site_engineer','site engineer')} · ${info.at?new Date(info.at).toLocaleString():''}</span></span>`).join('')}
-        </div>`;})()}
-      ${(()=>{
-        const notReady={}; (READINESS_CHECKS||[]).forEach(c=>{notReady[c.k]=list.filter(i=>!i[c.k] && i.stage!=='Site');});
-        const stale=list.filter(i=>daysAtStage(i)>=7 && i.stage!=='Site');
-        const unassigned=list.filter(i=>!assigneeList(i.assignee).length && i.stage!=='Site');
-        const blockers=list.filter(i=>blockedByItem(i).length);
-        const rows=[];
-        blockers.sort((a,b)=>blockedByItem(b).length-blockedByItem(a).length).slice(0,3).forEach(i=>{
-          const n=blockedByItem(i).length;
-          rows.push(['var(--red)','\u26d3',`${i.description||'An item'} is holding up ${n} other item${n===1?'':'s'}`, (itemBlockers(i)[0]||'Not yet cleared')]);
-        });
-        (READINESS_CHECKS||[]).forEach(c=>{const n=notReady[c.k].length;
-          if(n)rows.push(['var(--amber)','\u26a0',`${n} item${n===1?'':'s'} \u2014 ${c.label.toLowerCase()} outstanding`, notReady[c.k].slice(0,2).map(x=>x.description).join(', ')]);});
-        if(stale.length)rows.push(['var(--amber)','\u23f1',`${stale.length} item${stale.length===1?'':'s'} not moved in 7 days`, stale.slice(0,2).map(x=>x.description+' \u2014 '+stuckLabel(x)).join(', ')]);
-        if(unassigned.length)rows.push(['var(--mut)','\u1F464',`${unassigned.length} item${unassigned.length===1?'':'s'} with nobody assigned`,'Work cannot start without a name against it']);
-        if(!rows.length)return `<div style="border:1px solid var(--green);border-radius:8px;padding:12px 14px;margin-bottom:14px;background:rgba(61,220,132,.06);font-size:12px;color:var(--green)">\u2713 Nothing is blocked. Every item has what it needs.</div>`;
-        return `<div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-bottom:6px">NEEDS A DECISION FROM YOU \u2014 ${rows.length}</div>
-        <div class="card" style="border-color:var(--red);margin-bottom:14px">
-          <div style="padding:4px 14px">
-            ${rows.slice(0,6).map((r,i)=>`<div style="display:flex;gap:10px;padding:10px 0;${i<Math.min(rows.length,6)-1?'border-bottom:1px solid var(--line)':''}">
-              <span style="color:${r[0]};font-size:15px">${r[1]}</span>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:12px;font-weight:700">${r[2]}</div>
-                <div style="font-size:10px;color:var(--mut);margin-top:2px">${r[3]||''}</div>
-              </div></div>`).join('')}
-          </div></div>`;})()}
-      ${(()=>{ if(d.zone)return '';
-        const pr0=(store.projects||[]).find(x=>x.name===d.project); if(!pr0)return '';
-        if(!store.purchasesLoaded)loadActuals();
-        if(((store.matCache||{})[pr0.id])===undefined){loadProjectMaterials(pr0.id);
-          return `<div class="hint" style="padding:0 0 12px">Working out material used&hellip;</div>`;}
-        const m0=(store.matCache||{})[pr0.id];
-        const act=actualsFor(pr0.id), actTot=actualsTotal(pr0.id);
-        if(!m0||m0==='loading'||m0.error)return '';
-        const estTot=m0.total;
-        const estPie=[['Sheet',m0.sheetCost],['Linear',m0.barCost],['Timber',m0.timberCost],
-                      ['Lipping',m0.lipCost],['Paint',m0.paintCost],['Assemblies',m0.assemblyCost]]
-          .map((r,i)=>({n:r[0],v:r[1],col:MAT_COLOURS[i%6][0],sd:MAT_COLOURS[i%6][1]})).filter(x=>x.v>0);
-        const bySup={}; act.forEach(x=>{const k=x.material||'Other';bySup[k]=(bySup[k]||0)+(+x.cost||0);});
-        const actPie=Object.keys(bySup).map((k,i)=>({n:k.length>18?k.slice(0,17)+String.fromCharCode(8230):k,v:bySup[k],col:MAT_COLOURS[i%6][0],sd:MAT_COLOURS[i%6][1]}));
-        const diff=actTot-estTot, pct=estTot?Math.round(diff/estTot*100):0;
-        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">MATERIAL &mdash; ESTIMATED vs ACTUALLY BOUGHT</div>
-        <div class="card" style="border-color:${!actTot?'var(--line)':diff>0?'var(--red)':'var(--green)'};margin-bottom:14px">
-          <div style="padding:12px 14px 16px">
-            <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
-              <div style="text-align:center;flex:1;min-width:170px">
-                <div style="font-size:10px;color:var(--mut);letter-spacing:1px;margin-bottom:4px">ESTIMATED &middot; ${money(estTot)}</div>
-                ${pie3d(estPie,240,150,100,48,18)}</div>
-              ${actTot?`<div style="text-align:center;flex:1;min-width:170px">
-                <div style="font-size:10px;color:${diff>0?'var(--red)':'var(--green)'};letter-spacing:1px;margin-bottom:4px">ACTUALLY BOUGHT &middot; ${money(actTot)}</div>
-                ${pie3d(actPie,240,150,100,48,18)}</div>`:''}
-            </div>
-            ${pieLegend(estPie,v=>money(v))}
-            ${actTot?`<div style="text-align:center;margin:12px 0 4px">
-              <span style="font-size:20px;font-weight:800;color:${diff>0?'var(--red)':'var(--green)'}">${diff>0?'+':''}${money(diff)}</span>
-              <span style="font-size:11px;color:${diff>0?'var(--red)':'var(--green)'};margin-left:6px">${pct>0?pct+'% over':Math.abs(pct)+'% under'} estimate</span></div>
-              <div class="scroll" style="margin-top:8px"><table><thead><tr><th>Bought</th><th class="r">Qty</th><th>Supplier</th><th class="r">Cost</th></tr></thead><tbody>
-                ${act.slice(0,20).map(x=>`<tr><td style="font-size:11px">${x.material||''}</td>
-                  <td class="r" style="font-size:11px">${x.qty||0} ${x.unit||''}</td>
-                  <td style="font-size:11px;color:var(--mut)">${x.supplier||'&mdash;'}</td>
-                  <td class="r"><span class="cost">${money(x.cost||0)}</span></td></tr>`).join('')}
-              </tbody></table></div>`
-            :`<div class="hint" style="padding:10px 0 0">No purchases recorded against this project yet. Procurement records them on their Purchases tab, and the comparison appears here.</div>`}
-          </div></div>`;})()}
-      ${(()=>{ if(!d.zone)return '';
-        const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
-        const zoneBuys=actualsFor(pr.id).filter(x=>(x.material||'').toLowerCase().indexOf(String(d.zone).toLowerCase())>-1);
-        const spend=zoneBuys.reduce((a,x)=>a+(+x.cost||0),0);
-        return `<div class="settings" style="margin-bottom:12px">
-          <div class="stat"><div class="sv" style="font-size:20px">${list.reduce((a,i)=>a+(+i.qty||1),0)}</div><div class="sl">PIECES IN THIS ZONE</div></div>
-          <div class="stat"><div class="sv" style="font-size:20px;color:var(--amber)">${list.filter(i=>(READINESS_CHECKS||[]).some(c=>!i[c.k])).length}</div><div class="sl">WAITING ON APPROVAL</div></div>
-          <div class="stat"><div class="sv" style="font-size:20px;color:var(--blue)">${list.filter(i=>assigneeList(i.assignee).length).length}</div><div class="sl">ASSIGNED</div></div>
-          ${spend?`<div class="stat"><div class="sv" style="font-size:20px;color:var(--green)">${money(spend)}</div><div class="sl">BOUGHT FOR THIS ZONE</div></div>`:''}
-        </div>`;})()}
-      ${(()=>{ if(d.zone)return '';
-        const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
-        const m=(store.matCache||{})[pr.id];
-        if(!m||m==='loading'||m.error||!m.offcutSaved)return '';
-        return `<div class="card" style="border-color:var(--green);margin-bottom:14px"><div style="padding:12px 14px">
+  // labour + who's on now
+  const hh=r=>{if(!r.sign_in_at)return 0;const e=r.sign_out_at?new Date(r.sign_out_at):new Date();return Math.max(0,(e-new Date(r.sign_in_at))/36e5);};
+  const inP=x=>!pr||String(x.project_id)===String(pr.id);
+  const usedH=(store.attendance||[]).filter(inP).reduce((a,r)=>a+hh(r),0)+(store.crewAtt||[]).filter(inP).reduce((a,r)=>a+crewHours(r),0);
+  const planned=pr&&pr.planned_hours?+pr.planned_hours:0;
+  const staffNow=(store.attendance||[]).filter(r=>r.sign_in_at&&!r.sign_out_at&&inP(r)).length;
+  const crewNow=(store.crewAtt||[]).filter(r=>r.sign_in_at&&!r.sign_out_at&&inP(r)).length;
+
+  // material: estimate vs actual
+  let matBlock='';
+  if(!d.zone && pr){
+    if(!store.purchasesLoaded)loadActuals();
+    const m=(store.matCache||{})[pr.id];
+    if(m===undefined){ loadProjectMaterials(pr.id); matBlock='<div class="hint" style="padding:0 0 12px">Working out material used&hellip;</div>'; }
+    else if(m && m!=='loading' && !m.error){
+      const act=actualsTotal(pr.id), buys=actualsFor(pr.id);
+      const estPie=[['Sheet',m.sheetCost],['Linear',m.barCost],['Timber',m.timberCost],['Lipping',m.lipCost],['Paint',m.paintCost],['Assemblies',m.assemblyCost]]
+        .map((r,i)=>({n:r[0],v:r[1],col:MAT_COLOURS[i%6][0],sd:MAT_COLOURS[i%6][1]})).filter(x=>x.v>0);
+      const byMat={}; buys.forEach(x=>{const k=x.material||'Other';byMat[k]=(byMat[k]||0)+(+x.cost||0);});
+      const actPie=Object.keys(byMat).map((k,i)=>({n:k.length>18?k.slice(0,17)+String.fromCharCode(8230):k,v:byMat[k],col:MAT_COLOURS[i%6][0],sd:MAT_COLOURS[i%6][1]}));
+      const diff=act-m.total, dpct=m.total?Math.round(diff/m.total*100):0;
+      matBlock=`<div class="card" style="border-color:${!act?'var(--line)':diff>0?'var(--red)':'var(--green)'}">
+        <div class="cardHead" style="color:${!act?'var(--txt)':diff>0?'var(--red)':'var(--green)'}"><span>MATERIAL &mdash; ESTIMATED vs ACTUALLY BOUGHT</span></div>
+        <div style="padding:12px 14px 16px">
+          <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+            <div style="text-align:center;flex:1;min-width:170px">
+              <div style="font-size:10px;color:var(--mut);letter-spacing:1px;margin-bottom:4px">ESTIMATED &middot; ${money(m.total)}</div>
+              ${pie3d(estPie,240,150,100,48,18)}</div>
+            ${act?`<div style="text-align:center;flex:1;min-width:170px">
+              <div style="font-size:10px;color:${diff>0?'var(--red)':'var(--green)'};letter-spacing:1px;margin-bottom:4px">ACTUALLY BOUGHT &middot; ${money(act)}</div>
+              ${pie3d(actPie,240,150,100,48,18)}</div>`:''}
+          </div>
+          ${pieLegend(estPie,v=>money(v))}
+          ${act?`<div style="text-align:center;margin:12px 0 4px">
+            <span style="font-size:20px;font-weight:800;color:${diff>0?'var(--red)':'var(--green)'}">${diff>0?'+':''}${money(diff)}</span>
+            <span style="font-size:11px;color:${diff>0?'var(--red)':'var(--green)'};margin-left:6px">${Math.abs(dpct)}% ${diff>0?'over':'under'} estimate</span></div>
+            <div class="scroll" style="margin-top:8px"><table><thead><tr><th>Bought</th><th class="r">Qty</th><th>Supplier</th><th class="r">Cost</th></tr></thead><tbody>
+              ${buys.slice(0,20).map(x=>`<tr><td style="font-size:11px">${x.material||''}</td><td class="r" style="font-size:11px">${x.qty||0} ${x.unit||''}</td>
+                <td style="font-size:11px;color:var(--mut)">${x.supplier||'&mdash;'}</td><td class="r"><span class="cost">${money(x.cost||0)}</span></td></tr>`).join('')}
+            </tbody></table></div>`
+          :`<div class="hint" style="padding:10px 0 0">No purchases recorded yet. Procurement records them on their Purchases tab and the comparison appears here.</div>`}
+        </div></div>
+        ${m.offcutSaved?`<div class="card" style="border-color:var(--green)"><div style="padding:12px 14px">
           <div style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap">
             <div style="font-size:24px;font-weight:800;color:var(--green)">${money(m.offcutSaved)}</div>
             <div style="font-size:12px;color:var(--mut)">saved by reusing offcuts &middot; ${m.offcutSheets} sheet${m.offcutSheets===1?'':'s'} not bought</div></div>
-          <div class="hint" style="padding:8px 0 0">Panels cut from banked offcuts instead of new board.</div>
-        </div></div>`;})()}
-      ${(()=>{ if(d.zone)return '';
-        const pr=(store.projects||[]).find(x=>x.name===d.project); if(!pr)return '';
-        if(!store.myOrdersLoaded)loadMyOrders();
-        const ords=(store.myOrders||[]).filter(o=>String(o.project_id)===String(pr.id));
-        if(!ords.length)return '';
-        const lbl=o=>o.status==='actioned'?['DELIVERED','#14301f','var(--green)']
-          :o.status==='sent'?['SENT TO SUPPLIER','#12283a','var(--blue)']
-          :o.status==='approved'?['APPROVED','#14301f','var(--green)']
-          :o.status==='rejected'?['REJECTED','#3a1414','var(--red)']
-          :['AWAITING APPROVAL','var(--steel)','var(--mut)'];
-        const waiting=ords.filter(o=>o.status==='pending_approval').length;
-        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">SUPPLIER ORDERS &mdash; ${ords.length}</div>
-        <div class="card" style="margin-bottom:14px">
-          <div class="scroll"><table><thead><tr><th>Supplier</th><th>Sent</th><th class="r">Value</th><th>Status</th></tr></thead><tbody>
-            ${ords.slice(0,10).map(o=>{const L=lbl(o);return `<tr>
-              <td style="font-size:11px">${o.supplier_name||'&mdash;'}</td>
-              <td style="font-size:11px">${o.created_at?new Date(o.created_at).toLocaleDateString():''}</td>
-              <td class="r"><span class="cost">${money(+o.total||0)}</span></td>
-              <td><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;background:${L[1]};color:${L[2]};border:1px solid ${L[2]}">${L[0]}${o.acknowledged_at?'':''}</span></td></tr>`;}).join('')}
-          </tbody></table></div>
-          ${waiting?`<div class="hint" style="padding:8px 14px 12px;color:var(--amber)">${waiting} order${waiting===1?'':'s'} waiting on your approval.</div>`:''}
-        </div>`;})()}
-      ${(()=>{const sg=stageGroups(list); if(!sg.length)return '';
-        return `<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">WHERE THE WORK IS</div>
-        <div class="card" style="margin-bottom:14px"><div style="padding:10px 14px 16px;text-align:center">
-          ${pie3d(sg,300,190,126,60,22)}${pieLegend(sg,v=>v+' pcs')}
-        </div></div>`;})()}
-      
-      ${!d.zone&&zones.length?`<div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">ZONES — click to open</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-        ${zones.map(z=>{const n=inProj.filter(i=>i.zone_name===z).length;
-          return `<button class="zadd" data-drillzone="${z.replace(/"/g,'&quot;')}" style="font-size:11px;padding:7px 12px">${z} <span style="color:var(--mut)">(${n})</span></button>`;}).join('')}
-      </div>`:''}
+        </div></div>`:''}`;
+    }
+  }
 
-      <div style="font-size:11px;color:var(--mut);letter-spacing:1px;margin-bottom:6px">ITEMS — click for full detail</div>
-      ${list.length?`<div class="scroll"><table><thead><tr><th>Item</th>${!d.zone?'<th>Zone</th>':''}<th class="r">Qty</th><th>Assigned to</th><th>Stage</th><th>Ready</th></tr></thead><tbody>
-        ${list.slice(0,80).map(i=>{const rr=prodReadyCalc(i);return `<tr style="cursor:pointer" data-drillitem="${i.id}">
-          <td style="font-size:11px"><strong>${i.description||'—'}</strong>${originBadge(i)}</td>
-          ${!d.zone?`<td style="font-size:11px;color:var(--mut)">${i.zone_name||'—'}</td>`:''}
-          <td class="r" style="font-size:11px">${i.qty||1}</td>
-          <td style="font-size:11px">${assigneeChips(i.assignee)}</td>
-          <td style="font-size:11px;color:var(--amber)">${i.stage||'—'}</td>
-          <td style="font-size:11px;color:${rr.ready?'var(--green)':'var(--amber)'}">${rr.ready?'✓ ready':rr.toApprove+' left'}</td></tr>`;}).join('')}
-      </tbody></table></div>`:'<div class="empty">No items here yet.</div>'}
-    </div></div>`;
+  // supplier orders
+  let ordBlock='';
+  if(!d.zone && pr){
+    if(!store.myOrdersLoaded)loadMyOrders();
+    const ords=(store.myOrders||[]).filter(o=>String(o.project_id)===String(pr.id));
+    if(ords.length){
+      const L=o=>o.status==='actioned'?['DELIVERED','#14301f','var(--green)']
+        :o.status==='sent'?['SENT TO SUPPLIER','#12283a','var(--blue)']
+        :o.status==='approved'?['APPROVED','#14301f','var(--green)']
+        :o.status==='rejected'?['REJECTED','#3a1414','var(--red)']:['AWAITING APPROVAL','var(--steel)','var(--mut)'];
+      const waitingN=ords.filter(o=>o.status==='pending_approval').length;
+      ordBlock=`<div class="card"><div class="cardHead"><span>SUPPLIER ORDERS &mdash; ${ords.length}</span></div>
+        <div class="scroll"><table><thead><tr><th>Supplier</th><th>Sent</th><th class="r">Value</th><th>Status</th></tr></thead><tbody>
+          ${ords.slice(0,10).map(o=>{const t=L(o);return `<tr><td style="font-size:11px">${o.supplier_name||'&mdash;'}</td>
+            <td style="font-size:11px">${o.created_at?new Date(o.created_at).toLocaleDateString():''}</td>
+            <td class="r"><span class="cost">${money(+o.total||0)}</span></td>
+            <td><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;background:${t[1]};color:${t[2]};border:1px solid ${t[2]}">${t[0]}</span></td></tr>`;}).join('')}
+        </tbody></table></div>
+        ${waitingN?`<div class="hint" style="padding:8px 14px 12px;color:var(--amber)">${waitingN} order${waitingN===1?'':'s'} waiting on your approval.</div>`:''}
+      </div>`;
+    }
+  }
+
+  // needs a decision
+  let decide='';
+  {
+    const rows=[];
+    list.filter(i=>blockedByItem(i).length).sort((a,b)=>blockedByItem(b).length-blockedByItem(a).length).slice(0,3).forEach(i=>{
+      rows.push(['var(--red)','&#9939;',`${i.description||'An item'} is holding up ${blockedByItem(i).length} other item${blockedByItem(i).length===1?'':'s'}`,(itemBlockers(i)[0]||'Not yet cleared')]);});
+    (READINESS_CHECKS||[]).forEach(c=>{const n=list.filter(i=>!i[c.k]&&i.stage!=='Site');
+      if(n.length)rows.push(['var(--amber)','&#9888;',`${n.length} item${n.length===1?'':'s'} &mdash; ${c.label.toLowerCase()} outstanding`,n.slice(0,2).map(x=>x.description).join(', ')]);});
+    const stale=list.filter(i=>daysAtStage(i)>=7&&i.stage!=='Site');
+    if(stale.length)rows.push(['var(--amber)','&#9201;',`${stale.length} item${stale.length===1?'':'s'} not moved in 7 days`,stale.slice(0,2).map(x=>x.description+' &mdash; '+stuckLabel(x)).join(', ')]);
+    const un=list.filter(i=>!assigneeList(i.assignee).length&&i.stage!=='Site');
+    if(un.length)rows.push(['var(--mut)','&#9635;',`${un.length} item${un.length===1?'':'s'} with nobody assigned`,'Work cannot start without a name against it']);
+    decide = rows.length
+      ? `<div class="card" style="border-color:var(--red)"><div class="cardHead" style="color:var(--red)"><span>NEEDS A DECISION FROM YOU &mdash; ${rows.length}</span></div>
+        <div style="padding:4px 14px 14px">${rows.slice(0,6).map((r,i,arr)=>`<div style="display:flex;gap:10px;padding:10px 0;${i<arr.length-1?'border-bottom:1px solid var(--line)':''}">
+          <span style="color:${r[0]};font-size:15px">${r[1]}</span>
+          <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">${r[2]}</div>
+          <div style="font-size:10px;color:var(--mut);margin-top:2px">${r[3]||''}</div></div></div>`).join('')}</div></div>`
+      : `<div class="card" style="border-color:var(--green)"><div style="padding:12px 14px;font-size:12px;color:var(--green)">&#10003; Nothing is blocked. Every item has what it needs.</div></div>`;
+  }
+
+  const bad = blockedN>0 || (planned && pct<Math.round(usedH/planned*100)-15);
+  const reasons=[];
+  if(blockedN)reasons.push(blockedN+' item'+(blockedN===1?'':'s')+' blocked');
+  if(planned && pct<Math.round(usedH/planned*100)-15)reasons.push('labour ahead of progress');
+
+  const ed=(pr&&pr.editors)||{};
+  const edList=Object.entries(ed).sort((a,b)=>new Date(b[1].at||0)-new Date(a[1].at||0));
+
+  return `${crumb}
+  <div class="card" style="border-color:${bad?'var(--amber)':'var(--green)'}"><div style="padding:16px 18px">
+    <div style="font-size:22px;font-weight:800">${d.zone||d.project}</div>
+    ${!d.zone?`<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:14px;background:${bad?'#3a2a10':'#14301f'};color:${bad?'var(--amber)':'var(--green)'};border:1px solid ${bad?'var(--amber)':'var(--green)'}">${bad?'NEEDS ATTENTION':'ON TRACK'}</span>
+      ${reasons.length?`<span style="font-size:12px;color:var(--mut)">${reasons.join(' &middot; ')}</span>`:''}
+    </div>`:`<div style="font-size:12px;color:var(--mut);margin-top:4px">${list.length} items &middot; ${list.reduce((a,i)=>a+(+i.qty||1),0)} pieces</div>`}
+  </div></div>
+
+  <div class="settings">
+    <div class="stat"><div class="sv" style="color:var(--green)">${pct}%</div><div class="sl">PROGRESS &middot; ${doneN} OF ${list.length} DELIVERED</div>
+      <div style="height:6px;background:var(--steel);border-radius:3px;margin-top:8px;border:1px solid var(--line)"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px"></div></div></div>
+    ${planned?`<div class="stat"><div class="sv" style="color:var(--amber)">${Math.round(usedH/planned*100)}%</div><div class="sl">LABOUR &middot; ${usedH.toFixed(0)} OF ${planned}h</div>
+      <div style="height:6px;background:var(--steel);border-radius:3px;margin-top:8px;border:1px solid var(--line)"><div style="height:100%;width:${Math.min(100,usedH/planned*100)}%;background:var(--amber);border-radius:3px"></div></div></div>`
+      :`<div class="stat"><div class="sv" style="color:var(--mut)">${usedH.toFixed(0)}h</div><div class="sl">LABOUR USED &middot; NO PLAN SET</div></div>`}
+    <div class="stat"><div class="sv" style="color:var(--blue)">${staffNow+crewNow}</div><div class="sl">ON SITE NOW &middot; ${staffNow} STAFF + ${crewNow} CREW</div></div>
+    <div class="stat"><div class="sv" style="color:${list.filter(isVariationItem).length?'var(--amber)':'var(--mut)'}">${list.filter(isVariationItem).length}</div><div class="sl">VARIATIONS (EXTRA TO BOQ)</div></div>
+    ${snagCount?`<div class="stat"><div class="sv" style="color:var(--red)">${snagCount}</div><div class="sl">SNAGS</div></div>`:''}
+  </div>
+
+  ${decide}
+  ${matBlock}
+  ${ordBlock}
+
+  ${sg.length?`<div class="card"><div class="cardHead"><span>WHERE THE WORK IS</span></div>
+    <div style="padding:10px 14px 16px;text-align:center">${pie3d(sg,300,190,126,60,22)}${pieLegend(sg,v=>v+' pcs')}</div></div>`:''}
+
+  ${(!d.zone&&zones.length)?`<div class="card"><div class="cardHead"><span>ZONES</span><small style="color:var(--mut)">tap to open</small></div>
+    <div style="padding:4px 14px 14px">
+      ${zones.map(z=>{const zi=inProj.filter(i=>i.zone_name===z);const zd=zi.filter(i=>i.stage==='Site').length;
+        const zp=zi.length?Math.round(zd/zi.length*100):0;const col=zp>=70?'var(--green)':zp>=40?'var(--amber)':'var(--red)';
+        return `<div data-drillzone="${z.replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer">
+          <span style="flex:1;font-size:13px">${z}</span><span style="font-size:11px;color:var(--mut)">${zi.length} items</span>
+          <span style="width:64px;height:6px;background:var(--steel);border-radius:3px;border:1px solid var(--line)"><span style="display:block;height:100%;width:${zp}%;background:${col};border-radius:3px"></span></span>
+          <span style="font-size:12px;width:34px;text-align:right">${zp}%</span><span style="color:var(--mut)">&rsaquo;</span></div>`;}).join('')}
+    </div></div>`:''}
+
+  <div class="card"><div class="cardHead"><span>ITEMS</span><small style="color:var(--mut)">tap for full detail</small></div>
+    ${list.length?`<div style="padding:4px 14px 14px">
+      ${list.slice(0,60).map(i=>{const nr=(READINESS_CHECKS||[]).filter(c=>!i[c.k]).length;
+        return `<div data-drillitem="${i.id}" style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer">
+          <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700">${i.description||'&mdash;'}${originBadge(i)}</div>
+            <div style="font-size:10px;color:var(--mut);margin-top:2px">${!d.zone&&i.zone_name?i.zone_name+' &middot; ':''}qty ${i.qty||1} &middot; ${assigneeList(i.assignee).join(', ')||'unassigned'} &middot; ${i.stage||'Not Started'}</div></div>
+          <span style="font-size:10px;color:${nr?'var(--amber)':'var(--green)'}">${nr?nr+' left':'ready'}</span>
+          <span style="color:var(--mut)">&rsaquo;</span></div>`;}).join('')}
+    </div>`:'<div class="empty">No items here yet.</div>'}
+  </div>
+
+  ${(!d.zone&&edList.length)?`<div class="card"><div class="cardHead"><span>WHO LAST UPDATED THIS PROJECT</span></div>
+    <div style="padding:4px 14px 14px;display:flex;gap:6px;flex-wrap:wrap">
+      ${edList.map(([who,info])=>`<span style="font-size:10px;padding:5px 10px;border-radius:12px;background:var(--steel);border:1px solid var(--line)">
+        <strong style="color:var(--txt)">${who}</strong><span style="color:var(--mut)"> &middot; ${String(info.role||'').replace('contractor','supervisor').replace('site_engineer','site engineer')} &middot; ${info.at?new Date(info.at).toLocaleString():''}</span></span>`).join('')}
+    </div></div>`:''}`;
 }
 // One item is often worked by two or three people. Names are stored comma-
 // separated in the existing field, so this needs no schema change, but they
@@ -3148,9 +3110,6 @@ function productionTabHTML(){
       <div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:${agingCount?'var(--red)':'var(--mut)'}">${agingCount}</div><div class="sl">AGING >7d</div></div>
       ${(()=>{const v=items.filter(isVariationItem).length;
         return `<div class="stat" style="flex:1;min-width:100px"><div class="sv" style="font-size:20px;color:${v?'var(--amber)':'var(--mut)'}">${v}</div><div class="sl">VARIATIONS</div></div>`;})()}
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-      <button class="zadd" id="toggleTracker" style="border-color:var(--blue);color:var(--blue)">${store.showTracker?"&minus; HIDE DETAILED TRACKER":"+ OPEN DETAILED TRACKER"}</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <button class="zadd" data-prodview="dashboard" style="${(!store.prodView||store.prodView==='dashboard')?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">📊 DASHBOARD</button>
