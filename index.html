@@ -2128,7 +2128,7 @@ function managerHTML(){
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}<span style="color:var(--mut)"> &middot; ${roleLabel(store.account.accountType)}</span></span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='production')?'on':''}" data-mgrtab="production" style="color:var(--blue)">OVERVIEW</button>
     <button class="tab ${store.managerTab==='approvals'?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
@@ -3888,7 +3888,7 @@ function siteEngineerHTML(){
   const openProjects=(store.projects||[]); // no gate: every company project is available
   const itemOptions=store.svItemOptions||[];
   return `<div ${isRTL()?'dir="rtl"':''}><header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · ${t('site_engineer')}</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight">${langSwitcherHTML()}<a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}<span style="color:var(--mut)"> &middot; ${roleLabel(store.account.accountType)}</span></span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
+    <div class="hdrRight">${langSwitcherHTML()}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
   <div class="body">
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
     <div class="card" style="border-color:var(--blue)">
@@ -3969,7 +3969,7 @@ function siteEngineerHTML(){
     </div>
     ${snagListHTML()}
   </div>
-  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer></div>${markupOverlay()}${accountOverlayHTML()}`;
+  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span>&nbsp;&middot;&nbsp;<span id="myAccountBtn" style="cursor:pointer;text-decoration:underline;color:var(--amber)">my account</span></footer></div>${markupOverlay()}${accountOverlayHTML()}`;
 }
 // render an uploaded file as a photo thumbnail (images) or a document icon + link
 // (PDFs, Word docs, anything else) — since Site Visit now accepts any file type.
@@ -4949,7 +4949,7 @@ function supplierHTML(){
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · SUPPLIER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}<span style="color:var(--mut)"> &middot; ${roleLabel(store.account.accountType)}</span></span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="body">
     <div class="card" style="margin-top:14px"><div class="cardHead" style="color:var(--amber)"><span>📥 INCOMING ORDERS — ${inc.length}</span></div></div>
     ${inc.length?inc.map(incCard).join(''):'<div class="empty">No orders received yet. When a contractor sends you an approved order, it appears here.</div>'}
@@ -5215,7 +5215,7 @@ function procurementHTML(){
   const projects=store.projects||[];
   if(!_workspaceId){
     return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.account.company}</div></div></div>
-      <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}<span style="color:var(--mut)"> &middot; ${roleLabel(store.account.accountType)}</span></span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+      <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
     <div class="tabs" style="padding:10px 16px 0">
       <button class="tab ${store.tab!=='ralmixer'?'on':''}" data-noprojtab="projects">📁 PROJECTS</button>
       <button class="tab ${store.tab==='ralmixer'?'on':''}" data-noprojtab="ralmixer" style="color:var(--green)">🎨 RAL MIXER</button>
@@ -5230,10 +5230,10 @@ function procurementHTML(){
         </div>`).join(''):'<div class="empty">No projects yet — ask your contractor to save one.</div>'}
       </div>
     </div>`}
-    <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accountOverlayHTML()}`;
+    <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span>&nbsp;&middot;&nbsp;<span id="myAccountBtn" style="cursor:pointer;text-decoration:underline;color:var(--amber)">my account</span></footer>${accountOverlayHTML()}`;
   }
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.projectName||'Untitled project'}</div></div></div>
-    <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}<span style="color:var(--mut)"> &middot; ${roleLabel(store.account.accountType)}</span></span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="pbtn" id="procChangeProject" style="margin-right:12px">← CHANGE PROJECT</button>
     <button class="tab ${store.tab==='prices'?'on':''}" data-tab="prices">PRICE BOOK</button>
@@ -5242,7 +5242,7 @@ function procurementHTML(){
     <button class="tab ${store.tab==='ralmixer'?'on':''}" data-tab="ralmixer" style="color:var(--green)">🎨 RAL MIXER</button>
   </div>
   <div class="body">${({prices:priceHTML,catalogue:catalogueHTML,order:orderHTML,ralmixer:ralMixerHTML}[store.tab]||orderHTML)()}</div>
-  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accountOverlayHTML()}`;
+  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span>&nbsp;&middot;&nbsp;<span id="myAccountBtn" style="cursor:pointer;text-decoration:underline;color:var(--amber)">my account</span></footer>${accountOverlayHTML()}`;
 }
 // Shared "open a project in the full editor" picker — used by Manager and
 // Site Engineer, since both now get the same access Supervisor has, reusing
@@ -5530,7 +5530,7 @@ function printManpower(){
 }
 function timekeeperHTML(){
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · TIMEKEEPER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a><button class="pbtn" id="myAccountBtn">⚙ MY ACCOUNT</button><span style="font-size:11px;color:var(--mut)">${store.account.email}</span><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}<span style="color:var(--mut)"> &middot; ${roleLabel(store.account.accountType)}</span></span><button class="pbtn" id="signout">SIGN OUT</button></div></header>
+    <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.tkTab||store.tkTab==='manpower')?'on':''}" data-tktab="manpower" style="color:var(--green)">👷 MANPOWER</button>
     <button class="tab ${store.tkTab==='record'?'on':''}" data-tktab="record" style="color:var(--blue)">🕐 RECORD ATTENDANCE</button>
@@ -5753,7 +5753,7 @@ function appHTML(){
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
   </div></div>
   <div class="body">${({assembly:assemblyHTML,linear:linearHTML,timber:timberHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab]||assemblyHTML)()}</div>
-  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="myAccountBtn" style="cursor:pointer;text-decoration:underline">my account</span> · <a href="${helpDeskLink()}" target="_blank" rel="noopener" title="Help via WhatsApp" style="vertical-align:middle">${whatsappIcon(14)}</a> · <span style="font-size:11px;color:var(--txt)">${(store.account.name||store.account.email||'')}<span style="color:var(--mut)"> &middot; ${roleLabel(store.account.accountType)}</span></span>&nbsp;&middot;&nbsp;<span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}${accountOverlayHTML()}`;}
+  <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="myAccountBtn" style="cursor:pointer;text-decoration:underline">my account</span> · <a href="${helpDeskLink()}" target="_blank" rel="noopener" title="Help via WhatsApp" style="vertical-align:middle">${whatsappIcon(14)}</a> · <span style="font-size:11px;color:var(--mut)">Account: ${store.account.email} &middot; ${store.account.company}</span>&nbsp;&middot;&nbsp;<span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span>&nbsp;&middot;&nbsp;<span id="myAccountBtn" style="cursor:pointer;text-decoration:underline;color:var(--amber)">my account</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}${accountOverlayHTML()}`;}
 
 // export picker: choose which sheets go into the Excel
 // ---- Contractor: SITE DRAWINGS tab — marked-up drawings the manager forwarded on ----
