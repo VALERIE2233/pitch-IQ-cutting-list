@@ -4351,7 +4351,7 @@ async function attendanceSignIn(){
   const pos=await getPosition();
   const row={company_id:store.account.companyId, project_id:projectId, project_name:proj?proj.name:'',
     user_id:store.account.uid, user_name:store.account.name||store.account.email,
-    work_location:store.workLocation||'site',
+    work_location:canRecordFactory()?(store.workLocation||'site'):'site',
     work_date:todayStr(), sign_in_at:new Date().toISOString(),
     sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, sign_in_method:method};
   try{
@@ -4384,6 +4384,13 @@ function shiftHours(a){
   const h=Math.floor(ms/3600000), m=Math.round((ms%3600000)/60000);
   return h+'h '+String(m).padStart(2,'0')+'m';
 }
+// The site engineer is on site by definition, so their attendance is always
+// site work. Timekeepers and managers record both, since they cover the
+// factory floor as well.
+function canRecordFactory(){
+  const t=store.account&&store.account.accountType;
+  return t==='timekeeper'||t==='manager'||t==='contractor';
+}
 function attendanceHTML(){
   if(!store.attLoaded){loadAttendance();}
   if(!store.bioLoaded){loadBioCreds();}
@@ -4397,7 +4404,7 @@ function attendanceHTML(){
   const since=open?new Date(open.sign_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="card" style="border-color:var(--green)">
     <div class="cardHead" style="color:var(--green)"><span>🕐 ${t('site_attendance')}</span>
-      <span style="display:flex;gap:4px;margin-right:6px">${['site','factory'].map(l=>`<button class="zadd" data-worklocation="${l}" style="font-size:10px;padding:4px 9px;${(store.workLocation||'site')===l?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">${l==='site'?'🏗 SITE':'🏭 FACTORY'}</button>`).join('')}</span><button class="zadd" id="attRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
+      <span style="display:flex;gap:4px;margin-right:6px">${!canRecordFactory()?'':['site','factory'].map(l=>`<button class="zadd" data-worklocation="${l}" style="font-size:10px;padding:4px 9px;${(store.workLocation||'site')===l?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">${l==='site'?'🏗 SITE':'🏭 FACTORY'}</button>`).join('')}</span><button class="zadd" id="attRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
     <div style="padding:12px">
       ${open?`<div style="background:var(--steel);border:1px solid var(--green);border-radius:6px;padding:12px;margin-bottom:10px">
           <div style="font-size:12px;color:var(--green);font-weight:700">● ${t('on_site_since')} ${since}</div>
@@ -4596,7 +4603,7 @@ async function crewPunch(memberId, direction){
         crew_member_id:c.id, worker_name:c.name, trade:c.trade, work_date:d,
         recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
         recorded_at:now, lat:pos?pos.lat:null, lng:pos?pos.lng:null,
-        work_location:store.workLocation||'site',
+        work_location:canRecordFactory()?(store.workLocation||'site'):'site',
         sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present'};
       const {data,error}=await sb.from('crew_attendance').insert(row).select().single();
       if(error)throw error;
@@ -5721,7 +5728,7 @@ function appHTML(){
     <div style="font-size:11px;color:var(--mut);margin-bottom:8px">YOUR SAVED PROJECTS — tap to open</div>
     ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px"><span style="cursor:pointer;flex:1" data-openproj="${p.id}">${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut);margin-right:8px">${new Date(p.updated_at).toLocaleDateString()}</span>${(p.owner_id===store.account.uid||p.name==='My First Project')?`<button data-delproj="${p.id}" data-delprojname="${p.name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Delete this project">🗑</button>`:''}</div>`).join('')||'<div class="empty">No projects yet.</div>'}
   </div>`:''}
-  <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">FIT-OUT&nbsp;IQ</div><div class="sub">ESTIMATE · PRODUCE · FIT OUT</div></div></div>
+  <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">FIT-OUT&nbsp;IQ &middot; SUPERVISOR</div><div class="sub">${store.account.company||'ESTIMATE &middot; PRODUCE &middot; FIT OUT'}</div></div></div>
     <div class="headBtns">
       <div class="unit"><button class="${store.unit==='mm'?'on':''}" data-unit="mm">mm</button><button class="${store.unit==='in'?'on':''}" data-unit="in">in</button></div>
       <select class="sel" id="currencySel" title="Currency" style="padding:8px">${CURRENCIES.map(c=>`<option ${store.currency===c?'selected':''}>${c}</option>`).join('')}</select>
