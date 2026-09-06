@@ -6781,7 +6781,7 @@ function wire(){
       }catch(ex){sErr(ex.message||'Sign-up failed.');}
     };
     const tkg=document.getElementById('doSignupTimekeeper');
-    if(seg)seg.onclick=async()=>{
+    if(tkg)tkg.onclick=async()=>{
       const co=val('f_company'),n=val('f_name'),e=val('f_email'),p=val('f_phone'),pw=document.getElementById('f_pass').value;
       if(!co||!n||!e||!p||!pw){return sErr('Please fill company, name, email, phone and password.');}
       if(!/^[^@]+@[^@]+\.[^@]+$/.test(e)){return sErr('Please enter a valid email.');}
