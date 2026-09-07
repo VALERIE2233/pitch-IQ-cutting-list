@@ -233,8 +233,8 @@
 // server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
 // request and compares it to the one we loaded with. Any redeploy changes the
 // fingerprint, so it works whether or not anyone remembers to update anything.
-const APP_VERSION='1.0.0';   // display only - not what triggers the banner
-const APP_BUILD='20260906.e1dcfa';  // stamped at build time so the live version is verifiable
+const APP_VERSION='1.1.0';   // display only - not what triggers the banner
+const APP_BUILD='20260907.020fc1';  // stamped at build time so the live version is verifiable
 let _appFingerprint=null;
 function fingerprintOf(res){
   return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
@@ -5753,7 +5753,7 @@ function appHTML(){
       : "VIEW ONLY \u2014 this project belongs to someone else. You can look at everything, but only its owner or a manager can change it. To add your own work, use your own dashboard."}</span>
     <button class="pbtn" id="exitFullEditor" style="margin-left:auto;background:#000;color:#fff;border-color:#000">← RETURN TO MY DASHBOARD</button>
   </div>`:''}
-  <div class="trialBar">✓ FREE TRIAL — ${daysLeft} day${daysLeft===1?'':'s'} left · ${store.account.company} <span style="color:var(--mut);letter-spacing:0">&middot; v${APP_VERSION} &middot; ${APP_BUILD}</span></div>
+  <div class="trialBar">✓ FREE TRIAL — ${daysLeft} day${daysLeft===1?'':'s'} left · ${store.account.company} <span style="letter-spacing:0;color:var(--amber);font-weight:800">&middot; v${APP_VERSION} build ${APP_BUILD}</span></div>
   <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);font-size:12px">
     <span style="color:var(--mut)">PROJECT:</span>
     <strong style="color:var(--amber);letter-spacing:0.5px">${store.projectName||'Untitled'}</strong>
@@ -6185,8 +6185,10 @@ function sheetHTML(){
       const txt='#111';
       const itm=p.item||'';
       const tag=p.ref||p.label||'';
-      return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;${ptex.indexOf('url(')===0?`background-image:${ptex};background-size:100% 100%;`:`background-color:${ptex};`}box-shadow:inset 0 0 0 999px ${col};outline:1.5px solid ${pcol};outline-offset:-1.5px;color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.25;padding:2px;text-align:center">${p.flipped?`<span style="position:absolute;top:1px;right:2px;font-size:8px;font-weight:800;color:#b32b2b" title="Turned to fit \u2014 grain runs the other way">\u21BB</span>`:''}${itm?`<span style="font-size:9px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${itm}</span>`:''}${tag?`<span style="font-size:7px;opacity:.8;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
+      return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;${ptex.indexOf('url(')===0?`background-image:${ptex};background-size:100% 100%;`:`background-color:${ptex};`}box-shadow:inset 0 0 0 999px ${col};outline:1.5px solid ${pcol};outline-offset:-1.5px;color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.25;padding:2px;text-align:center">${p.flipped?`<span style="position:absolute;inset:0;border:2px dashed #ff5d5d;pointer-events:none"></span><span style="position:absolute;top:2px;left:2px;right:2px;font-size:7px;font-weight:800;color:#fff;background:#c0392b;padding:1px 2px;border-radius:2px;letter-spacing:.5px;white-space:nowrap;overflow:hidden" title="Turned to fit \u2014 grain runs across this piece">\u21BB CROSS GRAIN</span>`:''}${itm?`<span style="font-size:9px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${itm}</span>`:''}${tag?`<span style="font-size:7px;opacity:.8;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
     }).join('');const isOff=s.fromOffcut;const bw=isOff?s.offcutW:store.sheetW,bh=isOff?s.offcutH:store.sheetH;return `<div class="sheetWrap"><div class="sheetIdx" style="${isOff?'color:var(--green)':''}">${isOff?'♻ OFFCUT '+fmt(bw)+'×'+fmt(bh):'SHEET #'+(i+1)}</div>
+      ${(()=>{const nf=(s.parts||[]).filter(x=>x.flipped).length;
+        return nf?`<div style="font-size:9px;color:#ff5d5d;font-weight:700;margin:1px 0 2px">\u21BB ${nf} piece${nf===1?'':'s'} turned \u2014 cross grain</div>`:'';})()}
       ${(()=>{const mat=sheetMaterialOf(s);if(!mat.code)return '';
         return `<div style="display:flex;align-items:center;gap:5px;font-size:9px;margin:2px 0 3px">
           <span style="width:9px;height:9px;border-radius:2px;background:${materialTexture(mat.code,mat.finish)};background-size:100% 100%;border:1px solid rgba(0,0,0,.35);flex:0 0 auto"></span>
