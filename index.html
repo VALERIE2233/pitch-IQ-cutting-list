@@ -1445,13 +1445,18 @@ function packGuillotine(sheetW,sheetH,kerf,parts){
     // option B: rotated 90° (only if allowed and not square)
     if(p.rot && p.w!==p.h){
       const fitR=bestFit(sheet,p.h,p.w);
-      if(fitR && (!chosen.fit || fitR.score<chosen.fit.score)){
-        chosen={w:p.h,h:p.w,fit:fitR};
-      }
+      // When the grain direction was requested, only turn the piece if it
+      // genuinely will not fit the way it was asked for. Otherwise the packer
+      // is free to choose whichever placement wastes less.
+      const mustKeepGrain=!!p.flipWarn;
+      const takeRotated = fitR && (mustKeepGrain
+        ? !chosen.fit
+        : (!chosen.fit || fitR.score<chosen.fit.score));
+      if(takeRotated){ chosen={w:p.h,h:p.w,fit:fitR,flipped:mustKeepGrain}; }
     }
     if(!chosen.fit)return false;
     const f=sheet.free[chosen.fit.idx];
-    sheet.placed.push({w:chosen.w,h:chosen.h,x:f.x,y:f.y,ref:p.ref,label:p.label,code:p.code,thk:p.thk,finishName:p.finishName,item:p.item,grainless:!!p.grainless});
+    sheet.placed.push({w:chosen.w,h:chosen.h,x:f.x,y:f.y,ref:p.ref,label:p.label,code:p.code,thk:p.thk,finishName:p.finishName,item:p.item,grainless:!!p.grainless,flipped:!!chosen.flipped});
     const rW=f.w-chosen.w-kerf,bH=f.h-chosen.h-kerf;
     sheet.free.splice(chosen.fit.idx,1);
     if(rW>0)sheet.free.push({x:f.x+chosen.w+kerf,y:f.y,w:rW,h:chosen.h});
@@ -1474,9 +1479,13 @@ function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
     }
   });
   const orient=it=>{
-    if(grain==='across')return {w:it.h,h:it.w,rot:false,ref:it.ref,label:it.label,code:it.code,thk:it.thk,finishName:it.finishName,item:it.item};
-    if(grain==='none')return {w:it.w,h:it.h,rot:true,grainless:true,ref:it.ref,label:it.label,code:it.code,thk:it.thk,finishName:it.finishName,item:it.item};
-    return {w:it.w,h:it.h,rot:false,ref:it.ref,label:it.label,code:it.code,thk:it.thk,finishName:it.finishName,item:it.item};
+    const base={ref:it.ref,label:it.label,code:it.code,thk:it.thk,finishName:it.finishName,item:it.item};
+    if(grain==='none')return Object.assign({w:it.w,h:it.h,rot:true,grainless:true},base);
+    // Requested orientation first. allowFlip lets a piece that cannot fit that
+    // way be turned instead of dropped — the packer prefers the requested
+    // orientation, and anything turned is flagged as cross-grain.
+    if(grain==='across')return Object.assign({w:it.h,h:it.w,rot:true,preferRot:false,flipWarn:true},base);
+    return Object.assign({w:it.w,h:it.h,rot:true,preferRot:false,flipWarn:true},base);
   };
   let mapped=items.map(orient);
   // Pieces that physically cannot fit the board in the requested grain
@@ -6093,10 +6102,10 @@ function sheetHTML(){
     <label class="field" style="justify-content:center"><span class="fl">SITE VISITS</span><button class="zadd" id="pullSiteBtn" style="padding:8px 12px;border-color:var(--amber);color:var(--amber)">📍 PULL MEASUREMENTS</button></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="zadd" id="sheetColsToggle" style="font-size:10px;padding:5px 10px">${store.sheetCols==='all'?'− HIDE SITE / LIPPING / FINISH COLUMNS':'+ SHOW SITE / LIPPING / FINISH COLUMNS'}</button></div>
-    <div class="scroll stackable ${store.sheetCols==='all'?'':'colsEssential'}"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th class="xcol">Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final L</th><th class="r">Final H</th><th class="r xcol">Site W</th><th class="r xcol">Site H</th><th class="r xcol">Site D</th><th class="xcol">Fit</th><th class="r xcol">Lip thk</th><th class="xcol">Lip edge</th><th class="xcol">Lip code</th><th class="xcol">Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
+    <div class="scroll stackable ${store.sheetCols==='all'?'':'colsEssential'}"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th class="xcol">Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final L/H</th><th class="r">Final W</th><th class="r xcol">Site W</th><th class="r xcol">Site H</th><th class="r xcol">Site D</th><th class="xcol">Fit</th><th class="r xcol">Lip thk</th><th class="xcol">Lip edge</th><th class="xcol">Lip code</th><th class="xcol">Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
     ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td data-label="Zone">${zoneSel(r.zone,'sheet',r.id)}</td><td data-label="Item">${itemSel(r.item,r.itemOther,r.id)}</td><td data-label="Part">${partSel(r.part,r.partOther,r.id)}</td><td class="xcol" data-label="Ref" style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td data-label="Code"><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r" data-label="Thk"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
-      <td class="r" data-label="Final L"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
-      <td class="r" data-label="Final H"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
+      <td class="r" data-label="Final L/H"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
+      <td class="r" data-label="Final W"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
       <td class="r xcol" data-label="Site W"><input class="num numS" type="number" value="${r.siteW?fmt(r.siteW):''}" data-sheet="${r.id}" data-k="siteW" placeholder="—" title="Site opening width"></td>
       <td class="r xcol" data-label="Site H"><input class="num numS" type="number" value="${r.siteH?fmt(r.siteH):''}" data-sheet="${r.id}" data-k="siteH" placeholder="—" title="Site opening height"></td>
       <td class="r xcol" data-label="Site D"><input class="num numS" type="number" value="${r.siteD?fmt(r.siteD):''}" data-sheet="${r.id}" data-k="siteD" placeholder="—" title="Site opening depth (reference only)"></td>
@@ -6164,11 +6173,11 @@ function sheetHTML(){
       </div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
     ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
-      const pcol=PAL[ci++%PAL.length];const pdir=p.grainless?'none':(store.grain||'along');const ptex=materialTexture(p.code,p.finishName,pdir);const col=hexToRgba(pcol,.20);
+      const pcol=PAL[ci++%PAL.length];const pdir=p.grainless?'none':(p.flipped?(store.grain==='across'?'along':'across'):(store.grain||'along'));const ptex=materialTexture(p.code,p.finishName,pdir);const col=hexToRgba(pcol,.20);
       const txt='#111';
       const itm=p.item||'';
       const tag=p.ref||p.label||'';
-      return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;${ptex.indexOf('url(')===0?`background-image:${ptex};background-size:100% 100%;`:`background-color:${ptex};`}box-shadow:inset 0 0 0 999px ${col};outline:1.5px solid ${pcol};outline-offset:-1.5px;color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.25;padding:2px;text-align:center">${itm?`<span style="font-size:9px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${itm}</span>`:''}${tag?`<span style="font-size:7px;opacity:.8;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
+      return `<div class="part" style="left:${p.x*scale}px;top:${p.y*scale}px;width:${p.w*scale-1}px;height:${p.h*scale-1}px;${ptex.indexOf('url(')===0?`background-image:${ptex};background-size:100% 100%;`:`background-color:${ptex};`}box-shadow:inset 0 0 0 999px ${col};outline:1.5px solid ${pcol};outline-offset:-1.5px;color:${txt};display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;line-height:1.25;padding:2px;text-align:center">${p.flipped?`<span style="position:absolute;top:1px;right:2px;font-size:8px;font-weight:800;color:#b32b2b" title="Turned to fit \u2014 grain runs the other way">\u21BB</span>`:''}${itm?`<span style="font-size:9px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${itm}</span>`:''}${tag?`<span style="font-size:7px;opacity:.8;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">${tag}</span>`:''}<span style="font-size:8px">${fmt(p.w)}×${fmt(p.h)}</span></div>`;
     }).join('');const isOff=s.fromOffcut;const bw=isOff?s.offcutW:store.sheetW,bh=isOff?s.offcutH:store.sheetH;return `<div class="sheetWrap"><div class="sheetIdx" style="${isOff?'color:var(--green)':''}">${isOff?'♻ OFFCUT '+fmt(bw)+'×'+fmt(bh):'SHEET #'+(i+1)}</div>
       ${(()=>{const mat=sheetMaterialOf(s);if(!mat.code)return '';
         return `<div style="display:flex;align-items:center;gap:5px;font-size:9px;margin:2px 0 3px">
