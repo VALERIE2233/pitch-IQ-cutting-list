@@ -6173,7 +6173,7 @@ function sheetHTML(){
       </div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
     ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
-      const pcol=PAL[ci++%PAL.length];const pdir=p.grainless?'none':(p.flipped?(store.grain==='across'?'along':'across'):(store.grain||'along'));const ptex=materialTexture(p.code,p.finishName,pdir);const col=hexToRgba(pcol,.20);
+      const pcol=PAL[ci++%PAL.length];const pdir=p.grainless?'none':(p.flipped?'across':'along');const ptex=materialTexture(p.code,p.finishName,pdir);const col=hexToRgba(pcol,.20);
       const txt='#111';
       const itm=p.item||'';
       const tag=p.ref||p.label||'';
@@ -6185,7 +6185,7 @@ function sheetHTML(){
           <span style="color:var(--txt);font-weight:700">${mat.code}</span>
           ${mat.thk?`<span style="color:var(--mut)">${mat.thk}mm</span>`:''}
           ${mat.finish?`<span style="color:var(--amber)">${mat.finish}</span>`:''}
-        </div>`;})()}<div class="sheet" style="width:${bw*scale}px;height:${bh*scale}px;${isOff?'border-color:var(--green)':''};${(()=>{const m=sheetMaterialOf(s);const tex=materialTexture(m.code,m.finish);return tex.indexOf('url(')===0?`background-image:${tex};background-size:100% 100%`:`background-color:${tex}`;})()}">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
+        </div>`;})()}<div class="sheet" style="width:${bw*scale}px;height:${bh*scale}px;${isOff?'border-color:var(--green)':''};${(()=>{const m=sheetMaterialOf(s);const tex=materialTexture(m.code,m.finish,'along');return tex.indexOf('url(')===0?`background-image:${tex};background-size:100% 100%`:`background-color:${tex}`;})()}">${parts}</div></div>`;}).join(''):'<div class="empty">No panels in this zone yet.</div>'}</div></div>`;}
 
 // Every part on a nested sheet shares the same board, so the material can be
 // read from the first part. Shown on the sheet header because a printed nest
