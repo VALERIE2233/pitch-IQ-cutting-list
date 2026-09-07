@@ -60,6 +60,11 @@
   .brand{display:flex;align-items:center;gap:12px}
   .mark{color:var(--amber);font-size:22px;letter-spacing:-2px}
   .title{font-size:22px;font-weight:800;letter-spacing:2px;line-height:1}
+  /* Brand block for the non-supervisor screens. These carried no styling at
+     all, so the platform name and company rendered as plain text. Matched to
+     .title/.sub so every role's header reads the same. */
+  .bn{font-size:22px;font-weight:800;letter-spacing:2px;line-height:1}
+  .bs{font-size:9px;letter-spacing:2.5px;color:var(--mut);margin-top:3px}
   .sub{font-size:9px;letter-spacing:2.5px;color:var(--mut);margin-top:3px}
   .headBtns{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
   .gbtn{background:transparent;color:var(--amber);border:1px solid var(--line);padding:9px 12px;font-weight:700;font-size:11px;letter-spacing:1px;border-radius:2px}
@@ -1456,7 +1461,7 @@ function packGuillotine(sheetW,sheetH,kerf,parts){
     }
     if(!chosen.fit)return false;
     const f=sheet.free[chosen.fit.idx];
-    sheet.placed.push({w:chosen.w,h:chosen.h,x:f.x,y:f.y,ref:p.ref,label:p.label,code:p.code,thk:p.thk,finishName:p.finishName,item:p.item,grainless:!!p.grainless,flipped:!!chosen.flipped});
+    sheet.placed.push({w:chosen.w,h:chosen.h,x:f.x,y:f.y,ref:p.ref,label:p.label,code:p.code,thk:p.thk,finishName:p.finishName,item:p.item,grainless:!!p.grainless,flipped:!!chosen.flipped,pieceGrain:p.pieceGrain||'along'});
     const rW=f.w-chosen.w-kerf,bH=f.h-chosen.h-kerf;
     sheet.free.splice(chosen.fit.idx,1);
     if(rW>0)sheet.free.push({x:f.x+chosen.w+kerf,y:f.y,w:rW,h:chosen.h});
@@ -1475,17 +1480,19 @@ function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
       const baseRef=(typeof pieceRef==='function')?pieceRef(p,pi):'';
       const ref=baseRef+' · '+(i+1)+' of '+p.qty;
       const item=(typeof itemName==='function')?itemName(p):'';
-      items.push({w:p.cw,h:p.ch,ref:ref,label:p.label||'',code:p.code||'',thk:p.thk||'',finishName:panelFinishLabel(p),item:item});
+      items.push({w:p.cw,h:p.ch,ref:ref,label:p.label||'',code:p.code||'',thk:p.thk||'',finishName:panelFinishLabel(p),item:item,rowGrain:p.grain||''});
     }
   });
   const orient=it=>{
     const base={ref:it.ref,label:it.label,code:it.code,thk:it.thk,finishName:it.finishName,item:it.item};
-    if(grain==='none')return Object.assign({w:it.w,h:it.h,rot:true,grainless:true},base);
+    // the panel's own grain wins; the project setting is only the fallback
+    const g = it.rowGrain || grain;
+    if(g==='none')return Object.assign({w:it.w,h:it.h,rot:true,grainless:true,pieceGrain:'none'},base);
     // Requested orientation first. allowFlip lets a piece that cannot fit that
     // way be turned instead of dropped — the packer prefers the requested
     // orientation, and anything turned is flagged as cross-grain.
-    if(grain==='across')return Object.assign({w:it.h,h:it.w,rot:true,preferRot:false,flipWarn:true},base);
-    return Object.assign({w:it.w,h:it.h,rot:true,preferRot:false,flipWarn:true},base);
+    if(g==='across')return Object.assign({w:it.h,h:it.w,rot:true,preferRot:false,flipWarn:true,pieceGrain:g},base);
+    return Object.assign({w:it.w,h:it.h,rot:true,preferRot:false,flipWarn:true,pieceGrain:g},base);
   };
   let mapped=items.map(orient);
   // Pieces that physically cannot fit the board in the requested grain
@@ -6102,8 +6109,9 @@ function sheetHTML(){
     <label class="field" style="justify-content:center"><span class="fl">SITE VISITS</span><button class="zadd" id="pullSiteBtn" style="padding:8px 12px;border-color:var(--amber);color:var(--amber)">📍 PULL MEASUREMENTS</button></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="zadd" id="sheetColsToggle" style="font-size:10px;padding:5px 10px">${store.sheetCols==='all'?'− HIDE SITE / LIPPING / FINISH COLUMNS':'+ SHOW SITE / LIPPING / FINISH COLUMNS'}</button></div>
-    <div class="scroll stackable ${store.sheetCols==='all'?'':'colsEssential'}"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th class="xcol">Ref</th><th>Code</th><th class="r">Thk</th><th class="r">Final L/H</th><th class="r">Final W</th><th class="r xcol">Site W</th><th class="r xcol">Site H</th><th class="r xcol">Site D</th><th class="xcol">Fit</th><th class="r xcol">Lip thk</th><th class="xcol">Lip edge</th><th class="xcol">Lip code</th><th class="xcol">Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
+    <div class="scroll stackable ${store.sheetCols==='all'?'':'colsEssential'}"><table><thead><tr><th>Zone</th><th>Item</th><th>Part</th><th class="xcol">Ref</th><th>Code</th><th class="r">Thk</th><th>Grain</th><th class="r">Final L/H</th><th class="r">Final W</th><th class="r xcol">Site W</th><th class="r xcol">Site H</th><th class="r xcol">Site D</th><th class="xcol">Fit</th><th class="r xcol">Lip thk</th><th class="xcol">Lip edge</th><th class="xcol">Lip code</th><th class="xcol">Finish</th><th class="r">Cut size</th><th class="r">Qty</th><th></th></tr></thead><tbody>
     ${rows.map((r,ri)=>{const cs=cutSize(r);return `<tr><td data-label="Zone">${zoneSel(r.zone,'sheet',r.id)}</td><td data-label="Item">${itemSel(r.item,r.itemOther,r.id)}</td><td data-label="Part">${partSel(r.part,r.partOther,r.id)}</td><td class="xcol" data-label="Ref" style="font-size:10px;color:var(--mut);white-space:nowrap">${pieceRef(r,ri)}${r.qty>1?` ×${r.qty}`:''}</td><td data-label="Code"><input class="cell" style="width:90px" value="${r.code||''}" data-sheet="${r.id}" data-k="code"></td><td class="r" data-label="Thk"><input class="num numS" type="number" value="${r.thk||0}" data-sheet="${r.id}" data-k="thk"></td>
+      <td data-label="Grain"><select class="sel" style="width:78px" data-sheet="${r.id}" data-k="grain"><option value="" ${!r.grain?'selected':''}>default</option><option value="along" ${r.grain==='along'?'selected':''}>along</option><option value="across" ${r.grain==='across'?'selected':''}>across</option><option value="none" ${r.grain==='none'?'selected':''}>none</option></select></td>
       <td class="r" data-label="Final L/H"><input class="num" type="number" value="${fmt(r.h)}" data-sheet="${r.id}" data-k="h"></td>
       <td class="r" data-label="Final W"><input class="num" type="number" value="${fmt(r.w)}" data-sheet="${r.id}" data-k="w"></td>
       <td class="r xcol" data-label="Site W"><input class="num numS" type="number" value="${r.siteW?fmt(r.siteW):''}" data-sheet="${r.id}" data-k="siteW" placeholder="—" title="Site opening width"></td>
@@ -6113,7 +6121,7 @@ function sheetHTML(){
       <td class="r xcol" data-label="Lip thk">${lipSel(r.lip,r.id)}</td><td class="xcol" data-label="Lip edge">${edgeSel(r.edge,r.id)}</td>
       <td class="xcol" data-label="Lip code"><input class="cell" style="width:90px" value="${r.lipCode||''}" data-sheet="${r.id}" data-k="lipCode" placeholder="e.g. LIP-OAK"></td>
       <td class="xcol" data-label="Finish">${finishSel(r.pfinish,r.id)}${(r.pfinish&&r.pfinish!=='none')?' '+paintFacesSel(r.paintFaces,r.id):''}</td>
-      <td class="r" data-label="Cut size"><span class="cutSize">${fmt(cs.cw)}×${fmt(cs.ch)}</span></td>
+      <td class="r" data-label="Cut size"><span class="cutSize">${fmt(cs.ch)}×${fmt(cs.cw)}</span></td>
       <td class="r" data-label="Qty"><input class="num numS" type="number" value="${r.qty}" data-sheet="${r.id}" data-k="qty"></td>
       <td data-label=""><button class="del" data-delsheet="${r.id}">✕</button></td></tr>`;}).join('')}</tbody></table></div>
     <button class="add" id="addSheet">+ ADD PANEL</button></div>
@@ -6173,7 +6181,7 @@ function sheetHTML(){
       </div></div>`;})()}
   <div class="card"><div class="cardHead">NESTING DIAGRAM</div><div class="sheetGrid">
     ${res.sheets.length?res.sheets.map((s,i)=>{const scale=230/store.sheetH;let ci=0;const parts=s.parts.map(p=>{
-      const pcol=PAL[ci++%PAL.length];const pdir=p.grainless?'none':(p.flipped?'across':'along');const ptex=materialTexture(p.code,p.finishName,pdir);const col=hexToRgba(pcol,.20);
+      const pcol=PAL[ci++%PAL.length];const pdir=p.grainless?'none':(p.flipped?(p.pieceGrain==='across'?'along':'across'):'along');const ptex=materialTexture(p.code,p.finishName,pdir);const col=hexToRgba(pcol,.20);
       const txt='#111';
       const itm=p.item||'';
       const tag=p.ref||p.label||'';
@@ -7273,7 +7281,7 @@ function wire(){
   document.querySelectorAll('[data-delsheet]').forEach(b=>b.onclick=()=>{store.sheetRows=store.sheetRows.filter(r=>r.id!==+b.dataset.delsheet);render();});
   document.querySelectorAll('[data-delpaint]').forEach(b=>b.onclick=()=>{store.paintRows=store.paintRows.filter(r=>r.id!==+b.dataset.delpaint);render();});
   const al=document.getElementById('addLin');if(al)al.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.linRows.push({id:Date.now(),zone:z,label:'New cut',code:store.linCode,thk:store.linThk,len:2400,qty:1});render();};
-  const as=document.getElementById('addSheet');if(as)as.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.sheetRows.push({id:Date.now(),zone:z,label:'New panel',code:store.sheetCode,thk:store.sheetThk,w:1220,h:600,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:1});render();};
+  const as=document.getElementById('addSheet');if(as)as.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.sheetRows.push({id:Date.now(),zone:z,label:'New panel',code:store.sheetCode,thk:store.sheetThk,w:100,h:2440,lip:0,edge:'0',lipCode:'',lipLen:3600,qty:1});render();};
   const ap=document.getElementById('addPaint');if(ap)ap.onclick=()=>{const z=+store.zoneFilter>0?+store.zoneFilter:store.zones[0].id;store.paintRows.push({id:Date.now(),zone:z,label:'Walls',stage:'Topcoat',code:'',area:30,coats:2,spread:11,waste:10});render();};
   // bank
   const bd=document.getElementById('bankDrops');if(bd)bd.onclick=()=>{const res=optimiseLinear(store.stockLen,store.linKerf,store.linRows.filter(r=>r.len>0&&r.qty>0));const zn=store.zoneFilter!=='all'?zoneName(+store.zoneFilter):'All';res.newDrops.forEach(d=>store.bankedDrops.push({id:Date.now()+Math.random(),code:store.linCode,thk:store.linThk,material:store.linCode+' '+store.linThk+'mm',size:d,zone:zn,date:new Date().toLocaleDateString()}));store.tab='bank';render();};
@@ -7416,7 +7424,7 @@ function bindRow(el,kind,arr){const id=+el.dataset[kind],k=el.dataset.k;el.oncha
       }
     }
   }
-  else if(k==='label'||k==='code'||k==='stage'||k==='lipCode'||k==='part'||k==='item'||k==='pfinish'){row[k]=v;}else if(k==='zone'){row[k]=+v;}else if(k==='edge'){row[k]=v;}else if(k==='lip'){row[k]=+v;}
+  else if(k==='label'||k==='code'||k==='stage'||k==='lipCode'||k==='part'||k==='item'||k==='pfinish'||k==='grain'){row[k]=v;}else if(k==='zone'){row[k]=+v;}else if(k==='edge'){row[k]=v;}else if(k==='lip'){row[k]=+v;}
   else if(k==='thk'){row[k]=Math.max(0,+v||0);}
   else if(k==='qty'||k==='coats'||k==='paintFaces'||k==='paintCoats'){row[k]=Math.max(0,Math.round(+v||0));}
   else if(k==='area'||k==='spread'||k==='waste'){row[k]=Math.max(0,+v||0);}
