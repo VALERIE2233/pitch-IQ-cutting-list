@@ -233,8 +233,8 @@
 // server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
 // request and compares it to the one we loaded with. Any redeploy changes the
 // fingerprint, so it works whether or not anyone remembers to update anything.
-const APP_VERSION='1.1.2';   // display only - not what triggers the banner
-const APP_BUILD='20260907.421dab';  // stamped at build time so the live version is verifiable
+const APP_VERSION='1.2.0';   // display only - not what triggers the banner
+const APP_BUILD='20260907.4a1db5';  // stamped at build time so the live version is verifiable
 let _appFingerprint=null;
 function fingerprintOf(res){
   return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
@@ -1454,7 +1454,12 @@ function packGuillotine(sheetW,sheetH,kerf,parts){
       // genuinely will not fit the way it was asked for. Otherwise the packer
       // is free to choose whichever placement wastes less.
       const mustKeepGrain=!!p.flipWarn;
-      const takeRotated = fitR && (mustKeepGrain
+      // In strict mode a piece is never turned against its stated grain, so
+      // the ALONG / ACROSS waste comparison reflects what you could actually
+      // cut. Turn it only when the grain is not being enforced.
+      const strict = store.strictGrain!==false;
+      const mayTurn = !mustKeepGrain || !strict;
+      const takeRotated = fitR && mayTurn && (mustKeepGrain
         ? !chosen.fit
         : (!chosen.fit || fitR.score<chosen.fit.score));
       if(takeRotated){ chosen={w:p.h,h:p.w,fit:fitR,flipped:mustKeepGrain}; }
@@ -1499,8 +1504,14 @@ function optimiseSheets(sheetW,sheetH,kerf,grain,parts){
   // direction. Opening an empty sheet for each of these was the old behaviour
   // and it just produced blank sheets with no explanation.
   const tooBig=[];
+  const strictGrain = store.strictGrain!==false;
   mapped=mapped.filter(m=>{
-    const fits = (m.w<=sheetW && m.h<=sheetH) || (m.rot && m.h<=sheetW && m.w<=sheetH);
+    const asAsked = (m.w<=sheetW && m.h<=sheetH);
+    const turned  = (m.rot && m.h<=sheetW && m.w<=sheetH);
+    // A piece with a stated grain only counts as fitting if it fits the way
+    // it was asked for; turning it would break the grain.
+    const grainLocked = !!m.flipWarn && strictGrain;
+    const fits = grainLocked ? asAsked : (asAsked || turned);
     if(!fits)tooBig.push(m);
     return fits;
   });
@@ -6106,6 +6117,8 @@ function sheetHTML(){
     <label class="field"><span class="fl">CLEAN TRIM (${u()})</span><input class="fi" type="number" id="sheetTrim" value="${fmt(store.sheetTrim||0)}" title="Cleaning allowance on every edge of each piece — cut oversize by this much all round"></label>
     <label class="field"><span class="fl">SITE CLEARANCE (${u()})</span><input class="fi" type="number" id="siteTol" value="${fmt(store.siteTol||0)}" title="Item must be this much smaller than the site opening to fit/install — warns if it's not"></label>
     <label class="field" style="justify-content:center"><span class="fl">REUSE OFFCUTS</span><button class="zadd" id="reuseToggle" style="padding:8px 12px;${store.reuseSheetOffcuts?'background:var(--green);color:#000;border-color:var(--green)':''}">${store.reuseSheetOffcuts?'✓ ON':'OFF'}</button></label>
+      <label class="field"><span class="fl">RESPECT GRAIN</span>
+        <button class="toggle" id="strictGrainToggle" style="padding:8px 12px;${store.strictGrain!==false?'background:var(--green);color:#000;border-color:var(--green)':''}" title="${store.strictGrain!==false?'A piece that cannot be cut the way its grain asks for is reported, not turned. Waste figures stay honest.':'Pieces may be turned to fit, breaking the grain you asked for. Turned pieces are flagged.'}">${store.strictGrain!==false?'✓ STRICT':'ALLOW TURN'}</button></label>
     <label class="field" style="justify-content:center"><span class="fl">SITE VISITS</span><button class="zadd" id="pullSiteBtn" style="padding:8px 12px;border-color:var(--amber);color:var(--amber)">📍 PULL MEASUREMENTS</button></label></div>
   <div class="card"><div class="cardHead">REQUIRED PANELS · lip on an edge trims the perpendicular side</div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="zadd" id="sheetColsToggle" style="font-size:10px;padding:5px 10px">${store.sheetCols==='all'?'− HIDE SITE / LIPPING / FINISH COLUMNS':'+ SHOW SITE / LIPPING / FINISH COLUMNS'}</button></div>
@@ -7244,6 +7257,7 @@ function wire(){
   const lc=document.getElementById('linCode');if(lc)lc.onchange=()=>{store.linCode=lc.value;render();};
   const lw=document.getElementById('lipWaste');if(lw)lw.onchange=()=>{store.lipWaste=Math.max(0,+lw.value||0);render();};
   const rt=document.getElementById('reuseToggle');if(rt)rt.onclick=()=>{store.reuseSheetOffcuts=!store.reuseSheetOffcuts;render();};
+  {const sg=document.getElementById('strictGrainToggle'); if(sg)sg.onclick=()=>{store.strictGrain=(store.strictGrain===false);render();};}
   const psb=document.getElementById('pullSiteBtn');if(psb)psb.onclick=()=>{store.showSitePull=true;render();};
   const spClose=document.getElementById('sitePullClose');if(spClose)spClose.onclick=()=>{store.showSitePull=false;render();};
   document.querySelectorAll('[data-pullvisit]').forEach(b=>b.onclick=()=>{if(!b.disabled)applySiteVisitToZone(b.dataset.pullvisit);});
