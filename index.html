@@ -1999,8 +1999,12 @@ async function confirmApproval(id,title){
 // ---- production tracker: load / add / update / delete ----
 async function loadProductionItems(){
   if(!sb||!store.account)return;
-  try{const {data}=await sb.from('production_items').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});store.prodItems=data||[];}
-  catch(e){store.prodItems=[];}
+  try{
+    const ids=(store.projects||[]).filter(p=>!p._demo).map(p=>p.id);
+    let q=sb.from('production_items').select('*').order('created_at',{ascending:false});
+    q=ids.length?q.or(`company_id.eq.${store.account.companyId},project_id.in.(${ids.join(',')})`):q.eq('company_id',store.account.companyId);
+    const {data}=await q;store.prodItems=data||[];
+  }catch(e){store.prodItems=[];}
   store.prodItemsLoaded=true;render();
 }
 async function addProductionItem(){
@@ -2478,7 +2482,7 @@ function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclic
 // ============================================================================
 function mdashLoadAll(){
   if(!store.projectsLoaded)loadProjects();
-  if(!store.prodItemsLoaded)loadProductionItems();
+  if(store.projectsLoaded&&!store.prodItemsLoaded)loadProductionItems();
   if(!store.purchasesLoaded)loadActuals();
   if(!store.attLoaded)loadAttendance();
   if(!store.crewAttLoaded&&typeof loadCrewAttendance==='function')loadCrewAttendance();
@@ -2565,7 +2569,7 @@ function mgrDashboardHTML(){
     return `<div class="mdZone"><div class="zn"><span>${zname||'No zone'}</span><span>${installed}/${list.length} at site${zs?' · <b style="color:var(--amber)">'+zs+' snag'+(zs>1?'s':'')+'</b>':''}</span></div>
       <div class="cells" title="${list.map(mdashItemName).join(', ')}">${cells.map(c=>`<i class="${c}"></i>`).join('')}</div></div>`;};
   const siteHTML=projs.length?projs.map(pr=>{
-    const mine=mdashItemsFor(pr,items); if(!mine.length)return '';
+    const mine=mdashItemsFor(pr,items); if(!mine.length)return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">no production items yet</span></div></div>`;
     const installed=mine.filter(i=>i.stage==='Site').length, deliveredN=mine.filter(i=>prodStageIndex(i.stage)>=7).length;
     const openSnags=snags.filter(sn=>String(sn.project_id)===String(pr.id)&&sn.status!=='resolved'&&sn.status!=='closed');
     const pv=visits.filter(v=>String(v.project_id)===String(pr.id)||v.project_name===pr.name);
@@ -2579,7 +2583,13 @@ function mgrDashboardHTML(){
       ${zones.map(z=>zoneRow(z,mine.filter(i=>(i.zone_name||'').trim()===z),openSnags)).join('')}
       ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
 
-  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>
+  const realProjs=projs.filter(p=>!p._demo);
+  const noItems=realProjs.filter(p=>!mdashItemsFor(p,items).length);
+  const projStrip=`<div class="card" style="margin-top:14px"><div class="cardHead"><span>PROJECTS IN ${(store.account.company||'YOUR COMPANY').toUpperCase()} — ${realProjs.length}${projs.length>realProjs.length?' (+'+(projs.length-realProjs.length)+' demo)':''}</span><button class="gbtn" data-mgrtab="tracking2" style="padding:5px 9px;font-size:10px">OPEN ALL &rarr;</button></div>
+    ${store.projectsError?`<div class="hint" style="color:var(--red);padding:10px 16px">Could not load projects: ${store.projectsError}</div>`:''}
+    <div class="chips" style="padding:10px 16px">${projs.map(p=>{const n=mdashItemsFor(p,items).length;const st=mgrProjectStats(p,items);return `<span class="chip" style="${p._demo?'border-style:dashed;':''}${st.complete?'color:var(--green);':''}" title="${(p.editors&&Object.keys(p.editors).join(', '))||''}">${p.name||'(unnamed)'} <span style="color:var(--mut)">· ${n?st.done+'/'+n+' at site':'no items yet'}</span></span>`;}).join('')||'<span class="empty">No projects yet.</span>'}</div>
+    ${noItems.length?`<div class="hint" style="padding:0 16px 12px">${noItems.length} project${noItems.length>1?'s have':' has'} a cutting list but no production items yet, so ${noItems.length>1?'they':'it'} won't show in the pipeline until a supervisor adds items on the Projects &amp; Items screen.</div>`:''}</div>`;
+  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>${projStrip}
   <div class="mdAttnRow">
     ${attn(blocked.length,'Items blocked or on hold','red','tracking2')}
     ${attn(aging.length,'Items in one stage over 7 days','amber','tracking2')}
