@@ -234,6 +234,7 @@
   .mdSite{padding:12px 16px;border-bottom:1px solid #2c313a}.mdSite:last-child{border-bottom:none}
   .mdSite .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}.mdSite .nm{font-weight:700}.mdSite .eng{font-size:11px;color:var(--mut)}
   .mdSite .cells{display:flex;gap:3px;margin-top:8px;height:8px}.mdSite .cells i{flex:1;border-radius:1px;background:var(--steel);border:1px solid var(--line)}.mdSite .cells i.del{background:var(--blue);border-color:var(--blue)}.mdSite .cells i.ins{background:var(--green);border-color:var(--green)}.mdSite .cells i.snag{background:var(--amber);border-color:var(--amber)}
+  .mdZone{margin-top:8px;padding-left:10px;border-left:2px solid var(--line)}.mdZone .zn{display:flex;justify-content:space-between;font-size:11px;color:var(--mut)}.mdZone .zn span:first-child{color:var(--txt);font-weight:600}.mdZone .cells{display:flex;gap:3px;margin-top:4px;height:8px}.mdZone .cells i{flex:1;border-radius:1px;background:var(--steel);border:1px solid var(--line)}.mdZone .cells i.del{background:var(--blue);border-color:var(--blue)}.mdZone .cells i.ins{background:var(--green);border-color:var(--green)}.mdZone .cells i.snag{background:var(--amber);border-color:var(--amber)}
   .mdSite .meta{display:flex;gap:14px;font-size:11px;color:var(--mut);margin-top:6px;flex-wrap:wrap}.mdSite .meta b{color:var(--txt);font-weight:600}.mdSite .snag{font-size:11px;color:var(--amber);margin-top:6px}
   .mdKpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
   .mdKpi{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}.mdKpi .v{font-size:24px;font-weight:800;line-height:1}.mdKpi .l{font-size:10px;color:var(--mut);margin-top:5px}.mdKpi .d{font-size:11px;color:var(--mut);margin-top:6px}.mdKpi .mdRail{margin-top:8px}
@@ -2296,8 +2297,8 @@ function managerHTML(){
 
 
 // ============================================================================
-//  DEMO PROJECT — "DEMO · Marina Tower L12"
-//  New companies see one fully worked example in every section (project,
+//  DEMO PROJECTS — "DEMO · Marina Tower L12" and "DEMO · Al Barsha Villa"
+//  New companies see two fully worked examples in every section (project,
 //  production items, purchases, attendance, site visit, snag, order awaiting
 //  approval) so they can copy the pattern, then add their own. Demo rows live
 //  only in memory: ids start with "demo-", they are never sent to Supabase, and
@@ -2306,6 +2307,7 @@ function managerHTML(){
 //  a new company can compare its own project against the worked example.
 // ============================================================================
 const DEMO_PROJECT_ID='demo-p1';
+const DEMO_PROJECT_ID2='demo-p2';
 function isDemoId(id){return typeof id==='string'&&id.indexOf('demo-')===0;}
 function demoGuard(id){
   if(!isDemoId(id))return false;
@@ -2319,21 +2321,37 @@ function demoSeed(){
   const me=(store.account&&(store.account.name||store.account.email))||'You';
   const company=(store.account&&store.account.company)||'Your company';
   const ready={ready_drawing:true,ready_material:true,ready_veneer:true,ready_ironmongery:true,ready_paint:true,ready_accessories:true};
-  const item=(i,desc,zone,stage,daysIn,extra)=>Object.assign({id:'demo-i'+i,project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',description:desc,zone_name:zone,qty:1,unit:'no',stage,stage_since:iso(daysIn),
+  const item=(i,desc,zone,stage,daysIn,extra,proj)=>Object.assign({id:'demo-i'+i,project_id:proj?DEMO_PROJECT_ID2:DEMO_PROJECT_ID,project_name:proj?'DEMO · Al Barsha Villa':'DEMO · Marina Tower L12',description:desc,zone_name:zone,qty:1,unit:'no',stage,stage_since:iso(daysIn),
     stage_history:[{stage,at:iso(daysIn),by:me}],created_by_name:me,created_at:iso(40),flag:'—',_demo:true},extra||{});
   return {
-    projects:[{id:DEMO_PROJECT_ID,name:'DEMO · Marina Tower L12',planned_hours:820,estimated_cost:240000,created_at:iso(49),updated_at:iso(1),owner_id:store.account&&store.account.uid,company_id:store.account&&store.account.companyId,site_visits_open:true,_demo:true}],
+    projects:[{id:DEMO_PROJECT_ID,name:'DEMO · Marina Tower L12',planned_hours:820,estimated_cost:240000,created_at:iso(49),updated_at:iso(1),owner_id:store.account&&store.account.uid,company_id:store.account&&store.account.companyId,site_visits_open:true,_demo:true},
+      {id:DEMO_PROJECT_ID2,name:'DEMO · Al Barsha Villa',planned_hours:520,estimated_cost:145000,created_at:iso(21),updated_at:iso(2),owner_id:store.account&&store.account.uid,company_id:store.account&&store.account.companyId,site_visits_open:true,_demo:true}],
     prodItems:[
+      // Zone 1 — Reception (5 items)
       item(1,'Reception desk R-01 · curved front, oak veneer','Reception','Sample Approved',14,{flag:'Blocked',ready_drawing:true,ready_material:true,ready_veneer:false,ready_ironmongery:true,ready_paint:true,ready_accessories:false,assignee:'Ravi'}),
       item(2,'Wall panelling P-01 · fluted oak, 12 panels','Reception','Assembly',9,Object.assign({assignee:'Ahmed'},ready)),
       item(3,'Feature ceiling C-01 · slatted, black stain','Reception','Painting',3,Object.assign({assignee:'Ahmed'},ready)),
-      item(4,'Meeting table T-02 · 3.6m, cable box','Meeting Room A','Machinery',4,Object.assign({assignee:'Ravi'},ready)),
-      item(5,'Credenza CR-02 · 2 door, push-latch','Meeting Room A','Started',2,Object.assign({assignee:'Joseph'},ready)),
-      item(6,'Storage wall S-03 · 8 bays, sprayed RAL 9016','Back Office','Drawing',5,{ready_drawing:false,ready_material:true,ready_veneer:true,ready_ironmongery:false,ready_paint:true,ready_accessories:true}),
-      item(7,'Pantry run K-01 · base + wall units','Pantry','Delivery',2,ready),
-      item(8,'Door set D-01 · 2100 flush, oak lipped','Reception','Site',6,ready),
-      item(9,'Door set D-02 · 2100 flush, oak lipped','Meeting Room A','Site',4,ready),
-      item(10,'Skirting & architrave · 48 lm','Back Office','Not Started',0,{ready_drawing:true,ready_material:false,ready_veneer:true,ready_ironmongery:true,ready_paint:false,ready_accessories:true}),
+      item(4,'Door set D-01 · 2100 flush, oak lipped','Reception','Site',6,ready),
+      item(5,'Skirting & architrave · 24 lm','Reception','Not Started',0,{ready_drawing:true,ready_material:false,ready_veneer:true,ready_ironmongery:true,ready_paint:false,ready_accessories:true}),
+      // Zone 2 — Meeting Room A (5 items)
+      item(6,'Meeting table T-02 · 3.6m, cable box','Meeting Room A','Machinery',4,Object.assign({assignee:'Ravi'},ready)),
+      item(7,'Credenza CR-02 · 2 door, push-latch','Meeting Room A','Started',2,Object.assign({assignee:'Joseph'},ready)),
+      item(8,'Storage wall S-03 · 8 bays, sprayed RAL 9016','Meeting Room A','Drawing',5,{ready_drawing:false,ready_material:true,ready_veneer:true,ready_ironmongery:false,ready_paint:true,ready_accessories:true}),
+      item(9,'AV wall unit A-01 · screen recess, cable tray','Meeting Room A','Delivery',2,ready),
+      item(10,'Door set D-02 · 2100 flush, oak lipped','Meeting Room A','Site',4,ready),
+      // ---- Project 2: DEMO · Al Barsha Villa — three weeks in, mostly drawing & sampling ----
+      // Zone 1 — Master Bedroom (5 items)
+      item(11,'Walk-in wardrobe W-01 · 6 bays, walnut veneer','Master Bedroom','Sample Approved',6,Object.assign({assignee:'Joseph'},ready),2),
+      item(12,'Bed headboard H-01 · upholstered, LED groove','Master Bedroom','Drawing',3,{ready_drawing:false,ready_material:true,ready_veneer:true,ready_ironmongery:true,ready_paint:true,ready_accessories:false},2),
+      item(13,'Dressing table DT-01 · 3 drawers, mirror','Master Bedroom','Started',1,Object.assign({assignee:'Ravi'},ready),2),
+      item(14,'TV unit T-01 · wall hung, 2.4m','Master Bedroom','Drawing',8,{flag:'On Hold',ready_drawing:false,ready_material:false,ready_veneer:true,ready_ironmongery:true,ready_paint:true,ready_accessories:true},2),
+      item(15,'Door set D-03 · 2400 flush, walnut lipped','Master Bedroom','Not Started',0,{ready_drawing:true,ready_material:true,ready_veneer:false,ready_ironmongery:true,ready_paint:true,ready_accessories:true},2),
+      // Zone 2 — Kitchen (5 items)
+      item(16,'Base units K-01 · 4.2 lm, sprayed RAL 7016','Kitchen','Machinery',2,Object.assign({assignee:'Ahmed'},ready),2),
+      item(17,'Wall units K-02 · 3.6 lm, lift-up doors','Kitchen','Started',3,Object.assign({assignee:'Ahmed'},ready),2),
+      item(18,'Tall units K-03 · fridge + oven housing','Kitchen','Sample Approved',5,{ready_drawing:true,ready_material:true,ready_veneer:true,ready_ironmongery:false,ready_paint:true,ready_accessories:true},2),
+      item(19,'Island K-04 · 2.4m, breakfast overhang','Kitchen','Drawing',2,{ready_drawing:false,ready_material:true,ready_veneer:true,ready_ironmongery:true,ready_paint:true,ready_accessories:true},2),
+      item(20,'Pantry shelving K-05 · adjustable, white','Kitchen','Not Started',0,ready,2),
     ],
     purchases:[
       {id:'demo-b1',project_id:DEMO_PROJECT_ID,material:'Oak veneer MDF 18mm 1220×2440 × 40',supplier:'TimberLine',cost:16800,created_at:iso(38),_demo:true},
@@ -2341,6 +2359,9 @@ function demoSeed(){
       {id:'demo-b3',project_id:DEMO_PROJECT_ID,material:'Blum hinges, runners, push-latches',supplier:'MetroMerchants',cost:7250,created_at:iso(22),_demo:true},
       {id:'demo-b4',project_id:DEMO_PROJECT_ID,material:'PU 2K clear + RAL 9016 white, 60 L',supplier:'BuildCo',cost:5100,created_at:iso(15),_demo:true},
       {id:'demo-b5',project_id:DEMO_PROJECT_ID,material:'Site fixings, sealant, packers',supplier:'BuildCo',cost:1350,created_at:iso(4),_demo:true},
+      {id:'demo-b6',project_id:DEMO_PROJECT_ID2,material:'Walnut veneer MDF 18mm × 30',supplier:'TimberLine',cost:14400,created_at:iso(16),_demo:true},
+      {id:'demo-b7',project_id:DEMO_PROJECT_ID2,material:'MR MDF 18mm × 45, 6mm back panel × 20',supplier:'BuildCo',cost:7900,created_at:iso(9),_demo:true},
+      {id:'demo-b8',project_id:DEMO_PROJECT_ID2,material:'Lift-up stays, hinges, soft-close runners',supplier:'MetroMerchants',cost:4650,created_at:iso(3),_demo:true},
     ],
     attendance:[
       {id:'demo-a1',project_id:DEMO_PROJECT_ID,worker_name:'Ravi',sign_in_at:t(7,32),_demo:true},
@@ -2350,12 +2371,19 @@ function demoSeed(){
       {id:'demo-a5',project_id:DEMO_PROJECT_ID,worker_name:'Ahmed',sign_in_at:iso(1.3),sign_out_at:iso(0.93),_demo:true},
       {id:'demo-a6',project_id:DEMO_PROJECT_ID,worker_name:'Ravi',sign_in_at:iso(8.3),sign_out_at:iso(7.95),_demo:true},
       {id:'demo-a7',project_id:DEMO_PROJECT_ID,worker_name:'Ahmed',sign_in_at:iso(15.3),sign_out_at:iso(14.95),_demo:true},
+      {id:'demo-a8',project_id:DEMO_PROJECT_ID2,worker_name:'Joseph',sign_in_at:iso(2.3),sign_out_at:iso(1.95),_demo:true},
+      {id:'demo-a9',project_id:DEMO_PROJECT_ID2,worker_name:'Joseph',sign_in_at:iso(9.3),sign_out_at:iso(8.95),_demo:true},
+      {id:'demo-a10',project_id:DEMO_PROJECT_ID2,worker_name:'Ahmed',sign_in_at:iso(9.3),sign_out_at:iso(8.9),_demo:true},
     ],
     siteVisits:[{id:'demo-v1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',company_id:store.account&&store.account.companyId,site_engineer_name:'Kamal',location_name:'L12 reception',item_name:'Door set D-01',site_w:2110,site_h:2145,site_d:210,status:'reviewed',
-      notes:'Door set D-01 fitted. Reception wall opening measures 2110 wide, drawing says 2100 — allow 5mm packer each side. Two panel faces need paint touch-up.',created_at:iso(1),_demo:true}],
+      notes:'Door set D-01 fitted. Reception wall opening measures 2110 wide, drawing says 2100 — allow 5mm packer each side. Two panel faces need paint touch-up.',created_at:iso(1),_demo:true},
+      {id:'demo-v2',project_id:DEMO_PROJECT_ID2,project_name:'DEMO · Al Barsha Villa',company_id:store.account&&store.account.companyId,site_engineer_name:'Priya',location_name:'Master bedroom',item_name:'Walk-in wardrobe W-01',site_w:4180,site_h:2760,site_d:640,status:'pending',
+      notes:'Wardrobe recess measured 4180 wide (drawing 4200). Ceiling not level — 12mm drop left to right. Suggest scribe fillet on left side.',created_at:iso(5),_demo:true}],
     snags:[{id:'demo-s1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',item_name:'Wall panelling P-01',description:'Paint scuff on panel 7, corridor side',status:'open',created_by_name:'Kamal',created_at:iso(1),_demo:true}],
     approvals:[{id:'demo-o1',status:'pending_approval',project_name:'DEMO · Marina Tower L12',supplier_name:'TimberLine',contractor_company:company,contractor_name:'Rashid (estimator)',currency:store.currency||'$',total:38200,revision:1,created_at:iso(0.4),
-      items:[{item:'Oak veneer MDF 18mm 1220×2440',qty:40,cost:16800},{item:'Oak lipping 22×3600',qty:60,cost:2400},{item:'MR MDF 12mm 1220×2440',qty:30,cost:5100},{item:'Oak veneer sheet A-grade',qty:20,cost:13900}],_demo:true}],
+      items:[{item:'Oak veneer MDF 18mm 1220×2440',qty:40,cost:16800},{item:'Oak lipping 22×3600',qty:60,cost:2400},{item:'MR MDF 12mm 1220×2440',qty:30,cost:5100},{item:'Oak veneer sheet A-grade',qty:20,cost:13900}],_demo:true},
+      {id:'demo-o2',status:'pending_approval',project_name:'DEMO · Al Barsha Villa',supplier_name:'BuildCo',contractor_company:company,contractor_name:'Anita (estimator)',currency:store.currency||'$',total:9850,revision:2,created_at:iso(1.2),
+      items:[{item:'PU 2K RAL 7016 anthracite, 20 L',qty:1,cost:1900},{item:'PU hardener + thinner',qty:1,cost:650},{item:'MR MDF 18mm 1220×2440',qty:35,cost:5950},{item:'Edge banding walnut 22mm × 100m',qty:3,cost:1350}],_demo:true}],
   };
 }
 // Put demo rows into any loaded-but-empty section. Idempotent: skips sections
@@ -2377,10 +2405,10 @@ function demoBannerHTML(){
   const on=['projects','prodItems','purchases','attendance','siteVisits','snags','approvals'].some(k=>(store[k]||[]).some(x=>x._demo));
   if(!on)return '';
   return `<div style="margin-top:14px;background:#2d2410;border:1px dashed var(--amber);border-radius:4px;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-    <div style="flex:1;font-size:11px;line-height:1.5;color:var(--amber)"><strong>Demo project shown.</strong> <span style="color:var(--txt)">Everything marked <em>DEMO · Marina Tower L12</em> is an example of how a filled-in project looks — items in every stage, purchases, crew hours, a site visit, a snag and an order waiting for approval. Add your own project and copy the pattern — the demo stays alongside so you can compare, until you hide it. Demo rows can't be edited.</span></div>
+    <div style="flex:1;font-size:11px;line-height:1.5;color:var(--amber)"><strong>Two demo projects shown.</strong> <span style="color:var(--txt)"><em>DEMO · Marina Tower L12</em> is seven weeks in — items in every stage, a snag, a site visit. <em>DEMO · Al Barsha Villa</em> is three weeks in — mostly drawing and sampling, one item on hold. Each has two zones with five items. Both have purchases, crew hours and an order waiting for approval. Add your own project and copy the pattern — the demo stays alongside so you can compare, until you hide it. Demo rows can't be edited.</span></div>
     <button class="zadd" id="hideDemoBtn" style="white-space:nowrap">Hide demo</button></div>`;
 }
-function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclick=()=>{if(!confirm('Hide the demo project? You can bring it back from the header menu later.'))return;store.hideDemo=true;['projects','prodItems','purchases','attendance','siteVisits','snags','approvals'].forEach(k=>{store[k]=(store[k]||[]).filter(x=>!x._demo);});render();};
+function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclick=()=>{if(!confirm('Hide the demo projects? You can bring them back with the DEMO button in the header.'))return;store.hideDemo=true;['projects','prodItems','purchases','attendance','siteVisits','snags','approvals'].forEach(k=>{store[k]=(store[k]||[]).filter(x=>!x._demo);});render();};
   const s=document.getElementById('showDemoBtn');if(s)s.onclick=()=>{store.hideDemo=false;render();};}
 
 // ============================================================================
@@ -2445,7 +2473,7 @@ function mgrDashboardHTML(){
 
   // --- stuck list ---
   const stuck=items.filter(i=>i.stage!=='Site'&&(mdashBlocked(i)||(mdashDaysInStage(i)||0)>7)).sort((a,b)=>(mdashDaysInStage(b)||0)-(mdashDaysInStage(a)||0)).slice(0,12);
-  const stuckHTML=stuck.length?stuck.map(r=>{const d=mdashDaysInStage(r);return `<tr><td>${mdashItemName(r)}</td><td style="color:var(--mut)">${r.project_name||''}</td><td><span class="mdTag ${mdashBlocked(r)?'red':'amber'}">${r.stage||'Not Started'}</span></td><td class="r"><span class="mdDays ${(d||0)>=10?'red':'amber'}">${d==null?'—':d}</span></td><td style="color:var(--mut)">${mdashHold(r)||'—'}</td></tr>`;}).join('')
+  const stuckHTML=stuck.length?stuck.map(r=>{const d=mdashDaysInStage(r);return `<tr><td>${mdashItemName(r)}</td><td style="color:var(--mut)">${r.project_name||''}${r.zone_name?'<br><span style="font-size:10px">'+r.zone_name+'</span>':''}</td><td><span class="mdTag ${mdashBlocked(r)?'red':'amber'}">${r.stage||'Not Started'}</span></td><td class="r"><span class="mdDays ${(d||0)>=10?'red':'amber'}">${d==null?'—':d}</span></td><td style="color:var(--mut)">${mdashHold(r)||'—'}</td></tr>`;}).join('')
     :'<tr><td colspan="5" class="empty">Nothing stuck. Every item moved within the last week.</td></tr>';
 
   // --- orders ---
@@ -2473,19 +2501,25 @@ function mgrDashboardHTML(){
   const crewHTML=`<div class="mdCrew"><div><div class="n" style="color:var(--green)">${att.length+crewRows.length}</div><div class="l">Signed in today</div></div><div><div class="n" style="color:var(--blue)">${onProj+crewRows.filter(r=>r.project_id).length}</div><div class="l">On a project / site</div></div><div><div class="n">${att.length-onProj+crewRows.filter(r=>!r.project_id).length}</div><div class="l">In factory (no project)</div></div><div><div class="n" style="color:var(--amber)">${(att.length?att.reduce((a,r)=>a+crewHours(r),0):0).toFixed(0)} h</div><div class="l">Hours so far today</div></div></div>`;
 
   // --- site installation ---
+  const zoneRow=(zname,list,openSnags)=>{
+    const installed=list.filter(i=>i.stage==='Site').length, deliveredN=list.filter(i=>prodStageIndex(i.stage)>=7).length;
+    const zs=openSnags.filter(sn=>!sn.item_name||list.some(i=>String(i.description||'').indexOf(sn.item_name)>-1)).length;
+    const cells=[];for(let i=0;i<Math.min(list.length,60);i++)cells.push(i<installed-Math.min(zs,installed)?'ins':i<installed?'snag':i<deliveredN?'del':'');
+    return `<div class="mdZone"><div class="zn"><span>${zname||'No zone'}</span><span>${installed}/${list.length} at site${zs?' · <b style="color:var(--amber)">'+zs+' snag'+(zs>1?'s':'')+'</b>':''}</span></div>
+      <div class="cells" title="${list.map(mdashItemName).join(', ')}">${cells.map(c=>`<i class="${c}"></i>`).join('')}</div></div>`;};
   const siteHTML=projs.length?projs.map(pr=>{
     const mine=mdashItemsFor(pr,items); if(!mine.length)return '';
     const installed=mine.filter(i=>i.stage==='Site').length, deliveredN=mine.filter(i=>prodStageIndex(i.stage)>=7).length;
-    const openSnags=snags.filter(s=>String(s.project_id)===String(pr.id)&&s.status!=='resolved'&&s.status!=='closed');
+    const openSnags=snags.filter(sn=>String(sn.project_id)===String(pr.id)&&sn.status!=='resolved'&&sn.status!=='closed');
     const pv=visits.filter(v=>String(v.project_id)===String(pr.id)||v.project_name===pr.name);
     const last=pv[0]; const eng=last?(last.site_engineer_name||'—'):'—';
     const ago=last&&last.created_at?Math.floor((Date.now()-new Date(last.created_at))/86400000):null;
     const pct=Math.round(installed/mine.length*100);
-    const cells=[];for(let i=0;i<Math.min(mine.length,60);i++)cells.push(i<installed-Math.min(openSnags.length,installed)?'ins':i<installed?'snag':i<deliveredN?'del':'');
+    const zones=[];mine.forEach(i=>{const z=(i.zone_name||'').trim();if(zones.indexOf(z)<0)zones.push(z);});
     const note=last&&last.notes?String(last.notes).slice(0,140):'';
     return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">${eng}${ago==null?' · no visits yet':ago===0?' · visited today':' · last visit '+ago+' day'+(ago===1?'':'s')+' ago'}</span></div>
-      <div class="cells" title="${installed} at site of ${mine.length}">${cells.map(c=>`<i class="${c}"></i>`).join('')}</div>
-      <div class="meta"><span><b style="color:var(--green)">${installed}</b> at site</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span><b>${mine.length-deliveredN}</b> still in factory</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>${pct}%</span></div>
+      <div class="meta"><span><b style="color:var(--green)">${installed}</b> at site</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span><b>${mine.length-deliveredN}</b> still in factory</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>${pct}% · ${zones.length} zone${zones.length===1?'':'s'}</span></div>
+      ${zones.map(z=>zoneRow(z,mine.filter(i=>(i.zone_name||'').trim()===z),openSnags)).join('')}
       ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
 
   return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>
@@ -2496,7 +2530,7 @@ function mgrDashboardHTML(){
     ${attn(recentVisits.length,'Site visits logged this week','blue','sitevisits')}
     ${attn(delivered.length,'Items delivered this week','green','tracking2')}
   </div>
-  <div class="card"><div class="cardHead"><span>PRODUCTION PIPELINE — ${items.length} ITEMS ACROSS ${projs.length} PROJECTS</span><small style="color:var(--mut);font-weight:400">tap a stage to open it</small></div>
+  <div class="card"><div class="cardHead"><span>PRODUCTION PIPELINE — ${items.length} ITEMS · ${(()=>{const z={};items.forEach(i=>{z[(i.project_name||'')+'|'+(i.zone_name||'')]=1;});return Object.keys(z).length;})()} ZONES · ${projs.length} PROJECTS</span><small style="color:var(--mut);font-weight:400">tap a stage to open it</small></div>
     <div class="mdPipe">${pipeHTML}</div>
     <div class="mdLegend"><span><i style="background:var(--blue)"></i>On track</span><span><i style="background:var(--amber)"></i>Over 7 days in stage</span><span><i style="background:var(--red)"></i>Blocked / on hold</span><span><i style="background:var(--green)"></i>At site</span></div></div>
   <div class="mdCols">
