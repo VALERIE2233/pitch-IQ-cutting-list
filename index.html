@@ -2280,20 +2280,18 @@ function managerHTML(){
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="color:var(--amber)">DASHBOARD</button>
     <button class="tab ${store.managerTab==='review'?'on':''}" data-mgrtab="review" style="color:var(--amber)">COMPANY REVIEW</button>
-    <button class="tab ${store.managerTab==='tracking2'?'on':''}" data-mgrtab="tracking2" style="color:var(--blue)">PROJECT TRACKING</button>
-    <button class="tab ${store.managerTab==='approvals'?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
 
     <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="color:var(--amber)">👷 SITE VISITS</button>
     <button class="tab ${store.managerTab==='editor'?'on':''}" data-mgrtab="editor" style="color:var(--amber)">🔧 EDITOR</button>
     <button class="tab ${store.managerTab==='manpower'?'on':''}" data-mgrtab="manpower" style="color:var(--green)">👷 MANPOWER</button>
   </div>
-  ${(store.managerTab==='approvals')?`<div class="body">
+  ${(store.managerTab==='approvals')?`<div class="body"><button class="gbtn" data-mgrtab="dash" style="margin-top:12px">&larr; BACK TO DASHBOARD</button>
     <div class="hint" style="padding-top:14px">Review cutting lists and orders your estimators submit. Approve to release them to suppliers, or reject with a reason. Only orders from <strong>${store.account.company}</strong> appear here.</div>
     ${mgrProcurementSection()}
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`:(!store.managerTab||store.managerTab==='dash')?`<div class="body">${mgrDashboardHTML()}</div>`:store.managerTab==='review'?`<div class="body">${mgrReviewHTML()}</div>`:store.managerTab==='tracking2'?`<div class="body">${mgrTrackingHTML()}</div>`:store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
+  </div>`:(!store.managerTab||store.managerTab==='dash')?`<div class="body">${mgrDashboardHTML()}</div>`:store.managerTab==='review'?`<div class="body">${mgrReviewHTML()}</div>`:store.managerTab==='tracking2'?`<div class="body"><button class="gbtn" data-mgrtab="dash" style="margin-top:12px">&larr; BACK TO DASHBOARD</button>${mgrTrackingHTML()}</div>`:store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -2594,9 +2592,9 @@ function mgrDashboardHTML(){
     <div class="mdLegend"><span><i style="background:var(--blue)"></i>On track</span><span><i style="background:var(--amber)"></i>Over 7 days in stage</span><span><i style="background:var(--red)"></i>Blocked / on hold</span><span><i style="background:var(--green)"></i>At site</span></div></div>
   <div class="mdCols">
     <div>
-      <div class="card"><div class="cardHead"><span>NEEDS A DECISION</span><small style="color:var(--mut);font-weight:400">sorted by days stuck</small></div>
+      <div class="card"><div class="cardHead"><span>NEEDS A DECISION</span><button class="gbtn" data-mgrtab="tracking2" style="padding:5px 9px;font-size:10px">ALL ITEMS BY PROJECT &rarr;</button></div>
         <div class="scroll"><table><thead><tr><th>Item</th><th>Project</th><th>Stage</th><th class="r">Days</th><th>Holding it</th></tr></thead><tbody>${stuckHTML}</tbody></table></div></div>
-      <div class="card"><div class="cardHead"><span>ORDERS AWAITING APPROVAL</span><small style="color:var(--mut);font-weight:400">from your estimators</small></div>
+      <div class="card"><div class="cardHead"><span>ORDERS AWAITING APPROVAL</span><button class="gbtn" data-mgrtab="approvals" style="padding:5px 9px;font-size:10px">FULL DETAILS &amp; HISTORY &rarr;</button></div>
         <div class="scroll"><table><thead><tr><th>Project</th><th>Supplier</th><th class="r">Total</th><th>From</th><th></th></tr></thead><tbody>${ordersHTML}</tbody></table></div></div>
     </div>
     <div>
