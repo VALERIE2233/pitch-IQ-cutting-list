@@ -233,8 +233,8 @@
 // server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
 // request and compares it to the one we loaded with. Any redeploy changes the
 // fingerprint, so it works whether or not anyone remembers to update anything.
-const APP_VERSION='1.4.0';   // display only - not what triggers the banner
-const APP_BUILD='20260908.a0c1a6';  // stamped at build time so the live version is verifiable
+const APP_VERSION='1.4.1';   // display only - not what triggers the banner
+const APP_BUILD='20260908.6f9b0e';  // stamped at build time so the live version is verifiable
 let _appFingerprint=null;
 function fingerprintOf(res){
   return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
@@ -2572,8 +2572,13 @@ function projectHoursUsed(pr){
        + (store.crewAtt||[]).filter(inP).reduce((a,r)=>a+crewHours(r),0);
 }
 function mgrOverviewHTML(){
-  const projs=store.projects||[], items=store.prodItems||[];
+  if(!store.projectsLoaded)loadProjects();
+  if(!store.prodItemsLoaded)loadProductionItems();
   if(!store.purchasesLoaded)loadActuals();
+  if(!store.attLoaded)loadAttendance();
+  if(!store.crewAttLoaded&&typeof loadCrewAttendance==='function')loadCrewAttendance();
+  const projs=store.projects||[], items=store.prodItems||[];
+  if(!store.projectsLoaded)return '<div class="hint" style="padding-top:14px">Loading projects&hellip;</div>';
   let complete=0, active=0, planH=0, usedH=0, planC=0, usedC=0;
   projs.forEach(pr=>{
     const st=mgrProjectStats(pr,items);
@@ -2630,10 +2635,15 @@ function mgrOverviewHTML(){
       </div></div>`;
 }
 function mgrTrackingHTML(){
+  if(!store.projectsLoaded)loadProjects();
+  if(!store.prodItemsLoaded)loadProductionItems();
+  if(!store.purchasesLoaded)loadActuals();
+  if(!store.attLoaded)loadAttendance();
+  if(!store.crewAttLoaded&&typeof loadCrewAttendance==='function')loadCrewAttendance();
+  if(!store.projectsLoaded)return '<div class="hint" style="padding-top:14px">Loading projects&hellip;</div>';
   const projs=store.projects||[], items=store.prodItems||[];
   const pr=projs.find(x=>x.name===store.mgrProject)||projs[0];
-  if(!pr)return '<div class="empty">No projects yet.</div>';
-  if(!store.purchasesLoaded)loadActuals();
+  if(!pr)return '<div class="empty">No projects in this company yet. Create one from the Editor tab, or ask a supervisor to.</div>';
   const mine=items.filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name);
   const st=mgrProjectStats(pr,items);
 
