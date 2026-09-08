@@ -233,8 +233,8 @@
 // server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
 // request and compares it to the one we loaded with. Any redeploy changes the
 // fingerprint, so it works whether or not anyone remembers to update anything.
-const APP_VERSION='1.3.0';   // display only - not what triggers the banner
-const APP_BUILD='20260908.349f53';  // stamped at build time so the live version is verifiable
+const APP_VERSION='1.4.0';   // display only - not what triggers the banner
+const APP_BUILD='20260908.a0c1a6';  // stamped at build time so the live version is verifiable
 let _appFingerprint=null;
 function fingerprintOf(res){
   return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
@@ -2177,7 +2177,9 @@ function managerHTML(){
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
-    <button class="tab ${(!store.managerTab||store.managerTab==='production')?'on':''}" data-mgrtab="production" style="color:var(--blue)">OVERVIEW</button>
+    <button class="tab ${(!store.managerTab||store.managerTab==='overview2')?'on':''}" data-mgrtab="overview2" style="color:var(--blue)">1 &middot; OVERVIEW</button>
+    <button class="tab ${store.managerTab==='tracking2'?'on':''}" data-mgrtab="tracking2" style="color:var(--blue)">2 &middot; PROJECT TRACKING</button>
+    <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production">DETAILED (old)</button>
     <button class="tab ${store.managerTab==='approvals'?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
 
     <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="color:var(--amber)">👷 SITE VISITS</button>
@@ -2190,7 +2192,7 @@ function managerHTML(){
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`:(!store.managerTab||store.managerTab==='production')?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
+  </div>`:(!store.managerTab||store.managerTab==='overview2')?`<div class="body">${mgrOverviewHTML()}</div>`:store.managerTab==='tracking2'?`<div class="body">${mgrTrackingHTML()}</div>`:store.managerTab==='production'?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -2550,6 +2552,175 @@ function prodDashboardHTML(items){
 // Drill-down: project -> zone -> item. Each level shows the full picture for
 // whatever is selected, so you can start at a project and work down to a
 // single item without losing context.
+// ---- New manager dashboard: OVERVIEW (all projects) and TRACKING (one) ----
+// Built to the two-section design. Nothing removed from the old view; this
+// sits beside it so both can be compared on the live site.
+function mgrProjectStats(pr,items){
+  const mine=(items||[]).filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name);
+  const done=mine.filter(i=>i.stage==='Site').length;
+  const pct=mine.length?Math.round(done/mine.length*100):0;
+  // No status field exists yet, so a project counts complete when every
+  // tracked item has reached Site. Told you about this rather than adding a
+  // column without asking.
+  const complete = mine.length>0 && done===mine.length;
+  return {items:mine.length, done:done, pct:pct, complete:complete};
+}
+function projectHoursUsed(pr){
+  const hh=r=>{if(!r.sign_in_at)return 0;const e=r.sign_out_at?new Date(r.sign_out_at):new Date();return Math.max(0,(e-new Date(r.sign_in_at))/36e5);};
+  const inP=x=>String(x.project_id)===String(pr.id);
+  return (store.attendance||[]).filter(inP).reduce((a,r)=>a+hh(r),0)
+       + (store.crewAtt||[]).filter(inP).reduce((a,r)=>a+crewHours(r),0);
+}
+function mgrOverviewHTML(){
+  const projs=store.projects||[], items=store.prodItems||[];
+  if(!store.purchasesLoaded)loadActuals();
+  let complete=0, active=0, planH=0, usedH=0, planC=0, usedC=0;
+  projs.forEach(pr=>{
+    const st=mgrProjectStats(pr,items);
+    if(st.complete)complete++; else active++;
+    planH+=+pr.planned_hours||0;
+    usedH+=projectHoursUsed(pr);
+    planC+=+pr.estimated_cost||0;
+    usedC+=actualsTotal(pr.id);
+  });
+  const hPct=planH?Math.round(usedH/planH*100):0;
+  const cPct=planC?Math.round(usedC/planC*100):0;
+  const note = (planH&&planC)
+    ? (cPct>hPct+3
+        ? `${cPct}% of budget used against ${hPct}% of hours &mdash; money is running ahead of labour`
+        : cPct<hPct-3
+          ? `${cPct}% of budget used against ${hPct}% of hours &mdash; labour is running ahead of spend`
+          : `budget and labour are tracking together`)
+    : 'Set a budget and planned hours on each project to see this comparison';
+  const tile=(v,l,c,pct,pc)=>`<div class="stat" style="flex:1;min-width:150px"><div class="sv" style="font-size:24px;color:${c}">${v}</div><div class="sl">${l}</div>`+
+    (pct!=null?`<div style="height:7px;background:var(--steel);border-radius:3px;margin-top:8px;border:1px solid var(--line)"><div style="height:100%;width:${Math.min(100,pct)}%;background:${pc};border-radius:3px"></div></div>`:'')+`</div>`;
+  return `<div class="card" style="border-color:var(--blue)"><div style="padding:16px 18px">
+      <div style="font-size:20px;font-weight:800">${store.account.company||'Your company'}</div>
+      <div style="font-size:12px;color:var(--mut);margin-top:4px">All projects</div></div></div>
+
+    <div class="settings">
+      ${tile(complete,'PROJECTS COMPLETE','var(--green)')}
+      ${tile(active,'PROJECTS IN PROGRESS','var(--blue)')}
+    </div>
+
+    <div class="card"><div class="cardHead"><span>MANPOWER &mdash; PLANNED vs USED</span></div>
+      <div style="padding:14px 16px 18px"><div class="settings" style="margin-bottom:4px">
+        ${tile(planH?planH.toFixed(0)+' h':'&mdash;','TOTAL PLANNED','var(--txt)')}
+        ${tile(usedH.toFixed(0)+' h','TOTAL USED SO FAR','var(--green)',planH?hPct:null,'var(--green)')}
+        ${tile(planH?Math.max(0,planH-usedH).toFixed(0)+' h':'&mdash;','REMAINING','var(--mut)')}
+      </div>${planH?`<div style="font-size:11px;color:${hPct>100?'var(--red)':'var(--green)'};padding-top:6px">${hPct}% of planned hours used</div>`:'<div class="hint" style="padding:6px 0 0">No planned hours set yet.</div>'}</div></div>
+
+    <div class="card"><div class="cardHead"><span>BUDGET &mdash; PLANNED vs USED</span></div>
+      <div style="padding:14px 16px 18px"><div class="settings" style="margin-bottom:4px">
+        ${tile(planC?money(planC):'&mdash;','TOTAL BUDGET PLANNED','var(--txt)')}
+        ${tile(money(usedC),'TOTAL SPENT SO FAR','var(--amber)',planC?cPct:null,'var(--amber)')}
+        ${tile(planC?money(Math.max(0,planC-usedC)):'&mdash;','REMAINING','var(--mut)')}
+      </div><div style="font-size:11px;color:${cPct>100?'var(--red)':'var(--amber)'};padding-top:6px">${note}</div></div></div>
+
+    <div class="card"><div class="cardHead"><span>PROJECTS &mdash; ${projs.length}</span><small style="color:var(--mut)">tap one to open its tracking</small></div>
+      <div style="padding:4px 14px 14px">
+        ${projs.length?projs.map(pr=>{const st=mgrProjectStats(pr,items);
+          const col=st.pct>=70?'var(--green)':st.pct>=40?'var(--amber)':'var(--red)';
+          return `<div data-mgrproj="${(pr.name||'').replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer">
+            <span style="flex:1;font-size:13px;font-weight:700">${pr.name}</span>
+            <span style="font-size:11px;color:var(--mut);width:88px">${st.complete?'complete':st.items?'in progress':'not started'}</span>
+            <span style="width:64px;height:7px;background:var(--steel);border-radius:3px;border:1px solid var(--line)"><span style="display:block;height:100%;width:${st.pct}%;background:${col};border-radius:3px"></span></span>
+            <span style="font-size:12px;width:36px;text-align:right">${st.pct}%</span><span style="color:var(--mut)">&rsaquo;</span></div>`;}).join('')
+        :'<div class="empty">No projects yet.</div>'}
+      </div></div>`;
+}
+function mgrTrackingHTML(){
+  const projs=store.projects||[], items=store.prodItems||[];
+  const pr=projs.find(x=>x.name===store.mgrProject)||projs[0];
+  if(!pr)return '<div class="empty">No projects yet.</div>';
+  if(!store.purchasesLoaded)loadActuals();
+  const mine=items.filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name);
+  const st=mgrProjectStats(pr,items);
+
+  // manpower
+  const hh=r=>{if(!r.sign_in_at)return 0;const e=r.sign_out_at?new Date(r.sign_out_at):new Date();return Math.max(0,(e-new Date(r.sign_in_at))/36e5);};
+  const inP=x=>String(x.project_id)===String(pr.id);
+  const hourRows=(store.attendance||[]).filter(inP).map(r=>({d:r.sign_in_at||r.work_date,v:hh(r)}))
+    .concat((store.crewAtt||[]).filter(inP).map(r=>({d:r.sign_in_at||r.work_date,v:crewHours(r)})));
+  const usedH=hourRows.reduce((a,x)=>a+x.v,0), planH=+pr.planned_hours||0;
+  const hPts=cumulativeSeries(hourRows,'d','v');
+
+  // cost
+  const buys=actualsFor(pr.id);
+  const usedC=buys.reduce((a,x)=>a+(+x.cost||0),0), planC=+pr.estimated_cost||0;
+  const cPts=cumulativeSeries(buys.map(x=>({d:x.bought_on,v:+x.cost||0})),'d','v');
+
+  const curve=(title,planLbl,planVal,usedLbl,usedVal,unit,pts,plan)=>{
+    const over=planVal>0&&usedVal>planVal;
+    const fmtV=v=>unit==='h'?v.toFixed(0)+' h':money(v);
+    const line=pts.length>1
+      ? sCurve([{pts:pts,col:over?'#ff5d5d':'#3ddc84',fill:true},
+                planVal>0?{pts:[{x:pts[0].x,y:planVal},{x:pts[pts.length-1].x,y:planVal}],col:'#8b929c',dash:true}:null].filter(Boolean),520,200)
+      : `<div class="hint" style="padding:10px 0">Not enough dated records to draw the curve yet. ${unit==='h'?'Sign people in and out over a few days.':'Record purchases on at least two dates.'}</div>`;
+    return `<div class="card" style="border-color:${planVal>0?(over?'var(--red)':'var(--green)'):'var(--line)'}">
+      <div class="cardHead" style="color:${planVal>0?(over?'var(--red)':'var(--green)'):'var(--txt)'}"><span>${title}</span></div>
+      <div style="padding:14px 16px 18px">
+        <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;margin-bottom:10px">
+          <div><div style="font-size:10px;color:var(--mut);letter-spacing:1px">${planLbl}</div>
+               <div style="font-size:20px;font-weight:800">${planVal?fmtV(planVal):'&mdash;'}</div></div>
+          <div style="font-size:16px;color:var(--mut)">&rarr;</div>
+          <div><div style="font-size:10px;color:var(--mut);letter-spacing:1px">${usedLbl}</div>
+               <div style="font-size:20px;font-weight:800;color:${over?'var(--red)':'var(--green)'}">${fmtV(usedVal)}</div></div>
+          ${planVal>0?`<div style="margin-left:auto;text-align:right">
+            <div style="font-size:20px;font-weight:800;color:${over?'var(--red)':'var(--green)'}">${over?'+'+fmtV(usedVal-planVal):fmtV(Math.max(0,planVal-usedVal))+' left'}</div>
+            <div style="font-size:10px;color:${over?'var(--red)':'var(--green)'}">${Math.round(usedVal/planVal*100)}% used &middot; ${st.pct}% delivered</div></div>`
+          :`<div style="margin-left:auto;font-size:11px;color:var(--amber)">No ${unit==='h'?'planned hours':'budget'} set &mdash; Manpower &rsaquo; Project Budget</div>`}
+        </div>${line}
+        ${planVal>0&&pts.length>1?`<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--mut);margin-top:4px">
+          <span><span style="display:inline-block;width:14px;height:2.5px;background:${over?'#ff5d5d':'#3ddc84'};vertical-align:middle;margin-right:5px"></span>${usedLbl.toLowerCase()}</span>
+          <span><span style="display:inline-block;width:14px;height:2.5px;background:#8b929c;vertical-align:middle;margin-right:5px"></span>${planLbl.toLowerCase()} ${fmtV(planVal)}</span></div>`:''}
+      </div></div>`;
+  };
+
+  const zones=[...new Set(mine.map(i=>i.zone_name).filter(Boolean))];
+  const zf=store.mgrZone||'';
+  const shown=mine.filter(i=>!zf||i.zone_name===zf);
+  const stageCol=x=>({'Site':'var(--green)','Delivery':'var(--green)','Painting':'var(--blue)','Assembly':'var(--blue)',
+    'Machinery':'var(--blue)','Started':'var(--amber)','Sample Approved':'var(--amber)','Drawing':'var(--amber)'})[x]||'var(--mut)';
+
+  return `<div class="card"><div style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+      <label class="field" style="flex:1;min-width:220px"><span class="fl">PROJECT</span>
+        <select class="fi" id="mgrProjPick">${projs.map(x=>`<option ${x.name===pr.name?'selected':''}>${x.name}</option>`).join('')}</select></label>
+    </div></div>
+
+    <div class="card" style="border-color:${st.complete?'var(--green)':'var(--amber)'}"><div style="padding:16px 18px">
+      <div style="font-size:20px;font-weight:800">${pr.name}</div>
+      <div style="font-size:12px;color:var(--mut);margin-top:4px">${st.items} items &middot; ${st.done} delivered &middot; ${st.pct}% complete</div>
+    </div></div>
+
+    ${curve('MANPOWER &mdash; PLAN vs USED','PLANNED',planH,'USED',usedH,'h',hPts)}
+    ${curve('COST &mdash; PLAN vs USED','PLANNED',planC,'SPENT',usedC,'money',cPts)}
+
+    ${zones.length?`<div class="card"><div class="cardHead"><span>ZONES</span><small style="color:var(--mut)">tap to filter the items below</small></div>
+      <div style="padding:4px 14px 14px">
+        ${zones.map(z=>{const zi=mine.filter(i=>i.zone_name===z);const zd=zi.filter(i=>i.stage==='Site').length;
+          const zp=zi.length?Math.round(zd/zi.length*100):0;const c=zp>=70?'var(--green)':zp>=40?'var(--amber)':'var(--red)';
+          return `<div data-mgrzone="${z.replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer;${zf===z?'background:rgba(93,184,255,.07)':''}">
+            <span style="flex:1;font-size:13px">${z}</span>
+            <span style="font-size:11px;color:var(--mut);width:80px">${zi.length} items</span>
+            <span style="font-size:11px;color:var(--green);width:76px">${zd} delivered</span>
+            <span style="width:64px;height:7px;background:var(--steel);border-radius:3px;border:1px solid var(--line)"><span style="display:block;height:100%;width:${zp}%;background:${c};border-radius:3px"></span></span>
+            <span style="font-size:12px;width:36px;text-align:right">${zp}%</span></div>`;}).join('')}
+      </div></div>`:''}
+
+    <div class="card"><div class="cardHead"><span>ITEMS &mdash; ${shown.length}</span><small style="color:var(--mut)">${zf||'all zones'}</small></div>
+      ${zf?`<div style="padding:8px 14px"><button class="zadd" data-mgrzone="" style="font-size:10px">SHOW ALL ZONES</button></div>`:''}
+      ${shown.length?`<div class="scroll"><table><thead><tr><th>Zone</th><th>Item</th><th class="r">Qty</th><th>Assigned to</th><th>Stage</th><th>Ready</th></tr></thead><tbody>
+        ${shown.map(i=>{const nr=(READINESS_CHECKS||[]).filter(c=>!i[c.k]).length;
+          return `<tr><td style="font-size:11px;color:var(--mut)">${i.zone_name||'&mdash;'}</td>
+          <td style="font-size:11px"><strong>${i.description||''}</strong>${originBadge(i)}</td>
+          <td class="r" style="font-size:11px">${i.qty||1}</td>
+          <td style="font-size:11px">${assigneeList(i.assignee).join(', ')||'<span style="color:var(--mut)">unassigned</span>'}</td>
+          <td><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;background:var(--steel);color:${stageCol(i.stage)};border:1px solid ${stageCol(i.stage)}">${i.stage||'Not Started'}</span></td>
+          <td style="font-size:11px;color:${nr?'var(--amber)':'var(--green)'}">${nr?nr+' left':'ready'}</td></tr>`;}).join('')}
+      </tbody></table></div>`:'<div class="empty">No items in this zone.</div>'}
+    </div>`;
+}
 function drillHTML(allItems){
   const d=store.drill||{};
   if(!d.project && !d.zone && !d.item)return '';
@@ -6781,6 +6952,11 @@ function wireProduction(){
     {const cdf=document.getElementById('clearDashFilter'); if(cdf)cdf.onclick=()=>{store.dashFilter={};render();};}
     document.querySelectorAll('[data-drillproject]').forEach(el=>el.onclick=(e)=>{e.stopPropagation();store.drill={project:el.dataset.drillproject};render();});
     document.querySelectorAll('[data-quickpull]').forEach(b=>b.onclick=()=>pullItemsFromProject(b.dataset.quickpull));
+    document.querySelectorAll('[data-mgrproj]').forEach(el=>el.onclick=()=>{
+      store.mgrProject=el.dataset.mgrproj; store.mgrZone=''; store.managerTab='tracking2'; render();});
+    document.querySelectorAll('[data-mgrzone]').forEach(el=>el.onclick=()=>{
+      store.mgrZone=el.dataset.mgrzone||''; render();});
+    {const mp=document.getElementById('mgrProjPick'); if(mp)mp.onchange=()=>{store.mgrProject=mp.value;store.mgrZone='';render();};}
     document.querySelectorAll('[data-setblocks]').forEach(b=>b.onclick=()=>setItemBlocks(b.dataset.setblocks));
     {const app=document.getElementById('allProjPick'); if(app)app.onchange=()=>{store.allProjPick=app.value;render();};}
     document.querySelectorAll('[data-drillzone]').forEach(el=>el.onclick=()=>{store.drill=Object.assign({},store.drill,{zone:el.dataset.drillzone,item:null});render();});
