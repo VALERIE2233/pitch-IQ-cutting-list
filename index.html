@@ -511,6 +511,7 @@ async function loadProjects(){
   store.projectsLoaded=true;render();
 }
 async function toggleProjectSiteVisit(id,val){
+  if(demoGuard(id))return;
   const p=(store.projects||[]).find(x=>x.id===id); if(!p)return;
   p.open_for_site_visit=val; render();
   try{await sb.from('jobs').update({open_for_site_visit:val}).eq('id',id);}catch(ex){}
@@ -583,6 +584,7 @@ async function openProject(id){
   }catch(e){}
 }
 async function deleteProject(id,name){
+  if(demoGuard(id))return;
   if(!sb)return;
   if(!confirm(`Permanently delete "${name}"? This can't be undone.`))return;
   try{
@@ -1956,6 +1958,7 @@ async function loadApprovals(){
   store.apprLoaded=true;render();
 }
 async function setApproval(id,status){
+  if(demoGuard(id))return;
   if(!sb)return;
   if(status==='approved'){
     // open the title picker; actual approval happens after they choose a title
@@ -2017,6 +2020,7 @@ async function addProductionItem(){
   store.prodBusy=false; render();
 }
 async function updateProductionItem(id,patch){
+  if(demoGuard(id))return;
   const it=(store.prodItems||[]).find(x=>x.id===id); if(!it)return;
   // a stage move is worth remembering: when it happened and who moved it
   if(patch.stage && patch.stage!==it.stage){
@@ -2030,6 +2034,7 @@ async function updateProductionItem(id,patch){
   try{await sb.from('production_items').update(patch).eq('id',id);}catch(e){}
 }
 async function deleteProductionItem(id){
+  if(demoGuard(id))return;
   if(!confirm('Delete this production item?'))return;
   store.prodItems=(store.prodItems||[]).filter(x=>x.id!==id); render();
   try{await sb.from('production_items').delete().eq('id',id);}catch(e){}
@@ -2239,6 +2244,7 @@ function wireMarkupOverlay(){
 }
 function managerHTML(){
   if(!store.apprLoaded){loadApprovals();}
+  mdashLoadAll(); applyDemo();
   const all=store.approvals||[];
   const pending=all.filter(o=>o.status==='pending_approval');
   const done=all.filter(o=>o.status!=='pending_approval'&&o.status!=='draft');
@@ -2259,7 +2265,7 @@ function managerHTML(){
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
+    <div class="hdrRight">${store.hideDemo?'<button class="gbtn" id="showDemoBtn" title="Bring the demo project back">DEMO</button>':''}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="color:var(--amber)">DASHBOARD</button>
     <button class="tab ${store.managerTab==='review'?'on':''}" data-mgrtab="review" style="color:var(--amber)">COMPANY REVIEW</button>
@@ -2287,6 +2293,95 @@ function managerHTML(){
       <button class="pbtn" id="cancelApprove" style="width:100%;margin-top:4px">CANCEL</button>
     </div></div>`:''}${accountOverlayHTML()}`;}
 
+
+
+// ============================================================================
+//  DEMO PROJECT — "DEMO · Marina Tower L12"
+//  New companies see one fully worked example in every section (project,
+//  production items, purchases, attendance, site visit, snag, order awaiting
+//  approval) so they can copy the pattern, then add their own. Demo rows live
+//  only in memory: ids start with "demo-", they are never sent to Supabase, and
+//  every write action refuses them politely. "Hide demo" removes them for good
+//  for this account (store.hideDemo); until then they sit alongside real rows so
+//  a new company can compare its own project against the worked example.
+// ============================================================================
+const DEMO_PROJECT_ID='demo-p1';
+function isDemoId(id){return typeof id==='string'&&id.indexOf('demo-')===0;}
+function demoGuard(id){
+  if(!isDemoId(id))return false;
+  alert('This is the demo project — it only shows you the pattern. Add your own project and try this there.');
+  return true;
+}
+function demoSeed(){
+  const iso=n=>new Date(Date.now()-n*86400000).toISOString();
+  const today=new Date();today.setHours(7,30,0,0);
+  const t=(h,m)=>{const d=new Date(today);d.setHours(h,m,0,0);return d.toISOString();};
+  const me=(store.account&&(store.account.name||store.account.email))||'You';
+  const company=(store.account&&store.account.company)||'Your company';
+  const ready={ready_drawing:true,ready_material:true,ready_veneer:true,ready_ironmongery:true,ready_paint:true,ready_accessories:true};
+  const item=(i,desc,zone,stage,daysIn,extra)=>Object.assign({id:'demo-i'+i,project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',description:desc,zone_name:zone,qty:1,unit:'no',stage,stage_since:iso(daysIn),
+    stage_history:[{stage,at:iso(daysIn),by:me}],created_by_name:me,created_at:iso(40),flag:'—',_demo:true},extra||{});
+  return {
+    projects:[{id:DEMO_PROJECT_ID,name:'DEMO · Marina Tower L12',planned_hours:820,estimated_cost:240000,created_at:iso(49),updated_at:iso(1),owner_id:store.account&&store.account.uid,company_id:store.account&&store.account.companyId,site_visits_open:true,_demo:true}],
+    prodItems:[
+      item(1,'Reception desk R-01 · curved front, oak veneer','Reception','Sample Approved',14,{flag:'Blocked',ready_drawing:true,ready_material:true,ready_veneer:false,ready_ironmongery:true,ready_paint:true,ready_accessories:false,assignee:'Ravi'}),
+      item(2,'Wall panelling P-01 · fluted oak, 12 panels','Reception','Assembly',9,Object.assign({assignee:'Ahmed'},ready)),
+      item(3,'Feature ceiling C-01 · slatted, black stain','Reception','Painting',3,Object.assign({assignee:'Ahmed'},ready)),
+      item(4,'Meeting table T-02 · 3.6m, cable box','Meeting Room A','Machinery',4,Object.assign({assignee:'Ravi'},ready)),
+      item(5,'Credenza CR-02 · 2 door, push-latch','Meeting Room A','Started',2,Object.assign({assignee:'Joseph'},ready)),
+      item(6,'Storage wall S-03 · 8 bays, sprayed RAL 9016','Back Office','Drawing',5,{ready_drawing:false,ready_material:true,ready_veneer:true,ready_ironmongery:false,ready_paint:true,ready_accessories:true}),
+      item(7,'Pantry run K-01 · base + wall units','Pantry','Delivery',2,ready),
+      item(8,'Door set D-01 · 2100 flush, oak lipped','Reception','Site',6,ready),
+      item(9,'Door set D-02 · 2100 flush, oak lipped','Meeting Room A','Site',4,ready),
+      item(10,'Skirting & architrave · 48 lm','Back Office','Not Started',0,{ready_drawing:true,ready_material:false,ready_veneer:true,ready_ironmongery:true,ready_paint:false,ready_accessories:true}),
+    ],
+    purchases:[
+      {id:'demo-b1',project_id:DEMO_PROJECT_ID,material:'Oak veneer MDF 18mm 1220×2440 × 40',supplier:'TimberLine',cost:16800,created_at:iso(38),_demo:true},
+      {id:'demo-b2',project_id:DEMO_PROJECT_ID,material:'MR MDF 18mm × 60, 12mm × 20',supplier:'BuildCo',cost:9400,created_at:iso(31),_demo:true},
+      {id:'demo-b3',project_id:DEMO_PROJECT_ID,material:'Blum hinges, runners, push-latches',supplier:'MetroMerchants',cost:7250,created_at:iso(22),_demo:true},
+      {id:'demo-b4',project_id:DEMO_PROJECT_ID,material:'PU 2K clear + RAL 9016 white, 60 L',supplier:'BuildCo',cost:5100,created_at:iso(15),_demo:true},
+      {id:'demo-b5',project_id:DEMO_PROJECT_ID,material:'Site fixings, sealant, packers',supplier:'BuildCo',cost:1350,created_at:iso(4),_demo:true},
+    ],
+    attendance:[
+      {id:'demo-a1',project_id:DEMO_PROJECT_ID,worker_name:'Ravi',sign_in_at:t(7,32),_demo:true},
+      {id:'demo-a2',project_id:DEMO_PROJECT_ID,worker_name:'Ahmed',sign_in_at:t(7,40),_demo:true},
+      {id:'demo-a3',project_id:null,worker_name:'Joseph',sign_in_at:t(7,45),_demo:true},
+      {id:'demo-a4',project_id:DEMO_PROJECT_ID,worker_name:'Ravi',sign_in_at:iso(1.3),sign_out_at:iso(0.95),_demo:true},
+      {id:'demo-a5',project_id:DEMO_PROJECT_ID,worker_name:'Ahmed',sign_in_at:iso(1.3),sign_out_at:iso(0.93),_demo:true},
+      {id:'demo-a6',project_id:DEMO_PROJECT_ID,worker_name:'Ravi',sign_in_at:iso(8.3),sign_out_at:iso(7.95),_demo:true},
+      {id:'demo-a7',project_id:DEMO_PROJECT_ID,worker_name:'Ahmed',sign_in_at:iso(15.3),sign_out_at:iso(14.95),_demo:true},
+    ],
+    siteVisits:[{id:'demo-v1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',company_id:store.account&&store.account.companyId,site_engineer_name:'Kamal',location_name:'L12 reception',item_name:'Door set D-01',site_w:2110,site_h:2145,site_d:210,status:'reviewed',
+      notes:'Door set D-01 fitted. Reception wall opening measures 2110 wide, drawing says 2100 — allow 5mm packer each side. Two panel faces need paint touch-up.',created_at:iso(1),_demo:true}],
+    snags:[{id:'demo-s1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',item_name:'Wall panelling P-01',description:'Paint scuff on panel 7, corridor side',status:'open',created_by_name:'Kamal',created_at:iso(1),_demo:true}],
+    approvals:[{id:'demo-o1',status:'pending_approval',project_name:'DEMO · Marina Tower L12',supplier_name:'TimberLine',contractor_company:company,contractor_name:'Rashid (estimator)',currency:store.currency||'$',total:38200,revision:1,created_at:iso(0.4),
+      items:[{item:'Oak veneer MDF 18mm 1220×2440',qty:40,cost:16800},{item:'Oak lipping 22×3600',qty:60,cost:2400},{item:'MR MDF 12mm 1220×2440',qty:30,cost:5100},{item:'Oak veneer sheet A-grade',qty:20,cost:13900}],_demo:true}],
+  };
+}
+// Put demo rows into any loaded-but-empty section. Idempotent: skips sections
+// that already contain demo rows or any real row.
+function applyDemo(){
+  if(store.hideDemo||!store.account)return;
+  const seed=demoSeed();
+  const fill=(key,loadedKey)=>{
+    if(loadedKey&&!store[loadedKey])return;               // not loaded yet — wait
+    const cur=store[key]||[];
+    if(cur.some(x=>x._demo))return;                        // already in
+    store[key]=cur.concat(seed[key]);                      // demo sits alongside real rows until hidden
+  };
+  fill('projects','projectsLoaded'); fill('prodItems','prodItemsLoaded'); fill('purchases','purchasesLoaded');
+  fill('attendance','attLoaded'); fill('siteVisits','siteVisitsLoaded'); fill('snags','snagsLoaded'); fill('approvals','apprLoaded');
+}
+function demoBannerHTML(){
+  if(store.hideDemo)return '';
+  const on=['projects','prodItems','purchases','attendance','siteVisits','snags','approvals'].some(k=>(store[k]||[]).some(x=>x._demo));
+  if(!on)return '';
+  return `<div style="margin-top:14px;background:#2d2410;border:1px dashed var(--amber);border-radius:4px;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <div style="flex:1;font-size:11px;line-height:1.5;color:var(--amber)"><strong>Demo project shown.</strong> <span style="color:var(--txt)">Everything marked <em>DEMO · Marina Tower L12</em> is an example of how a filled-in project looks — items in every stage, purchases, crew hours, a site visit, a snag and an order waiting for approval. Add your own project and copy the pattern — the demo stays alongside so you can compare, until you hide it. Demo rows can't be edited.</span></div>
+    <button class="zadd" id="hideDemoBtn" style="white-space:nowrap">Hide demo</button></div>`;
+}
+function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclick=()=>{if(!confirm('Hide the demo project? You can bring it back from the header menu later.'))return;store.hideDemo=true;['projects','prodItems','purchases','attendance','siteVisits','snags','approvals'].forEach(k=>{store[k]=(store[k]||[]).filter(x=>!x._demo);});render();};
+  const s=document.getElementById('showDemoBtn');if(s)s.onclick=()=>{store.hideDemo=false;render();};}
 
 // ============================================================================
 //  MANAGER DASHBOARD — tab 1 "Dashboard" (status + why) and tab 2 "Company review"
@@ -2393,7 +2488,7 @@ function mgrDashboardHTML(){
       <div class="meta"><span><b style="color:var(--green)">${installed}</b> at site</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span><b>${mine.length-deliveredN}</b> still in factory</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>${pct}%</span></div>
       ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
 
-  return `<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>
+  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>
   <div class="mdAttnRow">
     ${attn(blocked.length,'Items blocked or on hold','red','production')}
     ${attn(aging.length,'Items in one stage over 7 days','amber','production')}
@@ -2482,7 +2577,7 @@ function mgrReviewHTML(){
     return `<tr class="${r.isToday?'mdNow':''} ${future?'mdFuture':''}" ${future&&!showFuture?'style="display:none"':''}><td>W${r.w}${r.isToday?' <span style="color:var(--amber)">←</span>':''}</td><td style="color:var(--mut)">${mdashFmtRange(r.ws)}</td><td class="r">${fmt(r.pw)}</td><td class="r">${r.uw==null?'—':fmt(r.uw)}</td><td class="r">${d==null?'—':`<span class="mdVar ${d>0?'bad':'good'}">${d>0?'+':'−'}${fmt(Math.abs(d))}</span>`}</td><td class="r">${fmt(r.cp)}</td><td class="r">${r.cu==null?'—':fmt(r.cu)}</td><td class="r">${r.cu==null||!s.total?'—':(r.cu/s.total*100).toFixed(0)+'%'}</td></tr>`;}).join('');
   // stash for the chart mount after render
   store._mdashChart={s,upto,mode};
-  return `<div class="hint" style="padding-top:14px">Company-wide view of ${mode==='cost'?'budget':'manpower'} — planned vs used, cumulative by week. Pick a project, switch the measure, or drag the slider to replay.${s.assumed?' <span style="color:var(--amber)">Some projects have no start/end date, so their plan is spread over 12 weeks from creation. Add <code>start_date</code> and <code>end_date</code> to each project for an accurate plan line.</span>':''}</div>
+  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Company-wide view of ${mode==='cost'?'budget':'manpower'} — planned vs used, cumulative by week. Pick a project, switch the measure, or drag the slider to replay.${s.assumed?' <span style="color:var(--amber)">Some projects have no start/end date, so their plan is spread over 12 weeks from creation. Add <code>start_date</code> and <code>end_date</code> to each project for an accurate plan line.</span>':''}</div>
   <div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-bottom:14px"><div class="chips">${chips}</div>
     <div class="unit"><button class="${mode==='cost'?'on':''}" data-dashmode="cost">BUDGET</button><button class="${mode==='hours'?'on':''}" data-dashmode="hours">MANPOWER</button></div></div>
   ${kpis}
@@ -5330,6 +5425,7 @@ async function addSnag(){
   store.snagBusy=false; render();
 }
 async function resolveSnag(snagId,url){
+  if(demoGuard(snagId))return;
   const s=(store.snags||[]).find(x=>x.id===snagId); if(!s)return;
   const patch={after_photo_url:url, after_by:store.account.name||store.account.email, after_at:new Date().toISOString(), status:'resolved'};
   Object.assign(s,patch); render();
@@ -7605,7 +7701,7 @@ function wire(){
     });
     const ca=document.getElementById('cancelApprove');if(ca)ca.onclick=()=>{store.approvingId=null;render();};
     document.querySelectorAll('[data-mgrtab]').forEach(b=>b.onclick=()=>{store.managerTab=b.dataset.mgrtab;render();});
-    mdashWire();
+    mdashWire(); demoWire();
     {const mp=document.getElementById('manpowerProject'); if(mp)mp.onchange=()=>{store.manpowerProject=mp.value;render();};}
     {const mr=document.getElementById('manpowerRefresh'); if(mr)mr.onclick=()=>{store.attLoaded=false;store.crewAttLoaded=false;loadAttendance();loadCrewAttendance();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
