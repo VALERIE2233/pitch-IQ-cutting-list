@@ -243,6 +243,20 @@
   .mdScrub{display:flex;align-items:center;gap:12px;padding:8px 16px 14px;font-size:11px;color:var(--mut);flex-wrap:wrap}.mdScrub input{flex:1;min-width:140px;accent-color:var(--amber)}.mdScrub strong{color:var(--txt);min-width:130px}
   tr.mdNow td{background:rgba(255,179,0,.08)}tr.mdFuture td{color:var(--mut)}
   .mdVar{font-weight:700}.mdVar.bad{color:var(--red)}.mdVar.good{color:var(--green)}
+  /* site engineer walk-round */
+  .seToday{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0}.seToday>div{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:4px;padding:8px 10px}.seToday .n{font-size:22px;font-weight:800;line-height:1}.seToday .l{font-size:9px;color:var(--mut);margin-top:3px}
+  .seToday .b{border-left-color:var(--blue)}.seToday .b .n{color:var(--blue)}.seToday .a{border-left-color:var(--amber)}.seToday .a .n{color:var(--amber)}.seToday .r{border-left-color:var(--red)}.seToday .r .n{color:var(--red)}
+  .seIt{padding:9px 12px;border-bottom:1px solid var(--row)}.seIt:last-child{border-bottom:none}.seIt .nm{font-size:12px;font-weight:600}
+  .seSt{display:inline-block;font-size:9px;padding:1px 6px;border-radius:2px;border:1px solid var(--line);color:var(--mut);margin-top:3px}.seSt.f{border-color:var(--blue);color:var(--blue)}.seSt.d{border-color:var(--amber);color:var(--amber)}.seSt.s{border-color:var(--green);color:var(--green)}.seSt.n{border-color:#666;color:#999}
+  .seActs{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}.seActs button{flex:1 1 70px;background:transparent;border:1px solid var(--line);color:var(--txt);font-family:var(--mono);font-size:10px;padding:9px 4px;border-radius:3px;font-weight:700;white-space:nowrap}
+  .seActs .m{border-color:var(--blue);color:var(--blue)}.seActs .dl{border-color:var(--amber);color:var(--amber)}.seActs .in{border-color:var(--green);color:var(--green)}.seActs .sn{border-color:var(--red);color:var(--red)}.seActs .seUndo{border-color:var(--mut);color:var(--mut)}
+  .seActs button.done{background:var(--blue);color:#000}
+  .seSheetWrap{position:fixed;left:0;right:0;bottom:0;z-index:9000;padding:0 8px;max-height:88vh;overflow:auto}.seSheet{background:var(--panel);border:2px solid var(--line);border-bottom:none;border-radius:12px 12px 0 0;padding:12px 14px 16px;max-width:560px;margin:0 auto;box-shadow:0 -8px 30px rgba(0,0,0,.5)}
+  .seSheetHead{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;letter-spacing:1px;margin-bottom:8px}.sePhoto{border:1px dashed var(--line);border-radius:4px;padding:12px;text-align:center;margin-bottom:8px}
+  .seChk{display:flex;gap:8px;align-items:center;font-size:12px;margin:6px 0}.seRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.seRow .fi{font-size:15px;padding:9px 8px}
+  .cta{width:100%;border:none;padding:13px;font-weight:800;font-size:12px;border-radius:4px;font-family:var(--mono);color:#000;margin-top:10px}
+  .seEod{background:var(--steel);border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:8px}.seEod .t{font-size:10px;letter-spacing:1.5px;color:var(--amber);font-weight:800;margin-bottom:6px}.seEod div{font-size:11px;color:#c9ced5;margin-bottom:3px}
+  body:has(.seSheetWrap) .body{padding-bottom:60vh}
   body.themeLight .inp,body.themeLight .num,body.themeLight .sel,body.themeLight .fi,body.themeLight .zinp,body.themeLight .cell{color:var(--txt)}
   body.themeLight .chip{color:var(--txt)}body.themeLight .chip.on{color:#000}
   body.themeLight .demoBanner,body.themeLight .zadd{background:#fff4d6}
@@ -436,7 +450,7 @@ const store={
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
   const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j._mdashPies;delete j.connCheck;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j._mdashPies;delete j.connCheck;delete j._seEod;delete j.seSheet;delete j.seSheetPhoto;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -2742,7 +2756,7 @@ function mgrDashboardHTML(){
     const installed=list.filter(i=>i.stage==='Site').length, deliveredN=list.filter(i=>prodStageIndex(i.stage)>=7).length;
     const zs=openSnags.filter(sn=>!sn.item_name||list.some(i=>String(i.description||'').indexOf(sn.item_name)>-1)).length;
     const cells=[];for(let i=0;i<Math.min(list.length,60);i++)cells.push(i<installed-Math.min(zs,installed)?'ins':i<installed?'snag':i<deliveredN?'del':'');
-    return `<div class="mdZone"><div class="zn"><span>${zname||'No zone'}</span><span>${installed}/${list.length} at site${zs?' · <b style="color:var(--amber)">'+zs+' snag'+(zs>1?'s':'')+'</b>':''}</span></div>
+    return `<div class="mdZone"><div class="zn"><span>${zname||'No zone'}</span><span>${list.length-deliveredN} factory &rarr; ${deliveredN-installed} delivery &rarr; ${installed} at site${zs?' · <b style="color:var(--amber)">'+zs+' snag'+(zs>1?'s':'')+'</b>':''}</span></div>
       <div class="cells" title="${list.map(mdashItemName).join(', ')}">${cells.map(c=>`<i class="${c}"></i>`).join('')}</div></div>`;};
   const siteHTML=projs.length?projs.map(pr=>{
     const mine=mdashItemsFor(pr,items); if(!mine.length)return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">no production items yet</span></div></div>`;
@@ -2755,7 +2769,7 @@ function mgrDashboardHTML(){
     const zones=[];mine.forEach(i=>{const z=(i.zone_name||'').trim();if(zones.indexOf(z)<0)zones.push(z);});
     const note=last&&last.notes?String(last.notes).slice(0,140):'';
     return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">${eng}${ago==null?' · no visits yet':ago===0?' · visited today':' · last visit '+ago+' day'+(ago===1?'':'s')+' ago'}</span></div>
-      <div class="meta"><span><b style="color:var(--green)">${installed}</b> at site</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span><b>${mine.length-deliveredN}</b> still in factory</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>${pct}% · ${zones.length} zone${zones.length===1?'':'s'}</span></div>
+      <div class="meta"><span><b>${mine.length-deliveredN}</b> still in factory</span><span>&rarr;</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span>&rarr;</span><span><b style="color:var(--green)">${installed}</b> at site</span><span>·</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>·</span><span>${zones.length} zone${zones.length===1?'':'s'} · ${pct}% installed</span></div>
       ${zones.map(z=>zoneRow(z,mine.filter(i=>(i.zone_name||'').trim()===z),openSnags)).join('')}
       ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
 
@@ -4793,7 +4807,236 @@ async function catDelete(id){
   store.myCatalogue=store.myCatalogue.filter(x=>x.id!==id);render();
   try{await sb.from('catalogue').delete().eq('id',id);}catch(e){}
 }
+
+// ============================================================================
+//  SITE ENGINEER — WALK-ROUND screen (new). The classic form screen stays under
+//  a "CLASSIC" toggle until the new one is proven, then can be removed.
+//  Every tap writes the same records the manager reads: production_items.stage
+//  (Delivery / Site, with history), site_visits (measure / installed / daily),
+//  snags. No new tables; site_visits.visit_type is optional (falls back to a
+//  [TAG] prefix in notes if the column is missing).
+// ============================================================================
+function seItemsFor(pr){return (store.prodItems||[]).filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name);}
+function seVisitsFor(pr){return (store.siteVisits||[]).filter(v=>String(v.project_id)===String(pr.id)||v.project_name===pr.name);}
+function seKind(v){return v.visit_type||((String(v.notes||'').match(/^\[(MEASURE|INSTALLED|DAILY|DELIVERED)\]/)||[])[1]||'').toLowerCase()||'visit';}
+function seLastHist(it){const h=Array.isArray(it.stage_history)?it.stage_history:[];return h.length?h[h.length-1]:null;}
+function seFmtWhen(iso){if(!iso)return '';const d=new Date(iso);if(isNaN(d))return '';const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return d.getDate()+' '+m[d.getMonth()];}
+function seStatusChip(it,visits){
+  const idx=prodStageIndex(it.stage), last=seLastHist(it);
+  const who=last&&last.by?(' · '+last.by.split(' ')[0]):'';
+  if(idx>=8)return `<span class="seSt s">INSTALLED · ${seFmtWhen(last?last.at:it.stage_since)}${who}</span>`;
+  if(idx===7)return `<span class="seSt d">DELIVERED · on site, not fitted · ${seFmtWhen(last?last.at:it.stage_since)}${who}</span>`;
+  if(it.flag==='On Hold')return `<span class="seSt n">ON HOLD</span>`;
+  if(it.flag==='Blocked'){const m=READINESS_CHECKS.filter(c=>!it[c.k]).map(c=>c.label.replace(' approved','').toLowerCase());return `<span class="seSt n">WAITING · ${m.slice(0,2).join(', ')||'blocked'}</span>`;}
+  if(idx===0)return `<span class="seSt n">NOT STARTED</span>`;
+  return `<span class="seSt f">FACTORY · ${it.stage}</span>`;
+}
+function seMeasured(it,visits){return visits.find(v=>seKind(v)==='measure'&&v.item_name&&(mdashItemName(it).indexOf(v.item_name)>-1||v.item_name.indexOf(mdashItemName(it))>-1));}
+
+function seWalkHTML(){
+  if(!store.projectsLoaded)loadProjects();
+  if(store.projectsLoaded&&!store.prodItemsLoaded)loadProductionItems();
+  if(!store.siteVisitsLoaded)loadSiteVisits();
+  if(!store.snagsLoaded&&typeof loadSnags==='function')loadSnags();
+  const projs=store.projects||[];
+  let pr=projs.find(p=>String(p.id)===String(store.seProj))||projs[0];
+  if(pr&&String(store.seProj)!==String(pr.id))store.seProj=pr.id;
+  const items=pr?seItemsFor(pr):[], visits=pr?seVisitsFor(pr):[];
+  const snags=pr?(store.snags||[]).filter(x=>String(x.project_id)===String(pr.id)&&x.status!=='resolved'&&x.status!=='closed'):[];
+  const arriving=items.filter(i=>prodStageIndex(i.stage)===7).length;
+  const needMeasure=items.filter(i=>prodStageIndex(i.stage)<=2&&!seMeasured(i,visits)).length;
+  const zones=[];items.forEach(i=>{const z=(i.zone_name||'').trim()||'No zone';if(zones.indexOf(z)<0)zones.push(z);});
+  const opts=projs.map(p=>`<option value="${p.id}" ${pr&&String(p.id)===String(pr.id)?'selected':''}>${p.name||'(unnamed)'}</option>`).join('');
+  const busy=store.seBusy;
+  const rows=z=>items.filter(i=>((i.zone_name||'').trim()||'No zone')===z).map(it=>{
+    const idx=prodStageIndex(it.stage), demo=it._demo, meas=seMeasured(it,visits);
+    const canAct=idx<8;
+    return `<div class="seIt"><div class="nm">${mdashItemName(it)}${it.qty>1?' <span style="color:var(--mut)">× '+it.qty+'</span>':''}</div>${seStatusChip(it,visits)}
+      ${idx>=7?`<div class="seActs"><button class="seUndo" data-seundo="${it.id}">↶ UNDO ${idx>=8?'INSTALLED':'DELIVERED'}</button>${idx===7?`<button class="in" data-seinstall="${it.id}">✓ INSTALLED</button>`:''}<button class="sn" data-sesnag="${it.id}">⚠ SNAG</button></div>`
+      :`<div class="seActs"><button class="m ${meas?'done':''}" data-semeasure="${it.id}">📐 ${meas?'MEASURED '+seFmtWhen(meas.created_at):'MEASURE'}</button><button class="dl" data-sedeliver="${it.id}">🚚 DELIVERED</button><button class="in" data-seinstall="${it.id}">✓ INSTALLED</button><button class="sn" data-sesnag="${it.id}">⚠ SNAG</button></div>`}
+    </div>`;}).join('');
+  const zoneCards=zones.map(z=>{const list=items.filter(i=>((i.zone_name||'').trim()||'No zone')===z);const inst=list.filter(i=>prodStageIndex(i.stage)>=8).length;
+    return `<div class="card seZone"><div class="cardHead"><span>${z.toUpperCase()}</span><small style="color:var(--mut);font-weight:400">${inst}/${list.length} installed</small></div>${rows(z)}</div>`;}).join('');
+  return `<div class="body">
+    ${demoBannerHTML()}
+    <div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-top:14px"><span class="zlbl">PROJECT</span><select class="sel" id="seProjSel" style="min-width:200px;max-width:100%;padding:8px 10px;font-size:12px">${opts}</select></div>
+    ${pr?`<div class="seToday">
+      <div class="b"><div class="n">${arriving}</div><div class="l">On site to fit</div></div>
+      <div class="a"><div class="n">${needMeasure}</div><div class="l">Need site measure</div></div>
+      <div class="r"><div class="n">${snags.length}</div><div class="l">Snags open</div></div></div>
+    ${store.seMsg?`<div class="hint" style="padding:6px 0 10px;color:${store.seErr?'var(--red)':'var(--green)'}">${store.seMsg}</div>`:''}
+    ${zoneCards||'<div class="empty">No items in this project yet. The supervisor adds zones and items from the factory side; once they exist they appear here.</div>'}
+    <button class="pbtn" id="seEodBtn" style="width:100%;padding:13px;margin-top:6px">📋 END OF DAY REPORT</button>`
+    :'<div class="empty">No projects yet.</div>'}
+    ${seSheetHTML(pr,items,visits)}
+  </div>`;
+}
+function seSheetHTML(pr,items,visits){
+  const sh=store.seSheet; if(!sh||!pr)return '';
+  const it=(items||[]).find(x=>String(x.id)===String(sh.itemId));
+  const ph=store.seSheetPhoto;
+  const photoBox=(req)=>`<div class="sePhoto">${ph?`<img src="${ph}" style="max-height:120px;border-radius:4px"><br><button class="gbtn" id="sePhotoClear" style="margin-top:6px;font-size:10px">✕ remove photo</button>`:`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:11px">📷 TAKE PHOTO<input type="file" accept="image/*" capture="environment" id="sePhotoIn" style="display:none"></label><label class="gbtn" style="display:inline-block;cursor:pointer;font-size:11px;margin-left:6px">🖼 CHOOSE<input type="file" accept="image/*" id="sePhotoIn2" style="display:none"></label>${req?'<div style="font-size:9px;color:var(--mut);margin-top:4px">required — evidence for the manager and the client report</div>':''}`}${store.seUploading?'<div style="font-size:10px;color:var(--amber);margin-top:4px">uploading…</div>':''}</div>`;
+  const head=(title,col)=>`<div class="seSheetHead" style="color:${col}"><span>${title}</span><button class="gbtn" id="seSheetClose" style="padding:4px 8px;font-size:10px">✕</button></div>`;
+  const busy=store.seBusy?'disabled':'';
+  if(sh.type==='install'&&it)return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--green)">${head('✓ INSTALLED — '+mdashItemName(it),'var(--green)')}
+    <div class="hint" style="padding:0 0 8px">${(it.zone_name||'')}</div>${photoBox(true)}
+    <label class="seChk"><input type="checkbox" id="seC1" checked> Level and plumb</label>
+    <label class="seChk"><input type="checkbox" id="seC2" checked> Doors / drawers / moving parts operate</label>
+    <label class="seChk"><input type="checkbox" id="seC3" checked> Finish undamaged <span style="color:var(--mut);font-size:10px">(untick and a snag opens after saving)</span></label>
+    <input class="inp" id="seNote" placeholder="Note for factory / manager (optional)" style="margin-top:8px">
+    <button class="cta" id="seInstallSave" ${busy} style="background:var(--green)">${store.seBusy?'SAVING…':'MARK INSTALLED → item moves to SITE'}</button></div></div>`;
+  if(sh.type==='measure'&&it){
+    const dw=+it.width||+it.w||0, dh=+it.height||+it.h||0;
+    return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--blue)">${head('📐 MEASURE — '+mdashItemName(it),'var(--blue)')}
+    <div class="hint" style="padding:0 0 8px">${dw||dh?`Drawing says: ${dw||'?'} × ${dh||'?'} mm`:'Drawing size not recorded on this item — the difference is worked out once the factory adds it.'}</div>
+    <div class="seRow"><label class="field"><span class="fl">SITE WIDTH</span><input class="fi" type="number" id="seW" inputmode="numeric" style="width:100%"></label><label class="field"><span class="fl">SITE HEIGHT</span><input class="fi" type="number" id="seH" inputmode="numeric" style="width:100%"></label><label class="field"><span class="fl">DEPTH</span><input class="fi" type="number" id="seD" inputmode="numeric" style="width:100%"></label></div>
+    <div id="seDiff" class="hint" style="padding:6px 0"></div>
+    ${photoBox(false)}
+    <input class="inp" id="seNote" placeholder="e.g. ceiling out of level 12 mm left to right" style="margin-top:8px">
+    <button class="cta" id="seMeasureSave" ${busy} style="background:var(--blue)">${store.seBusy?'SAVING…':'SAVE MEASUREMENT → factory notified'}</button></div></div>`;}
+  if(sh.type==='snag'&&it)return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--red)">${head('⚠ SNAG — '+mdashItemName(it),'var(--red)')}
+    ${photoBox(true)}
+    <input class="inp" id="seNote" placeholder="What is wrong? e.g. paint scuff on panel 7, corridor side" style="margin-top:8px">
+    <button class="cta" id="seSnagSave" ${busy} style="background:var(--red);color:#fff">${store.seBusy?'SAVING…':'LOG SNAG'}</button></div></div>`;
+  if(sh.type==='eod'){
+    const today=new Date();today.setHours(0,0,0,0);const me=store.account.name||store.account.email;
+    const mine=(items||[]);
+    const did=(stage)=>mine.filter(i=>(Array.isArray(i.stage_history)?i.stage_history:[]).some(h=>h.stage===stage&&h.by===me&&new Date(h.at)>=today)).map(mdashItemName);
+    const meas=(visits||[]).filter(v=>seKind(v)==='measure'&&new Date(v.created_at)>=today).map(v=>v.item_name);
+    const sn=(store.snags||[]).filter(x=>String(x.project_id)===String(pr.id)&&new Date(x.created_at)>=today).length;
+    const sc=(store.snags||[]).filter(x=>String(x.project_id)===String(pr.id)&&x.after_at&&new Date(x.after_at)>=today).length;
+    const zs=[];mine.forEach(i=>{const z=(i.zone_name||'').trim()||'No zone';if(zs.indexOf(z)<0)zs.push(z);});
+    const zl=zs.map(z=>{const l=mine.filter(i=>((i.zone_name||'').trim()||'No zone')===z);return z+' '+l.filter(i=>prodStageIndex(i.stage)>=8).length+'/'+l.length;}).join(' · ');
+    store._seEod={did,meas,sn,sc,zl};
+    return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--amber)">${head('📋 END OF DAY — '+pr.name,'var(--amber)')}
+    <div class="seEod"><div class="t">WHAT I DID TODAY (from my taps)</div>
+      <div>✓ Installed: ${did('Site').join(', ')||'—'}</div><div>🚚 Received: ${did('Delivery').join(', ')||'—'}</div><div>📐 Measured: ${meas.join(', ')||'—'}</div><div>⚠ Snags raised: ${sn} · closed: ${sc}</div><div style="color:var(--mut);margin-top:4px">${zl}</div></div>
+    <div class="seEod"><div class="t">FOR TOMORROW</div><input class="inp" id="seTomorrow" placeholder="e.g. AV contractor cabling must be done before 09:00"></div>
+    <div class="seEod"><div class="t">SITE CONDITIONS</div><label class="seChk"><input type="checkbox" id="seS1" checked> Site access OK</label><label class="seChk"><input type="checkbox" id="seS2"> Other trades blocking our zone</label><label class="seChk"><input type="checkbox" id="seS3"> Client / consultant visited</label></div>
+    <button class="cta" id="seEodSave" ${busy} style="background:var(--amber)">${store.seBusy?'SENDING…':'SEND TO MANAGER'}</button>
+    <div style="text-align:center;font-size:10px;color:var(--mut);margin-top:6px">Becomes today's site note on Project Status and the client report.</div></div></div>`;}
+  return '';
+}
+// ---- actions ----
+function seOpen(type,itemId){store.seSheet={type,itemId};store.seSheetPhoto=null;store.seMsg='';render();window.scrollTo(0,document.body.scrollHeight);}
+function seClose(){store.seSheet=null;store.seSheetPhoto=null;render();}
+function seSay(msg,err){store.seMsg=msg;store.seErr=!!err;render();setTimeout(()=>{if(store.seMsg===msg){store.seMsg='';render();}},4000);}
+async function seVisitInsert(row,kind){
+  // visit_type is optional in the schema: try it, fall back to a tag in notes
+  row=Object.assign({company_id:store.account.companyId,site_engineer_id:store.account.uid,site_engineer_name:store.account.name||store.account.email,status:'reviewed'},row);
+  let r=await sb.from('site_visits').insert(Object.assign({},row,{visit_type:kind})).select().single();
+  if(r.error&&/visit_type|column/i.test(r.error.message||'')){row.notes='['+kind.toUpperCase()+'] '+(row.notes||'');r=await sb.from('site_visits').insert(row).select().single();}
+  if(r.error)throw r.error;
+  store.siteVisits=[r.data,...(store.siteVisits||[])];return r.data;
+}
+async function seDeliver(id){
+  const it=(store.prodItems||[]).find(x=>String(x.id)===String(id)); if(!it)return;
+  if(demoGuard(it.id))return;
+  if(prodStageIndex(it.stage)>=7)return;
+  await updateProductionItem(it.id,{stage:'Delivery'});
+  seSay('Marked delivered — the supervisor sees it too.');
+}
+async function seUndo(id){
+  const it=(store.prodItems||[]).find(x=>String(x.id)===String(id)); if(!it)return;
+  if(demoGuard(it.id))return;
+  const reason=(prompt('Why are you undoing this? (kept in the item history)','')||'').trim(); if(!reason)return;
+  const idx=prodStageIndex(it.stage); const prev=idx>=8?'Delivery':'Painting';
+  const hist=Array.isArray(it.stage_history)?it.stage_history.slice():[];
+  hist.push({stage:prev,at:new Date().toISOString(),by:store.account.name||store.account.email,note:'undo: '+reason});
+  const patch={stage:prev,stage_history:hist.slice(-40),stage_since:new Date().toISOString()};
+  Object.assign(it,patch);render();
+  try{const {error}=await sb.from('production_items').update(patch).eq('id',it.id);if(error)throw error;seSay('Reverted to '+prev+'. Reason recorded.');}catch(e){seSay('Could not save: '+(e.message||'error'),true);}
+}
+async function seInstallSave(){
+  const sh=store.seSheet;const it=(store.prodItems||[]).find(x=>String(x.id)===String(sh.itemId)); if(!it)return;
+  if(demoGuard(it.id))return;
+  if(!store.seSheetPhoto){seSay('Take a photo of the installed item first.',true);return;}
+  const g=id=>{const el=document.getElementById(id);return el?el.checked:false;};
+  const c1=g('seC1'),c2=g('seC2'),c3=g('seC3'); const note=(document.getElementById('seNote')||{}).value||'';
+  store.seBusy=true;render();
+  try{
+    await updateProductionItem(it.id,{stage:'Site'});
+    const pr=(store.projects||[]).find(p=>String(p.id)===String(it.project_id));
+    await seVisitInsert({project_id:it.project_id,project_name:pr?pr.name:it.project_name,item_name:mdashItemName(it),location_name:it.zone_name||'',
+      notes:'Installed. '+(c1?'':'NOT level/plumb. ')+(c2?'':'Moving parts NOT operating. ')+(c3?'':'Finish damaged. ')+note,photos:[store.seSheetPhoto]},'installed');
+    store.seBusy=false;
+    if(!c3){store.seSheet={type:'snag',itemId:it.id};store.seSheetPhoto=null;store.seMsg='Installed. Now describe the finish damage as a snag.';store.seErr=false;render();return;}
+    store.seSheet=null;store.seSheetPhoto=null;seSay('Installed — the manager\'s board is green for this item.');
+  }catch(e){store.seBusy=false;seSay('Could not save: '+(e.message||'error'),true);}
+}
+async function seMeasureSave(){
+  const sh=store.seSheet;const it=(store.prodItems||[]).find(x=>String(x.id)===String(sh.itemId)); if(!it)return;
+  if(demoGuard(it.id))return;
+  const v=id=>+((document.getElementById(id)||{}).value)||null;
+  const w=v('seW'),h=v('seH'),d=v('seD'); if(!w&&!h&&!d){seSay('Enter at least one measurement.',true);return;}
+  const dw=+it.width||+it.w||0, dh=+it.height||+it.h||0;
+  const diffs=[];if(dw&&w)diffs.push('width '+(w-dw>0?'+':'')+(w-dw)+' mm vs drawing');if(dh&&h)diffs.push('height '+(h-dh>0?'+':'')+(h-dh)+' mm vs drawing');
+  const note=(document.getElementById('seNote')||{}).value||'';
+  store.seBusy=true;render();
+  try{
+    const pr=(store.projects||[]).find(p=>String(p.id)===String(it.project_id));
+    await seVisitInsert({project_id:it.project_id,project_name:pr?pr.name:it.project_name,item_name:mdashItemName(it),location_name:it.zone_name||'',site_w:w,site_h:h,site_d:d,
+      notes:(diffs.length?diffs.join(', ')+'. ':'Site: '+(w||'?')+' × '+(h||'?')+(d?' × '+d:'')+' mm. ')+note,photos:store.seSheetPhoto?[store.seSheetPhoto]:[]},'measure');
+    store.seBusy=false;store.seSheet=null;store.seSheetPhoto=null;seSay('Measurement saved'+(diffs.length?' — '+diffs.join(', '):'')+'.');
+  }catch(e){store.seBusy=false;seSay('Could not save: '+(e.message||'error'),true);}
+}
+async function seSnagSave(){
+  const sh=store.seSheet;const it=(store.prodItems||[]).find(x=>String(x.id)===String(sh.itemId)); if(!it)return;
+  if(demoGuard(it.id))return;
+  const desc=((document.getElementById('seNote')||{}).value||'').trim();
+  store.snagDraft={project_id:it.project_id,zone_name:it.zone_name||'',item_name:mdashItemName(it),description:desc,beforeUrl:store.seSheetPhoto};
+  store.seBusy=true;render();
+  await addSnag();
+  store.seBusy=false;
+  if(store.snagErr){seSay(store.snagMsg,true);return;}
+  store.seSheet=null;store.seSheetPhoto=null;seSay('Snag logged.');
+}
+async function seEodSave(){
+  const pr=(store.projects||[]).find(p=>String(p.id)===String(store.seProj)); if(!pr)return;
+  if(demoGuard(pr.id))return;
+  const e=store._seEod||{did:()=>[],meas:[],sn:0,sc:0,zl:''};
+  const tm=(document.getElementById('seTomorrow')||{}).value||'';
+  const g=id=>{const el=document.getElementById(id);return el?el.checked:false;};
+  const cond=[g('seS1')?'access OK':'access problem',g('seS2')?'other trades blocking':'',g('seS3')?'client/consultant visited':''].filter(Boolean).join(', ');
+  const notes=`Installed: ${e.did('Site').join(', ')||'—'}. Received: ${e.did('Delivery').join(', ')||'—'}. Measured: ${e.meas.join(', ')||'—'}. Snags raised ${e.sn}, closed ${e.sc}. Progress: ${e.zl}. Site: ${cond}.${tm?' Tomorrow: '+tm:''}`;
+  store.seBusy=true;render();
+  try{await seVisitInsert({project_id:pr.id,project_name:pr.name,item_name:'',location_name:'',notes,photos:[]},'daily');store.seBusy=false;store.seSheet=null;seSay('Sent. The manager sees it as today\'s site note.');}
+  catch(ex){store.seBusy=false;seSay('Could not send: '+(ex.message||'error'),true);}
+}
+function seWalkWire(){
+  const ps=document.getElementById('seProjSel');if(ps)ps.onchange=()=>{store.seProj=ps.value;store.seSheet=null;render();};
+  document.querySelectorAll('[data-sedeliver]').forEach(b=>b.onclick=()=>seDeliver(b.dataset.sedeliver));
+  document.querySelectorAll('[data-seinstall]').forEach(b=>b.onclick=()=>seOpen('install',b.dataset.seinstall));
+  document.querySelectorAll('[data-semeasure]').forEach(b=>b.onclick=()=>seOpen('measure',b.dataset.semeasure));
+  document.querySelectorAll('[data-sesnag]').forEach(b=>b.onclick=()=>seOpen('snag',b.dataset.sesnag));
+  document.querySelectorAll('[data-seundo]').forEach(b=>b.onclick=()=>seUndo(b.dataset.seundo));
+  const eod=document.getElementById('seEodBtn');if(eod)eod.onclick=()=>seOpen('eod',null);
+  const cl=document.getElementById('seSheetClose');if(cl)cl.onclick=seClose;
+  ['sePhotoIn','sePhotoIn2'].forEach(id=>{const inp=document.getElementById(id);if(inp)inp.onchange=async()=>{const f=inp.files&&inp.files[0];if(!f)return;store.seUploading=true;render();try{store.seSheetPhoto=await uploadSiteVisitPhoto(f);}catch(e){seSay('Photo upload failed: '+(e.message||'error'),true);}store.seUploading=false;render();};});
+  const pc=document.getElementById('sePhotoClear');if(pc)pc.onclick=()=>{store.seSheetPhoto=null;render();};
+  const is=document.getElementById('seInstallSave');if(is)is.onclick=seInstallSave;
+  const ms=document.getElementById('seMeasureSave');if(ms)ms.onclick=seMeasureSave;
+  const ss=document.getElementById('seSnagSave');if(ss)ss.onclick=seSnagSave;
+  const es=document.getElementById('seEodSave');if(es)es.onclick=seEodSave;
+  // live difference while measuring
+  const sh=store.seSheet;if(sh&&sh.type==='measure'){const it=(store.prodItems||[]).find(x=>String(x.id)===String(sh.itemId));const dw=it?(+it.width||+it.w||0):0,dh=it?(+it.height||+it.h||0):0;
+    const upd=()=>{const w=+((document.getElementById('seW')||{}).value)||0,h=+((document.getElementById('seH')||{}).value)||0;const out=[];if(dw&&w)out.push('Width <b>'+(w-dw>0?'+':'')+(w-dw)+' mm</b>');if(dh&&h)out.push('Height <b>'+(h-dh>0?'+':'')+(h-dh)+' mm</b>');const el=document.getElementById('seDiff');if(el)el.innerHTML=out.length?'<span style="color:var(--amber)">'+out.join(' · ')+' vs drawing — factory will be told to adjust.</span>':'';};
+    ['seW','seH'].forEach(id=>{const el=document.getElementById(id);if(el)el.oninput=upd;});}
+  document.querySelectorAll('[data-seview]').forEach(b=>b.onclick=()=>{store.seView=b.dataset.seview;render();});
+}
+
+function seViewToggleHTML(){
+  const v=store.seView||'walk';
+  return `<span class="unit" style="margin-right:6px"><button class="${v==='walk'?'on':''}" data-seview="walk">WALK-ROUND</button><button class="${v==='classic'?'on':''}" data-seview="classic">CLASSIC</button></span>`;
+}
 function siteEngineerHTML(){
+  if((store.seView||'walk')==='classic')return seClassicHTML();
+  const classic=seClassicHTML();
+  const a=classic.indexOf('<div class="body">'), b=classic.lastIndexOf('<footer>');
+  if(a<0||b<0)return classic;
+  return classic.slice(0,a)+seWalkHTML()+classic.slice(b);
+}
+function seClassicHTML(){
   if(!store.siteVisitsLoaded){loadSiteVisits();}
   if(!store.projectsLoaded){loadProjects();}
   const visits=store.siteVisits||[];
@@ -4801,7 +5044,7 @@ function siteEngineerHTML(){
   const openProjects=(store.projects||[]); // no gate: every company project is available
   const itemOptions=store.svItemOptions||[];
   return `<div ${isRTL()?'dir="rtl"':''}><header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · ${t('site_engineer')}</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight">${langSwitcherHTML()}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
+    <div class="hdrRight">${seViewToggleHTML()}${langSwitcherHTML()}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
   <div class="body">
     <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
     <div class="card" style="border-color:var(--blue)">
@@ -7887,6 +8130,7 @@ function wire(){
     return;}
   // ---- site engineer dashboard wiring ----
   if(store.account.accountType==='site_engineer' && !store.fullEditorMode){
+    seWalkWire();
     const so=document.getElementById('signout');if(so)so.onclick=async()=>{if(confirm('Sign out?')){if(sb)await sb.auth.signOut();store.account=null;store.siteVisitsLoaded=false;store.siteVisits=[];store.svDraft={};store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;store.snagsLoaded=false;store.snags=[];store.snagDraft={};store.attLoaded=false;store.attendance=[];store.bioLoaded=false;store.bioCreds=[];store.crewLoaded=false;store.crew=[];store.crewAttLoaded=false;store.crewAtt=[];store.crewDraft={};store.crewProject=null;render();}};
     document.querySelectorAll('[data-openfulleditor]').forEach(b=>b.onclick=async()=>{
       store.fullEditorMode=true; await openProject(b.dataset.openfulleditor);
