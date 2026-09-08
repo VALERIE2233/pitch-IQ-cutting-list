@@ -7493,7 +7493,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'contractor',full_name:n,phone:p,company:c,location:l}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -7517,7 +7517,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'manager',full_name:n,phone:p,company:co}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -7545,7 +7545,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'site_engineer',full_name:n,phone:p,company:co}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -7572,7 +7572,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'timekeeper',full_name:n,phone:p,company:co}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -7599,7 +7599,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'procurement',full_name:n,phone:p,company:co}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -7626,7 +7626,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'supplier',full_name:n,phone:p,company:biz}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -7648,7 +7648,11 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         const {error}=await withTimeout(sb.auth.signInWithPassword({email:e,password:pw}),12000,'Sign-in');
-        if(error){store.authBusy=false;return sErr(error.message);}
+        if(error){store.authBusy=false;
+          const m=String(error.message||'');
+          if(/not confirmed/i.test(m))return sErr('This email has not been confirmed yet. Open the confirmation email we sent when the account was created, then sign in again — or ask your manager to turn off email confirmation in Supabase.');
+          if(/invalid login/i.test(m))return sErr('Email or password is wrong. Passwords are case-sensitive. Use "Forgot password?" below if you need to reset it.');
+          return sErr(m);}
         await loadSession();
       }catch(ex){store.authBusy=false;sErr(ex.message||'Sign-in failed. Please try again.');}
     };
@@ -8458,6 +8462,26 @@ async function loadSession(){
     try{const {data}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();prof=data;}catch(e){}
     if(!prof&&attempt===0){await new Promise(r=>setTimeout(r,600));}
   }
+  // The role, name and company also travel with the auth user itself (set at
+  // sign-up), so signing in from any browser or device lands on the right screen
+  // even if the profile row was never finished. If the profile is missing or has
+  // no role, rebuild it from that metadata now.
+  try{
+    const md=(session.user&&session.user.user_metadata)||{};
+    if(md.account_type&&(!prof||!prof.account_type)){
+      let companyId=prof&&prof.company_id||null;
+      if(!companyId&&md.company&&md.account_type!=='supplier'){
+        const co=String(md.company).trim();
+        try{const {data:found}=await sb.from('companies').select('id').ilike('name',co).limit(1).maybeSingle();if(found)companyId=found.id;}catch(e){}
+        if(!companyId){try{const {data:co2}=await sb.from('companies').insert({name:co}).select().single();if(co2)companyId=co2.id;}catch(e){}}
+      }
+      const row={id:uid,full_name:md.full_name||(prof&&prof.full_name)||'',phone:md.phone||(prof&&prof.phone)||'',account_type:md.account_type,role:md.account_type==='manager'?'manager':'member',company_id:companyId};
+      if(md.location)row.location=md.location;
+      await sb.from('profiles').upsert(row,{onConflict:'id'});
+      const {data:again}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();
+      if(again)prof=again;
+    }
+  }catch(e){}
   let companyName='';
   if(prof&&prof.company_id){try{const {data:co}=await sb.from('companies').select('name').eq('id',prof.company_id).maybeSingle();companyName=co?co.name:'';}catch(e){}}
   // Determine account type robustly: trust profiles.account_type, but if a
