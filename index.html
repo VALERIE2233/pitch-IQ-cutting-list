@@ -228,7 +228,7 @@
   .mdProj{padding:12px 16px;border-bottom:1px solid #2c313a}.mdProj:last-child{border-bottom:none}
   .mdProj .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}.mdProj .nm{font-weight:700}.mdProj .due{font-size:11px;color:var(--mut)}
   .mdProj .track{display:grid;grid-template-columns:60px 1fr 48px;gap:10px;align-items:center;margin-top:8px;font-size:11px}.mdProj .lab{color:var(--mut)}.mdProj .pct{text-align:right;font-weight:700}
-  .mdPies{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}.mdPie{flex:1 1 140px;text-align:center}.mdPie canvas{width:150px;height:110px;max-width:100%}.mdPie .pl{font-size:10px;color:var(--mut);margin-top:-4px}
+  .mdPies{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}.mdPie{flex:1 1 150px;text-align:center}.mdPie canvas{width:190px;height:140px;max-width:100%}.mdPie .pt{font-size:11px;font-weight:800;letter-spacing:1px;margin-top:-2px}.mdPie .pl{font-size:10px;color:var(--mut);margin-top:2px}
   .mdProj .warn{font-size:11px;color:var(--amber);margin-top:6px}.mdProj .warn.red{color:var(--red)}
   .mdRail{height:7px;background:var(--steel);border:1px solid var(--line);border-radius:3px;overflow:hidden;position:relative;margin-top:2px}.mdRail i{display:block;height:100%;border-radius:3px}.mdRail b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--txt);opacity:.7}
   .mdCrew{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:12px 16px}.mdCrew>div{background:var(--steel);border:1px solid var(--line);border-radius:4px;padding:10px 12px}.mdCrew .n{font-size:22px;font-weight:800;line-height:1}.mdCrew .l{font-size:10px;color:var(--mut);margin-top:4px}
@@ -2594,24 +2594,33 @@ function mgrDashboardHTML(){
 
   // --- project health ---
   const rail=(pct,col)=>`<div class="mdRail"><i style="width:${Math.min(100,pct)}%;background:${col}"></i></div>`;
-  // Project health as 3D pies: one pie for Spend (used / remaining / over) and
-  // one for Hours (used / remaining) per project. Drawn on canvas after render.
+  // Project health: exactly two 3D pies — Spend and Hours — for the selected
+  // scope. "All projects" sums every project that has a budget / planned hours;
+  // one project shows that project alone. Same panel, only the numbers change.
+  const live=projs.filter(pr=>!mgrProjectStats(pr,items).complete);
+  const withC=live.filter(pr=>+pr.estimated_cost>0), withH=live.filter(pr=>+pr.planned_hours>0);
+  const planC=withC.reduce((a,pr)=>a+(+pr.estimated_cost),0), usedC=withC.reduce((a,pr)=>a+actualsTotal(pr.id),0);
+  const planH=withH.reduce((a,pr)=>a+(+pr.planned_hours),0), usedH=withH.reduce((a,pr)=>a+projectHoursUsed(pr),0);
+  const cp=planC?Math.round(usedC/planC*100):null, hp=planH?Math.round(usedH/planH*100):null;
+  const overC=cp!=null&&cp>100, overH=hp!=null&&hp>100, ahead=hp!=null&&cp!=null&&cp>hp+5;
   store._mdashPies=[];
-  const projHTML=projs.length?projs.map((pr,pi)=>{
-    const st=mgrProjectStats(pr,items); if(st.complete)return '';
-    const planH=+pr.planned_hours||0, usedH=projectHoursUsed(pr), planC=+pr.estimated_cost||0, usedC=actualsTotal(pr.id);
-    const hp=planH?Math.round(usedH/planH*100):null, cp=planC?Math.round(usedC/planC*100):null;
-    const over=cp!=null&&cp>100, ahead=hp!=null&&cp!=null&&cp>hp+5;
-    const pieC='mdPieC'+pi, pieH='mdPieH'+pi;
-    if(planC)store._mdashPies.push({id:pieC,segs:over?[{v:planC,c:'#3ddc84',l:'Budget'},{v:usedC-planC,c:'#ff5d5d',l:'Over'}]:[{v:usedC,c:'#3ddc84',l:'Used'},{v:Math.max(0,planC-usedC),c:'#2c313a',l:'Remaining'}],label:cp+'%'});
-    if(planH)store._mdashPies.push({id:pieH,segs:[{v:usedH,c:'#5db8ff',l:'Used'},{v:Math.max(0,planH-usedH),c:'#2c313a',l:'Remaining'}].concat(usedH>planH?[{v:usedH-planH,c:'#ff5d5d',l:'Over'}]:[]),label:hp+'%'});
-    return `<div class="mdProj"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="due">${st.done}/${st.items} items at site</span></div>
-      <div class="mdPies">
-        <div class="mdPie"><canvas id="${pieC}" width="150" height="110"></canvas><div class="pl">Spend${cp==null?'':' · '+mdashFmtMoney(usedC)+' of '+mdashFmtMoney(planC)}</div>${planC?'':'<div class="pl" style="color:var(--amber)">no budget set</div>'}</div>
-        <div class="mdPie"><canvas id="${pieH}" width="150" height="110"></canvas><div class="pl">Hours${hp==null?'':' · '+Math.round(usedH)+' of '+planH+' h'}</div>${planH?'':'<div class="pl" style="color:var(--amber)">no planned hours</div>'}</div>
-      </div>
-      ${over?`<div class="warn red">Over budget by ${mdashFmtMoney(usedC-planC)}${hp!=null?' with '+Math.max(0,100-hp)+'% of hours left':''}</div>`:ahead?`<div class="warn">Spend is running ${cp-hp} points ahead of labour</div>`:''}
-    </div>`;}).join('')||'<div class="empty">All projects complete.</div>':'<div class="empty">No projects yet.</div>';
+  if(planC)store._mdashPies.push({id:'mdPieSpend',segs:overC?[{v:planC,c:'#3ddc84'},{v:usedC-planC,c:'#ff5d5d'}]:[{v:usedC,c:'#3ddc84'},{v:planC-usedC,c:'#2c313a'}],label:cp+'%'});
+  if(planH)store._mdashPies.push({id:'mdPieHours',segs:overH?[{v:planH,c:'#5db8ff'},{v:usedH-planH,c:'#ff5d5d'}]:[{v:usedH,c:'#5db8ff'},{v:planH-usedH,c:'#2c313a'}],label:hp+'%'});
+  const scopeLbl=dsel==='all'?`${live.length} active project${live.length===1?'':'s'}`:(projs[0]&&projs[0].name)||'';
+  const projHTML=`<div class="mdProj">
+    <div class="top"><span class="nm">${scopeLbl}</span><span class="due">${dsel==='all'?withC.length+' with a budget · '+withH.length+' with planned hours':(live.length?mgrProjectStats(projs[0],items).done+'/'+mgrProjectStats(projs[0],items).items+' items at site':'complete')}</span></div>
+    <div class="mdPies">
+      <div class="mdPie"><canvas id="mdPieSpend" width="190" height="140"></canvas>
+        <div class="pt" style="color:var(--green)">SPEND</div>
+        <div class="pl">${planC?mdashFmtMoney(usedC)+' of '+mdashFmtMoney(planC):'<span style="color:var(--amber)">no budget set</span>'}</div>
+        ${planC?`<div class="pl">${overC?'<span style="color:var(--red)">over by '+mdashFmtMoney(usedC-planC)+'</span>':mdashFmtMoney(planC-usedC)+' remaining'}</div>`:''}</div>
+      <div class="mdPie"><canvas id="mdPieHours" width="190" height="140"></canvas>
+        <div class="pt" style="color:var(--blue)">HOURS</div>
+        <div class="pl">${planH?Math.round(usedH)+' h of '+planH+' h':'<span style="color:var(--amber)">no planned hours</span>'}</div>
+        ${planH?`<div class="pl">${overH?'<span style="color:var(--red)">over by '+Math.round(usedH-planH)+' h</span>':Math.round(planH-usedH)+' h remaining'}</div>`:''}</div>
+    </div>
+    ${overC?`<div class="warn red">Over budget${hp!=null?' with '+Math.max(0,100-hp)+'% of hours still to go':''}</div>`:ahead?`<div class="warn">Spend is running ${cp-hp} points ahead of labour</div>`:''}
+  </div>`;
 
   // --- crew today ---
   const today=new Date();today.setHours(0,0,0,0);
@@ -2668,7 +2677,7 @@ function mgrDashboardHTML(){
         <div class="scroll"><table><thead><tr><th>Project</th><th>Supplier</th><th class="r">Total</th><th>From</th><th></th></tr></thead><tbody>${ordersHTML}</tbody></table></div></div>
     </div>
     <div>
-      <div class="card"><div class="cardHead"><span>PROJECT HEALTH</span><small style="color:var(--mut);font-weight:400">hours and spend vs plan</small></div>${projHTML}</div>
+      <div class="card"><div class="cardHead"><span>PROJECT HEALTH</span><small style="color:var(--mut);font-weight:400">${dsel==='all'?'all projects combined':'this project'}</small></div>${projHTML}</div>
       <div class="card"><div class="cardHead"><span>CREW TODAY</span><small style="color:var(--mut);font-weight:400">from timekeeper check-ins</small></div>${crewHTML}</div>
       <div class="card"><div class="cardHead"><span>SITE INSTALLATION PROGRESS</span><small style="color:var(--mut);font-weight:400">from site visits and snags</small></div>${siteHTML}</div>
     </div>
@@ -2754,7 +2763,7 @@ function mdashDrawPie3D(cv,segs,label){
   const W=cv.width,H=cv.height,cx=W/2,cy=H/2-6,rx=Math.min(W,H*1.6)/2-8,ry=rx*0.55,depth=14;
   const total=segs.reduce((a,s)=>a+Math.max(0,s.v),0);
   g.clearRect(0,0,W,H);
-  if(!total){g.strokeStyle='#333944';g.beginPath();g.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);g.stroke();return;}
+  if(!total){g.strokeStyle='#333944';g.setLineDash([4,4]);g.beginPath();g.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);g.stroke();g.setLineDash([]);return;}
   const arcs=[];let a0=-Math.PI/2;
   segs.forEach(s=>{const a1=a0+Math.max(0,s.v)/total*Math.PI*2;arcs.push({a0,a1,c:s.c});a0=a1;});
   const shade=(hex,k)=>{const n=parseInt(hex.slice(1),16);const r=Math.round(((n>>16)&255)*k),gg=Math.round(((n>>8)&255)*k),b=Math.round((n&255)*k);return 'rgb('+r+','+gg+','+b+')';};
@@ -2766,7 +2775,7 @@ function mdashDrawPie3D(cv,segs,label){
   g.beginPath();g.ellipse(cx,cy-ry*0.15,rx*0.6,ry*0.35,0,0,Math.PI*2);g.fillStyle='rgba(255,255,255,0.06)';g.fill();
   if(label){g.fillStyle='#e7e9ec';g.font='bold 15px JetBrains Mono, monospace';g.textAlign='center';g.textBaseline='middle';g.fillText(label,cx,cy+depth+ry+8>H-6?cy:cy);}
 }
-function mdashMountPies(){(store._mdashPies||[]).forEach(p=>{const cv=document.getElementById(p.id);if(cv)mdashDrawPie3D(cv,p.segs,p.label);});}
+function mdashMountPies(){['mdPieSpend','mdPieHours'].forEach(id=>{const cv=document.getElementById(id);if(!cv)return;const p=(store._mdashPies||[]).find(x=>x.id===id);mdashDrawPie3D(cv,p?p.segs:[],p?p.label:'');});}
 let _mdashChartObj=null;
 function mdashMountChart(){
   const cv=document.getElementById('mdashCurve'); const st=store._mdashChart;
