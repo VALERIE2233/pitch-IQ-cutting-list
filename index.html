@@ -427,7 +427,7 @@ const store={
   unreadByOrder:{}, unreadLoaded:false,
   incoming:[], incomingLoaded:false,
   myOrders:[], myOrdersLoaded:false,
-  projectName:'My First Project', projects:[], projectsLoaded:false, showProjects:false,
+  projectName:'New project', projects:[], projectsLoaded:false, showProjects:false,
   timberRows:[],
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
@@ -604,7 +604,7 @@ async function deleteProject(id,name){
     store.projects=(store.projects||[]).filter(p=>p.id!==id);
     if(id===_workspaceId){
       // the deleted project was the one currently open — reset to a blank workspace
-      _workspaceId=null; _workspaceOwnerId=null; store.projectName='My First Project';
+      _workspaceId=null; _workspaceOwnerId=null; store.projectName='New project';
       applyProject({}); store.syncState='';
     }
     render();
@@ -6510,7 +6510,7 @@ function appHTML(){
   ${store.showProjects?`<div style="padding:12px 14px;background:#15181d;border-bottom:1px solid var(--line)">
     <div style="font-size:11px;color:var(--mut);margin-bottom:8px">${store.projectsLoaded?'ALL PROJECTS IN '+(store.account.company||'YOUR COMPANY').toUpperCase():'LOADING PROJECTS\u2026'} — tap to open</div>
     ${store.projectsError?`<div style="padding:8px 10px;margin-bottom:8px;border:1px solid var(--red);border-radius:4px;color:var(--red);font-size:11px">Could not load projects: ${store.projectsError}</div>`:''}
-    ${!(store.projects||[]).length&&store.projectsLoaded&&!store.projectsError?`<div class="hint" style="padding:8px 0">No projects in this company yet. Use + NEW PROJECT to create the first one.</div>`:''}
+    ${!(store.projects||[]).some(p=>!p._demo)&&store.projectsLoaded&&!store.projectsError?`<div class="hint" style="padding:8px 0">No projects of your own yet — the two DEMO projects show how a finished one looks (they can't be edited). Use + NEW PROJECT to start your first.</div>`:''}
     ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px"><span style="cursor:pointer;flex:1" data-openproj="${p.id}">${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut);margin-right:8px">${new Date(p.updated_at).toLocaleDateString()}</span>${(p.owner_id===store.account.uid||p.name==='My First Project')?`<button data-delproj="${p.id}" data-delprojname="${p.name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Delete this project">🗑</button>`:''}</div>`).join('')||'<div class="empty">No projects yet.</div>'}
   </div>`:''}
   <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">FIT-OUT&nbsp;IQ &middot; SUPERVISOR</div><div class="sub">${store.account.company||'<span style="color:var(--red)">NO COMPANY SET &mdash; open my account</span>'}</div></div></div>
@@ -8543,7 +8543,7 @@ async function loadSession(){
     store.zones=[{id:1,name:'Zone 1'}]; store.zoneFilter='all';
     store.linRows=[{id:Date.now(),zone:1,label:'Stud',code:'STUD-92',thk:92,len:2400,qty:10}]; store.sheetRows=[]; store.paintRows=[];
     store.assemblyRows=[]; store.customAssemblies=[]; store.bankedDrops=[];
-    _workspaceId=null; store.projectName='My First Project';
+    _workspaceId=null; store.projectName='New project';
     store.projects=[]; store.projectsLoaded=false;
     store.myOrders=[]; store.myOrdersLoaded=false;
     store._loadedUid=uid;
@@ -8558,8 +8558,16 @@ async function loadSession(){
   if(acctType!=='supplier' && !_workspaceId){
     try{
       await loadProjects();
-      const existing=(store.projects||[]);
+      const existing=(store.projects||[]).filter(p=>!p._demo);
       if(existing.length){ await openProject(existing[0].id); }
+      else if(!store.hideDemo){
+        // Brand-new company: nothing of their own yet. Open the demo project
+        // (view-only) instead of an empty "My First Project", so the first thing
+        // anyone sees is a worked example. Their own work starts when they
+        // press "New project".
+        applyDemo();
+        if((store.projects||[]).some(p=>p.id===DEMO_PROJECT_ID))await openProject(DEMO_PROJECT_ID);
+      }
     }catch(e){}
   }
   store._bootstrapping=false;
