@@ -431,7 +431,7 @@ const store={
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
   const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j.connCheck;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -2511,6 +2511,58 @@ function mdashWeekStart(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.g
 function mdashWeekNo(d){const x=mdashWeekStart(d);const y=new Date(x.getFullYear(),0,4);const y0=mdashWeekStart(y);return Math.round((x-y0)/6048e5)+1;}
 function mdashFmtRange(ws){const e=new Date(ws);e.setDate(e.getDate()+6);const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];const f=x=>x.getDate()+' '+m[x.getMonth()];return f(ws)+' – '+f(e);}
 
+
+// ---- Connection check: why can't the manager see the team's projects? ----
+// Shows the manager which people and projects Supabase actually returns for this
+// company, finds near-duplicate companies (same name, different id — the usual
+// cause), and can pull everyone under one company id.
+async function runConnCheck(){
+  if(!sb||!store.account){return;}
+  const out={people:[],dupes:[],jobs:0,items:0,err:''};
+  try{
+    const {data:ps,error:e1}=await sb.from('profiles').select('id,full_name,email,account_type,company_id');
+    if(e1)throw e1;
+    const mine=(ps||[]).filter(p=>p.company_id===store.account.companyId);
+    out.people=mine;
+    const {data:cos}=await sb.from('companies').select('id,name');
+    const myName=((store.account.company||'').trim().toLowerCase().replace(/\s+/g,' '));
+    out.dupes=(cos||[]).filter(c=>c.id!==store.account.companyId&&(c.name||'').trim().toLowerCase().replace(/\s+/g,' ')===myName)
+      .map(c=>({id:c.id,name:c.name,people:(ps||[]).filter(p=>p.company_id===c.id)}));
+    const {data:js,error:e2}=await sb.from('jobs').select('id,name,owner_id,company_id');
+    if(e2)throw e2;
+    out.allJobs=(js||[]);
+    out.jobs=(js||[]).filter(j=>j.company_id===store.account.companyId||mine.some(p=>p.id===j.owner_id)).length;
+    out.strays=(js||[]).filter(j=>j.company_id!==store.account.companyId&&!mine.some(p=>p.id===j.owner_id)).length;
+    const {data:its}=await sb.from('production_items').select('id,company_id,project_id');
+    out.items=(its||[]).length;
+  }catch(e){out.err=(e&&e.message)||String(e);}
+  store.connCheck=out;render();
+}
+async function mergeCompany(otherId){
+  if(!sb||!store.account||!otherId)return;
+  if(!confirm('Move everyone (people, projects, production items) from that duplicate company into '+store.account.company+'? This cannot be undone.'))return;
+  const cid=store.account.companyId; const errs=[];
+  const upd=async(tbl,extra)=>{try{const {error}=await sb.from(tbl).update({company_id:cid}).eq('company_id',otherId);if(error)errs.push(tbl+': '+error.message);}catch(e){errs.push(tbl+': '+e.message);}};
+  for(const t of ['profiles','jobs','production_items','purchases','attendance','crew_members','crew_attendance','site_visits','snags','procurement_requests'])await upd(t);
+  // projects owned by the moved people
+  try{const {data:ps}=await sb.from('profiles').select('id').eq('company_id',cid);const ids=(ps||[]).map(p=>p.id);if(ids.length){await sb.from('jobs').update({company_id:cid}).in('owner_id',ids);}}catch(e){}
+  if(errs.length)alert('Some tables could not be updated (check row-level security):\n'+errs.join('\n'));
+  ['projectsLoaded','prodItemsLoaded','purchasesLoaded','attLoaded','crewAttLoaded','siteVisitsLoaded','snagsLoaded','apprLoaded','crewLoaded','procReqLoaded'].forEach(k=>store[k]=false);
+  store.connCheck=null; render();
+}
+function connCheckHTML(){
+  const c=store.connCheck;
+  const head=`<div class="card" style="border-color:var(--blue)"><div class="cardHead" style="color:var(--blue)"><span>CONNECTION CHECK</span><button class="gbtn" id="connCheckBtn" style="padding:5px 9px;font-size:10px">${c?'RUN AGAIN':'CHECK WHY PROJECTS ARE MISSING'}</button></div>`;
+  if(!c)return head+`<div class="hint" style="padding:10px 16px 14px">Signed in as <strong>${store.account.name||store.account.email}</strong> · company <strong>${store.account.company}</strong> <span style="color:var(--mut)">(id ${store.account.companyId||'none'})</span>. If supervisors' projects don't appear, run the check — it lists who Supabase says is in this company and finds duplicate companies with the same name.</div></div>`;
+  if(c.err)return head+`<div class="hint" style="padding:10px 16px 14px;color:var(--red)">Supabase refused: ${c.err}<br><span style="color:var(--mut)">This is row-level security — the manager is not allowed to read other people's rows. The policy to add is in the deployment notes.</span></div></div>`;
+  return head+`<div style="padding:10px 16px 14px;font-size:11px;line-height:1.7">
+    <div><strong>${c.people.length}</strong> people in this company: ${c.people.map(p=>`${p.full_name||p.email||p.id.slice(0,6)} <span style="color:var(--mut)">(${p.account_type||'?'})</span>`).join(', ')||'<span style="color:var(--red)">nobody but you — supervisors are registered under a different company id</span>'}</div>
+    <div><strong>${c.jobs}</strong> projects visible for this company · <strong>${c.items}</strong> production items readable · ${c.strays?`<span style="color:var(--amber)">${c.strays} project${c.strays>1?'s':''} belong to other companies</span>`:'no stray projects'}</div>
+    ${c.dupes.length?c.dupes.map(d=>`<div style="margin-top:8px;padding:8px 10px;border:1px dashed var(--amber);border-radius:3px"><span style="color:var(--amber)">Duplicate company found:</span> "${d.name}" <span style="color:var(--mut)">(id ${d.id})</span> with ${d.people.length} people: ${d.people.map(p=>p.full_name||p.email||p.id.slice(0,6)).join(', ')||'none'}.
+      <button class="zadd" data-mergeco="${d.id}" style="margin-left:8px;font-size:10px;padding:4px 8px">MERGE INTO ${(store.account.company||'').toUpperCase()}</button></div>`).join('')
+      :`<div style="color:var(--mut)">No duplicate company names. If people are still missing, ask them to open Account &rarr; set company to exactly "${store.account.company}".</div>`}
+  </div></div>`;
+}
 // ---------------------------------------------------------------- TAB 1
 function mgrDashboardHTML(){
   mdashLoadAll();
@@ -2589,7 +2641,7 @@ function mgrDashboardHTML(){
     ${store.projectsError?`<div class="hint" style="color:var(--red);padding:10px 16px">Could not load projects: ${store.projectsError}</div>`:''}
     <div class="chips" style="padding:10px 16px">${projs.map(p=>{const n=mdashItemsFor(p,items).length;const st=mgrProjectStats(p,items);return `<span class="chip" style="${p._demo?'border-style:dashed;':''}${st.complete?'color:var(--green);':''}" title="${(p.editors&&Object.keys(p.editors).join(', '))||''}">${p.name||'(unnamed)'} <span style="color:var(--mut)">· ${n?st.done+'/'+n+' at site':'no items yet'}</span></span>`;}).join('')||'<span class="empty">No projects yet.</span>'}</div>
     ${noItems.length?`<div class="hint" style="padding:0 16px 12px">${noItems.length} project${noItems.length>1?'s have':' has'} a cutting list but no production items yet, so ${noItems.length>1?'they':'it'} won't show in the pipeline until a supervisor adds items on the Projects &amp; Items screen.</div>`:''}</div>`;
-  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>${projStrip}
+  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>${projStrip}${(!realProjs.length||store.connCheck)?connCheckHTML():''}
   <div class="mdAttnRow">
     ${attn(blocked.length,'Items blocked or on hold','red','tracking2')}
     ${attn(aging.length,'Items in one stage over 7 days','amber','tracking2')}
@@ -2721,6 +2773,8 @@ function mdashWire(){
   if(sc)sc.oninput=()=>{const st=store._mdashChart;if(!st)return;const past=st.s.rows.filter(r=>r.past);const r=past[+sc.value];if(r){store.dashReviewUpto=r.w;render();}};
   const rs=document.getElementById('mdashScrubReset');if(rs)rs.onclick=()=>{store.dashReviewUpto=null;render();};
   const sf=document.getElementById('mdashFuture');if(sf)sf.onchange=()=>{store.dashShowFuture=sf.checked;render();};
+  const cc=document.getElementById('connCheckBtn');if(cc)cc.onclick=()=>{cc.textContent='CHECKING…';runConnCheck();};
+  document.querySelectorAll('[data-mergeco]').forEach(b=>b.onclick=()=>mergeCompany(b.dataset.mergeco));
   mdashMountChart();
 }
 
@@ -5855,7 +5909,7 @@ function wireAccountOverlay(){
         // same find-by-exact-name-or-create pattern used at signup, so this
         // links to an existing company rather than accidentally forking a
         // near-duplicate one (a real bug we hit earlier from name mismatches).
-        const {data:found}=await sb.from('companies').select('id').eq('name',companyName).maybeSingle();
+        const {data:found}=await sb.from('companies').select('id').ilike('name',companyName.trim()).limit(1).maybeSingle();
         if(found){ companyId=found.id; }
         else { const {data:created}=await sb.from('companies').insert({name:companyName}).select().single(); if(created)companyId=created.id; }
       }
@@ -7474,7 +7528,7 @@ function wire(){
         // ensure profile row exists, then link company + manager role (with retry)
         for(let i=0;i<5;i++){try{const {data:pr}=await sb.from('profiles').select('id').eq('id',uid).maybeSingle();if(pr)break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
         let companyId=null;
-        try{const {data:found}=await sb.from('companies').select('id').eq('name',co).maybeSingle();if(found)companyId=found.id;}catch(ex){}
+        try{const {data:found}=await sb.from('companies').select('id').ilike('name',co.trim()).limit(1).maybeSingle();if(found)companyId=found.id;}catch(ex){}
         if(!companyId){try{const {data:co2}=await sb.from('companies').insert({name:co}).select().single();if(co2)companyId=co2.id;}catch(ex){}}
         for(let i=0;i<4;i++){try{await sb.from('profiles').update({full_name:n,phone:p,company_id:companyId,account_type:'manager',role:'manager'}).eq('id',uid);}catch(ex){}try{const {data:chk}=await sb.from('profiles').select('company_id,account_type').eq('id',uid).maybeSingle();if(chk&&chk.company_id&&chk.account_type==='manager')break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
         await loadSession();
@@ -7501,7 +7555,7 @@ function wire(){
         const uid=data.user?.id;
         for(let i=0;i<5;i++){try{const {data:pr}=await sb.from('profiles').select('id').eq('id',uid).maybeSingle();if(pr)break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
         let companyId=null;
-        try{const {data:found}=await sb.from('companies').select('id').eq('name',co).maybeSingle();if(found)companyId=found.id;}catch(ex){}
+        try{const {data:found}=await sb.from('companies').select('id').ilike('name',co.trim()).limit(1).maybeSingle();if(found)companyId=found.id;}catch(ex){}
         if(!companyId){try{const {data:co2}=await sb.from('companies').insert({name:co}).select().single();if(co2)companyId=co2.id;}catch(ex){}}
         for(let i=0;i<4;i++){try{await sb.from('profiles').update({full_name:n,phone:p,company_id:companyId,account_type:'site_engineer',role:'site_engineer'}).eq('id',uid);}catch(ex){}try{const {data:chk}=await sb.from('profiles').select('company_id,account_type').eq('id',uid).maybeSingle();if(chk&&chk.company_id&&chk.account_type==='site_engineer')break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
         await loadSession();
@@ -7528,7 +7582,7 @@ function wire(){
         const uid=data.user?.id;
         for(let i=0;i<5;i++){try{const {data:pr}=await sb.from('profiles').select('id').eq('id',uid).maybeSingle();if(pr)break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
         let companyId=null;
-        try{const {data:found}=await sb.from('companies').select('id').eq('name',co).maybeSingle();if(found)companyId=found.id;}catch(ex){}
+        try{const {data:found}=await sb.from('companies').select('id').ilike('name',co.trim()).limit(1).maybeSingle();if(found)companyId=found.id;}catch(ex){}
         if(!companyId){try{const {data:co2}=await sb.from('companies').insert({name:co}).select().single();if(co2)companyId=co2.id;}catch(ex){}}
         for(let i=0;i<4;i++){try{await sb.from('profiles').update({full_name:n,phone:p,company_id:companyId,account_type:'timekeeper',role:'site_engineer'}).eq('id',uid);}catch(ex){}try{const {data:chk}=await sb.from('profiles').select('company_id,account_type').eq('id',uid).maybeSingle();if(chk&&chk.company_id&&chk.account_type==='site_engineer')break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
         await loadSession();
@@ -7555,7 +7609,7 @@ function wire(){
         const uid=data.user?.id;
         for(let i=0;i<5;i++){try{const {data:pr}=await sb.from('profiles').select('id').eq('id',uid).maybeSingle();if(pr)break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
         let companyId=null;
-        try{const {data:found}=await sb.from('companies').select('id').eq('name',co).maybeSingle();if(found)companyId=found.id;}catch(ex){}
+        try{const {data:found}=await sb.from('companies').select('id').ilike('name',co.trim()).limit(1).maybeSingle();if(found)companyId=found.id;}catch(ex){}
         if(!companyId){try{const {data:co2}=await sb.from('companies').insert({name:co}).select().single();if(co2)companyId=co2.id;}catch(ex){}}
         for(let i=0;i<4;i++){try{await sb.from('profiles').update({full_name:n,phone:p,company_id:companyId,account_type:'procurement',role:'procurement'}).eq('id',uid);}catch(ex){}try{const {data:chk}=await sb.from('profiles').select('company_id,account_type').eq('id',uid).maybeSingle();if(chk&&chk.company_id&&chk.account_type==='procurement')break;}catch(ex){}await new Promise(r=>setTimeout(r,500));}
         await loadSession();
@@ -8269,7 +8323,7 @@ async function linkContractorCompany(uid,companyName,fullName,phone,location){
   }
   // 2) find existing company by name, else create it
   let companyId=null;
-  try{const {data:found}=await sb.from('companies').select('id').eq('name',companyName).maybeSingle();if(found)companyId=found.id;}catch(e){}
+  try{const {data:found}=await sb.from('companies').select('id').ilike('name',companyName.trim()).limit(1).maybeSingle();if(found)companyId=found.id;}catch(e){}
   if(!companyId){
     try{const {data:co}=await sb.from('companies').insert({name:companyName}).select().single();if(co)companyId=co.id;}catch(e){}
   }
