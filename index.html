@@ -572,7 +572,7 @@ async function loadProjectItems(projectId){
 // in between. It still can't protect against a supervisor saving the same
 // project at the exact same moment — rare, but worth knowing.
 async function addToProject(projectId, {zoneName, itemName}){
-  if(isDemoId(projectId)){demoGuard(projectId);return false;}
+  if(isDemoId(projectId)){return false;}
   if(!sb||!projectId)return false;
   try{
     const {data}=await sb.from('jobs').select('data').eq('id',projectId).maybeSingle();
@@ -2096,7 +2096,7 @@ async function setItemBlocks(id){
   await updateProductionItem(it.id,{blocks:blocks});
 }
 async function pullItemsFromProject(projectId){
-  if(isDemoId(projectId)){demoGuard(projectId);return false;}
+  if(isDemoId(projectId)){return false;}
   if(!projectId){alert('Pick a project first.');return;}
   const pr=(store.projects||[]).find(x=>String(x.id)===String(projectId));
   let rows=[], zonesById={};
@@ -3723,7 +3723,7 @@ function assigneeChips(v){
 // project, so this loads the project's own data, runs the same calculations
 // against it, and caches the result.
 async function loadProjectMaterials(projectId){
-  if(isDemoId(projectId)){demoGuard(projectId);return [];}
+  if(isDemoId(projectId)){return [];}
   if(!sb||!projectId)return;
   store.matCache=store.matCache||{};
   if(store.matCache[projectId]==='loading')return;
