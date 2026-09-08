@@ -2282,7 +2282,7 @@ function managerHTML(){
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight">${store.hideDemo?'<button class="gbtn" id="showDemoBtn" title="Bring the demo project back">DEMO</button>':''}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
-    <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="color:var(--amber)">DASHBOARD</button>
+    <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="color:var(--amber)">PROJECT STATUS</button>
     <button class="tab ${store.managerTab==='review'?'on':''}" data-mgrtab="review" style="color:var(--amber)">COMPANY REVIEW</button>
 
     <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="color:var(--amber)">👷 SITE VISITS</button>
@@ -2561,8 +2561,12 @@ function connCheckHTML(){
 function mgrDashboardHTML(){
   mdashLoadAll();
   if(!store.projectsLoaded||!store.prodItemsLoaded)return '<div class="hint" style="padding-top:14px">Loading&hellip;</div>';
-  const items=store.prodItems||[], projs=store.projects||[], pending=(store.approvals||[]).filter(o=>o.status==='pending_approval');
-  const visits=store.siteVisits||[], snags=store.snags||[];
+  const allProjs=store.projects||[], dsel=store.dashProjSel||'all';
+  const projs=dsel==='all'?allProjs:allProjs.filter(p=>String(p.id)===String(dsel));
+  const inSel=(pid,pname)=>dsel==='all'||projs.some(p=>String(p.id)===String(pid)||(pname&&p.name===pname));
+  const items=(store.prodItems||[]).filter(i=>inSel(i.project_id,i.project_name));
+  const pending=(store.approvals||[]).filter(o=>o.status==='pending_approval'&&inSel(o.project_id,o.project_name));
+  const visits=(store.siteVisits||[]).filter(v=>inSel(v.project_id,v.project_name)), snags=(store.snags||[]).filter(x=>inSel(x.project_id,x.project_name));
   const weekAgo=Date.now()-7*86400000;
 
   // --- attention ---
@@ -2602,9 +2606,9 @@ function mgrDashboardHTML(){
 
   // --- crew today ---
   const today=new Date();today.setHours(0,0,0,0);
-  const att=(store.attendance||[]).filter(r=>r.sign_in_at&&new Date(r.sign_in_at)>=today);
+  const att=(store.attendance||[]).filter(r=>r.sign_in_at&&new Date(r.sign_in_at)>=today&&(dsel==='all'||inSel(r.project_id)));
   const onProj=att.filter(r=>r.project_id).length;
-  const crewRows=(store.crewAtt||[]).filter(r=>r.sign_in_at&&new Date(r.sign_in_at)>=today);
+  const crewRows=(store.crewAtt||[]).filter(r=>r.sign_in_at&&new Date(r.sign_in_at)>=today&&(dsel==='all'||inSel(r.project_id)));
   const crewHTML=`<div class="mdCrew"><div><div class="n" style="color:var(--green)">${att.length+crewRows.length}</div><div class="l">Signed in today</div></div><div><div class="n" style="color:var(--blue)">${onProj+crewRows.filter(r=>r.project_id).length}</div><div class="l">On a project / site</div></div><div><div class="n">${att.length-onProj+crewRows.filter(r=>!r.project_id).length}</div><div class="l">In factory (no project)</div></div><div><div class="n" style="color:var(--amber)">${(att.length?att.reduce((a,r)=>a+crewHours(r),0):0).toFixed(0)} h</div><div class="l">Hours so far today</div></div></div>`;
 
   // --- site installation ---
@@ -2629,13 +2633,15 @@ function mgrDashboardHTML(){
       ${zones.map(z=>zoneRow(z,mine.filter(i=>(i.zone_name||'').trim()===z),openSnags)).join('')}
       ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
 
-  const realProjs=projs.filter(p=>!p._demo);
-  const noItems=realProjs.filter(p=>!mdashItemsFor(p,items).length);
-  const projStrip=`<div class="card" style="margin-top:14px"><div class="cardHead"><span>PROJECTS IN ${(store.account.company||'YOUR COMPANY').toUpperCase()} — ${realProjs.length}${projs.length>realProjs.length?' (+'+(projs.length-realProjs.length)+' demo)':''}</span></div>
+  const realProjs=allProjs.filter(p=>!p._demo);
+  const noItems=realProjs.filter(p=>!mdashItemsFor(p,store.prodItems||[]).length);
+  const projStrip=`<div class="card" style="margin-top:14px"><div class="cardHead"><span>PROJECTS IN ${(store.account.company||'YOUR COMPANY').toUpperCase()} — ${realProjs.length}${allProjs.length>realProjs.length?' (+'+(allProjs.length-realProjs.length)+' demo)':''}</span></div>
     ${store.projectsError?`<div class="hint" style="color:var(--red);padding:10px 16px">Could not load projects: ${store.projectsError}</div>`:''}
-    <div class="chips" style="padding:10px 16px">${projs.map(p=>{const n=mdashItemsFor(p,items).length;const st=mgrProjectStats(p,items);return `<span class="chip" style="${p._demo?'border-style:dashed;':''}${st.complete?'color:var(--green);':''}" title="${(p.editors&&Object.keys(p.editors).join(', '))||''}">${p.name||'(unnamed)'} <span style="color:var(--mut)">· ${n?st.done+'/'+n+' at site':'no items yet'}</span></span>`;}).join('')||'<span class="empty">No projects yet.</span>'}</div>
+    <div class="chips" style="padding:10px 16px">${allProjs.map(p=>{const n=mdashItemsFor(p,store.prodItems||[]).length;const st=mgrProjectStats(p,store.prodItems||[]);return `<span class="chip" style="${p._demo?'border-style:dashed;':''}${st.complete?'color:var(--green);':''}" title="${(p.editors&&Object.keys(p.editors).join(', '))||''}">${p.name||'(unnamed)'} <span style="color:var(--mut)">· ${n?st.done+'/'+n+' at site':'no items yet'}</span></span>`;}).join('')||'<span class="empty">No projects yet.</span>'}</div>
     ${noItems.length?`<div class="hint" style="padding:0 16px 12px">${noItems.length} project${noItems.length>1?'s have':' has'} a cutting list but no production items yet, so ${noItems.length>1?'they':'it'} won't show in the pipeline until a supervisor adds items on the Projects &amp; Items screen.</div>`:''}</div>`;
-  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it.</div>${projStrip}${(!realProjs.length||store.connCheck)?connCheckHTML():''}
+  const projOpts=[{id:'all',name:'All projects ('+allProjs.length+')'},...allProjs.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''))].map(p=>`<option value="${p.id}" ${String(dsel)===String(p.id)?'selected':''}>${p.name||'(unnamed)'}</option>`).join('');
+  const picker=`<div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-top:14px"><span class="zlbl">PROJECT</span><select class="sel" id="mdashDashProj" style="min-width:220px;max-width:100%;padding:8px 10px;font-size:12px">${projOpts}</select><span style="flex:1"></span><span class="hint" style="padding:0">Where everything stands today, and what is holding it.</span></div>`;
+  return `${demoBannerHTML()}${picker}${dsel==='all'?projStrip:''}${(!realProjs.length||store.connCheck)?connCheckHTML():''}
   <div class="mdAttnRow">
     ${attn(blocked.length,'Items blocked or on hold','red','')}
     ${attn(aging.length,'Items in one stage over 7 days','amber','')}
@@ -2643,7 +2649,7 @@ function mgrDashboardHTML(){
     ${attn(recentVisits.length,'Site visits logged this week','blue','sitevisits')}
     ${attn(delivered.length,'Items delivered this week','green','')}
   </div>
-  <div class="card"><div class="cardHead"><span>PRODUCTION PIPELINE — ${items.length} ITEMS · ${(()=>{const z={};items.forEach(i=>{z[(i.project_name||'')+'|'+(i.zone_name||'')]=1;});return Object.keys(z).length;})()} ZONES · ${projs.length} PROJECTS</span></div>
+  <div class="card"><div class="cardHead"><span>PRODUCTION PIPELINE — ${items.length} ITEMS · ${(()=>{const z={};items.forEach(i=>{z[(i.project_name||'')+'|'+(i.zone_name||'')]=1;});return Object.keys(z).length;})()} ZONES · ${projs.length} PROJECT${projs.length===1?'':'S'}</span></div>
     <div class="mdPipe">${pipeHTML}</div>
     <div class="mdLegend"><span><i style="background:var(--blue)"></i>On track</span><span><i style="background:var(--amber)"></i>Over 7 days in stage</span><span><i style="background:var(--red)"></i>Blocked / on hold</span><span><i style="background:var(--green)"></i>At site</span></div></div>
   <div class="mdCols">
@@ -2761,6 +2767,7 @@ function mdashMountChart(){
 }
 function mdashWire(){
   const mp=document.getElementById('mdashProj');if(mp)mp.onchange=()=>{store.dashReviewSel=mp.value;store.dashReviewUpto=null;render();};
+  const dp=document.getElementById('mdashDashProj');if(dp)dp.onchange=()=>{store.dashProjSel=dp.value;render();};
   document.querySelectorAll('[data-dashmode]').forEach(b=>b.onclick=()=>{store.dashReviewMode=b.dataset.dashmode;store.dashReviewUpto=null;render();});
   const sc=document.getElementById('mdashScrub');
   if(sc)sc.oninput=()=>{const st=store._mdashChart;if(!st)return;const past=st.s.rows.filter(r=>r.past);const r=past[+sc.value];if(r){store.dashReviewUpto=r.w;render();}};
