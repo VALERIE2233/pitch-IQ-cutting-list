@@ -206,6 +206,41 @@
   [dir="rtl"] .hint{text-align:right}
   [dir="rtl"] td,[dir="rtl"] th{text-align:right}
   [dir="rtl"] td.r,[dir="rtl"] th.r{text-align:left}
+  /* ---- Manager dashboard + company review (mdash) ---- */
+  .mdAttnRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:14px 0 18px}
+  .mdAttn{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:4px;padding:12px 14px;color:var(--txt);text-align:left;font-family:var(--mono)}
+  .mdAttn .n{font-size:30px;font-weight:800;line-height:1}.mdAttn .l{font-size:11px;color:var(--mut)}
+  .mdAttn.red{border-left-color:var(--red)}.mdAttn.red .n{color:var(--red)}
+  .mdAttn.amber{border-left-color:var(--amber)}.mdAttn.amber .n{color:var(--amber)}
+  .mdAttn.blue{border-left-color:var(--blue)}.mdAttn.blue .n{color:var(--blue)}
+  .mdAttn.green{border-left-color:var(--green)}.mdAttn.green .n{color:var(--green)}
+  .mdPipe{display:grid;grid-template-columns:repeat(9,1fr);padding:16px 16px 6px;overflow-x:auto}
+  .mdStage{background:transparent;border:none;border-right:1px dashed var(--line);color:var(--txt);text-align:left;padding:0 6px 10px;min-width:82px;font-family:var(--mono)}
+  .mdStage:last-child{border-right:none}
+  .mdStage .cnt{font-size:26px;font-weight:800;line-height:1}.mdStage .nm{font-size:10px;color:var(--mut);margin-top:4px;white-space:nowrap}
+  .mdStage .bar{margin-top:10px;height:56px;display:flex;flex-direction:column-reverse;gap:2px;overflow:hidden}
+  .mdStage .blk{height:6px;border-radius:1px;background:var(--blue);flex-shrink:0}.mdStage .blk.aging{background:var(--amber)}.mdStage .blk.blocked{background:var(--red)}.mdStage .blk.done{background:var(--green)}
+  .mdLegend{display:flex;gap:16px;padding:6px 16px 14px;font-size:10px;color:var(--mut);flex-wrap:wrap}.mdLegend i{display:inline-block;width:10px;height:6px;border-radius:1px;margin-right:6px;vertical-align:middle}
+  .mdCols{display:grid;grid-template-columns:3fr 2fr;gap:16px}@media(max-width:900px){.mdCols{grid-template-columns:1fr}}
+  .mdTag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid var(--line);color:var(--mut)}.mdTag.red{border-color:var(--red);color:var(--red)}.mdTag.amber{border-color:var(--amber);color:var(--amber)}
+  .mdDays{font-weight:700}.mdDays.red{color:var(--red)}.mdDays.amber{color:var(--amber)}
+  .mdAct{background:transparent;border:1px solid var(--line);color:var(--txt);font-size:10px;padding:5px 9px;border-radius:2px;white-space:nowrap}.mdAct.ok{border-color:var(--green);color:var(--green)}.mdAct.no{border-color:var(--red);color:var(--red)}
+  .mdProj{padding:12px 16px;border-bottom:1px solid #2c313a}.mdProj:last-child{border-bottom:none}
+  .mdProj .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}.mdProj .nm{font-weight:700}.mdProj .due{font-size:11px;color:var(--mut)}
+  .mdProj .track{display:grid;grid-template-columns:60px 1fr 48px;gap:10px;align-items:center;margin-top:8px;font-size:11px}.mdProj .lab{color:var(--mut)}.mdProj .pct{text-align:right;font-weight:700}
+  .mdProj .warn{font-size:11px;color:var(--amber);margin-top:6px}.mdProj .warn.red{color:var(--red)}
+  .mdRail{height:7px;background:var(--steel);border:1px solid var(--line);border-radius:3px;overflow:hidden;position:relative;margin-top:2px}.mdRail i{display:block;height:100%;border-radius:3px}.mdRail b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--txt);opacity:.7}
+  .mdCrew{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:12px 16px}.mdCrew>div{background:var(--steel);border:1px solid var(--line);border-radius:4px;padding:10px 12px}.mdCrew .n{font-size:22px;font-weight:800;line-height:1}.mdCrew .l{font-size:10px;color:var(--mut);margin-top:4px}
+  .mdSite{padding:12px 16px;border-bottom:1px solid #2c313a}.mdSite:last-child{border-bottom:none}
+  .mdSite .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}.mdSite .nm{font-weight:700}.mdSite .eng{font-size:11px;color:var(--mut)}
+  .mdSite .cells{display:flex;gap:3px;margin-top:8px;height:8px}.mdSite .cells i{flex:1;border-radius:1px;background:var(--steel);border:1px solid var(--line)}.mdSite .cells i.del{background:var(--blue);border-color:var(--blue)}.mdSite .cells i.ins{background:var(--green);border-color:var(--green)}.mdSite .cells i.snag{background:var(--amber);border-color:var(--amber)}
+  .mdSite .meta{display:flex;gap:14px;font-size:11px;color:var(--mut);margin-top:6px;flex-wrap:wrap}.mdSite .meta b{color:var(--txt);font-weight:600}.mdSite .snag{font-size:11px;color:var(--amber);margin-top:6px}
+  .mdKpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+  .mdKpi{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}.mdKpi .v{font-size:24px;font-weight:800;line-height:1}.mdKpi .l{font-size:10px;color:var(--mut);margin-top:5px}.mdKpi .d{font-size:11px;color:var(--mut);margin-top:6px}.mdKpi .mdRail{margin-top:8px}
+  .mdChart{padding:14px 16px 6px;height:340px}@media(max-width:700px){.mdChart{height:260px}}
+  .mdScrub{display:flex;align-items:center;gap:12px;padding:8px 16px 14px;font-size:11px;color:var(--mut);flex-wrap:wrap}.mdScrub input{flex:1;min-width:140px;accent-color:var(--amber)}.mdScrub strong{color:var(--txt);min-width:130px}
+  tr.mdNow td{background:rgba(255,179,0,.08)}tr.mdFuture td{color:var(--mut)}
+  .mdVar{font-weight:700}.mdVar.bad{color:var(--red)}.mdVar.good{color:var(--green)}
 </style>
 </head>
 <body>
@@ -395,7 +430,7 @@ const store={
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
   const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -2226,7 +2261,9 @@ function managerHTML(){
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
-    <button class="tab ${(!store.managerTab||store.managerTab==='overview2')?'on':''}" data-mgrtab="overview2" style="color:var(--blue)">1 &middot; OVERVIEW</button>
+    <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="color:var(--amber)">DASHBOARD</button>
+    <button class="tab ${store.managerTab==='review'?'on':''}" data-mgrtab="review" style="color:var(--amber)">COMPANY REVIEW</button>
+    <button class="tab ${store.managerTab==='overview2'?'on':''}" data-mgrtab="overview2" style="color:var(--blue)">1 &middot; OVERVIEW</button>
     <button class="tab ${store.managerTab==='tracking2'?'on':''}" data-mgrtab="tracking2" style="color:var(--blue)">2 &middot; PROJECT TRACKING</button>
     <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production">DETAILED (old)</button>
     <button class="tab ${store.managerTab==='approvals'?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
@@ -2241,7 +2278,7 @@ function managerHTML(){
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`:(!store.managerTab||store.managerTab==='overview2')?`<div class="body">${mgrOverviewHTML()}</div>`:store.managerTab==='tracking2'?`<div class="body">${mgrTrackingHTML()}</div>`:store.managerTab==='production'?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
+  </div>`:(!store.managerTab||store.managerTab==='dash')?`<div class="body">${mgrDashboardHTML()}</div>`:store.managerTab==='review'?`<div class="body">${mgrReviewHTML()}</div>`:store.managerTab==='overview2'?`<div class="body">${mgrOverviewHTML()}</div>`:store.managerTab==='tracking2'?`<div class="body">${mgrTrackingHTML()}</div>`:store.managerTab==='production'?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -2249,6 +2286,247 @@ function managerHTML(){
       ${['Manager','QS','Purchasing','Project Lead','Director','Other'].map(t=>`<button class="cta" data-approvetitle="${t}" style="width:100%;margin-bottom:8px;background:var(--steel);color:var(--ink);border:1px solid var(--line);text-align:left">${t}</button>`).join('')}
       <button class="pbtn" id="cancelApprove" style="width:100%;margin-top:4px">CANCEL</button>
     </div></div>`:''}${accountOverlayHTML()}`;}
+
+
+// ============================================================================
+//  MANAGER DASHBOARD — tab 1 "Dashboard" (status + why) and tab 2 "Company review"
+//  (S-curve of budget / manpower, planned vs used, week by week).
+//  Reads store.prodItems, store.approvals, store.projects, store.purchases,
+//  store.attendance / store.crewAtt, store.siteVisits, store.snags. No new tables.
+//  Plan line uses each project's start_date / end_date if those columns exist on
+//  `jobs`; otherwise it falls back to created_at + 12 weeks and says so.
+// ============================================================================
+function mdashLoadAll(){
+  if(!store.projectsLoaded)loadProjects();
+  if(!store.prodItemsLoaded)loadProductionItems();
+  if(!store.purchasesLoaded)loadActuals();
+  if(!store.attLoaded)loadAttendance();
+  if(!store.crewAttLoaded&&typeof loadCrewAttendance==='function')loadCrewAttendance();
+  if(!store.siteVisitsLoaded)loadSiteVisits();
+  if(!store.snagsLoaded&&typeof loadSnags==='function')loadSnags();
+  if(!store.apprLoaded)loadApprovals();
+}
+function mdashItemName(it){return it.description||it.item||it.name||'(unnamed item)';}
+function mdashDaysInStage(it){
+  const since=it.stage_since||(Array.isArray(it.stage_history)&&it.stage_history.length?it.stage_history[it.stage_history.length-1].at:null)||it.updated_at||it.created_at;
+  if(!since)return null;
+  const d=Math.floor((Date.now()-new Date(since))/86400000);
+  return isNaN(d)?null:d;
+}
+function mdashBlocked(it){return it.flag==='Blocked'||it.flag==='On Hold';}
+function mdashHold(it){
+  if(it.flag==='On Hold')return 'On hold';
+  const missing=READINESS_CHECKS.filter(c=>!it[c.k]).map(c=>c.label);
+  if(it.flag==='Blocked')return missing.length?'Blocked · '+missing.slice(0,2).join(', ').toLowerCase():'Blocked';
+  if(prodStageIndex(it.stage)<=2&&missing.length)return 'Waiting: '+missing.slice(0,2).join(', ').toLowerCase()+(missing.length>2?' +'+(missing.length-2):'');
+  return '';
+}
+function mdashItemsFor(pr,items){return (items||[]).filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name);}
+function mdashFmtMoney(v){return (store.currency||'$')+Math.round(v).toLocaleString();}
+function mdashWeekStart(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;} // Monday
+function mdashWeekNo(d){const x=mdashWeekStart(d);const y=new Date(x.getFullYear(),0,4);const y0=mdashWeekStart(y);return Math.round((x-y0)/6048e5)+1;}
+function mdashFmtRange(ws){const e=new Date(ws);e.setDate(e.getDate()+6);const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];const f=x=>x.getDate()+' '+m[x.getMonth()];return f(ws)+' – '+f(e);}
+
+// ---------------------------------------------------------------- TAB 1
+function mgrDashboardHTML(){
+  mdashLoadAll();
+  if(!store.projectsLoaded||!store.prodItemsLoaded)return '<div class="hint" style="padding-top:14px">Loading&hellip;</div>';
+  const items=store.prodItems||[], projs=store.projects||[], pending=(store.approvals||[]).filter(o=>o.status==='pending_approval');
+  const visits=store.siteVisits||[], snags=store.snags||[];
+  const weekAgo=Date.now()-7*86400000;
+
+  // --- attention ---
+  const blocked=items.filter(i=>mdashBlocked(i)&&i.stage!=='Site');
+  const aging=items.filter(i=>!mdashBlocked(i)&&i.stage!=='Site'&&(mdashDaysInStage(i)||0)>7);
+  const pendingTotal=pending.reduce((a,o)=>a+(+o.total||0),0);
+  const recentVisits=visits.filter(v=>v.created_at&&new Date(v.created_at)>weekAgo);
+  const delivered=items.filter(i=>{const idx=prodStageIndex(i.stage);if(idx<7)return false;const h=Array.isArray(i.stage_history)?i.stage_history:[];const last=h.length?h[h.length-1].at:i.stage_since;return last&&new Date(last)>weekAgo;});
+  const attn=(n,l,c,tab)=>`<button class="mdAttn ${c}" data-mgrtab="${tab}"><span class="n">${n}</span><span class="l">${l}</span></button>`;
+
+  // --- pipeline ---
+  const pipe=PROD_STAGES.map(s=>{const mine=items.filter(i=>(i.stage||'Not Started')===s);return {s,ok:mine.filter(i=>!mdashBlocked(i)&&(mdashDaysInStage(i)||0)<=7).length,ag:mine.filter(i=>!mdashBlocked(i)&&(mdashDaysInStage(i)||0)>7).length,bl:mine.filter(mdashBlocked).length};});
+  const pipeHTML=pipe.map((p,i)=>{const total=p.ok+p.ag+p.bl,done=i===8;const blocks=[...Array(p.bl).fill('blocked'),...Array(p.ag).fill('aging'),...Array(p.ok).fill(done?'done':'')].slice(0,60);
+    return `<button class="mdStage" data-dashstage="${p.s}"><div class="cnt" style="color:${done?'var(--green)':p.bl?'var(--red)':p.ag?'var(--amber)':'var(--txt)'}">${total}</div><div class="nm">${p.s}</div><div class="bar">${blocks.map(c=>`<span class="blk ${c}"></span>`).join('')}</div></button>`;}).join('');
+
+  // --- stuck list ---
+  const stuck=items.filter(i=>i.stage!=='Site'&&(mdashBlocked(i)||(mdashDaysInStage(i)||0)>7)).sort((a,b)=>(mdashDaysInStage(b)||0)-(mdashDaysInStage(a)||0)).slice(0,12);
+  const stuckHTML=stuck.length?stuck.map(r=>{const d=mdashDaysInStage(r);return `<tr><td>${mdashItemName(r)}</td><td style="color:var(--mut)">${r.project_name||''}</td><td><span class="mdTag ${mdashBlocked(r)?'red':'amber'}">${r.stage||'Not Started'}</span></td><td class="r"><span class="mdDays ${(d||0)>=10?'red':'amber'}">${d==null?'—':d}</span></td><td style="color:var(--mut)">${mdashHold(r)||'—'}</td></tr>`;}).join('')
+    :'<tr><td colspan="5" class="empty">Nothing stuck. Every item moved within the last week.</td></tr>';
+
+  // --- orders ---
+  const ordersHTML=pending.length?pending.slice(0,8).map(o=>`<tr><td>${o.project_name||'(unnamed)'}</td><td style="color:var(--mut)">${o.supplier_name||''}</td><td class="r cost">${o.currency||'$'}${(+o.total||0).toFixed(0)}</td><td style="color:var(--mut)">${o.contractor_name||''}</td><td class="r" style="white-space:nowrap"><button class="mdAct ok" data-approve="${o.id}">Approve</button> <button class="mdAct no" data-reject="${o.id}">Reject</button></td></tr>`).join('')
+    :'<tr><td colspan="5" class="empty">No orders waiting for approval.</td></tr>';
+
+  // --- project health ---
+  const rail=(pct,col)=>`<div class="mdRail"><i style="width:${Math.min(100,pct)}%;background:${col}"></i></div>`;
+  const projHTML=projs.length?projs.map(pr=>{
+    const st=mgrProjectStats(pr,items); if(st.complete)return '';
+    const planH=+pr.planned_hours||0, usedH=projectHoursUsed(pr), planC=+pr.estimated_cost||0, usedC=actualsTotal(pr.id);
+    const hp=planH?Math.round(usedH/planH*100):null, cp=planC?Math.round(usedC/planC*100):null;
+    const over=cp!=null&&cp>100, ahead=hp!=null&&cp!=null&&cp>hp+5;
+    return `<div class="mdProj"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="due">${st.done}/${st.items} items at site</span></div>
+      <div class="track"><span class="lab">Hours</span>${rail(hp||0,'var(--blue)')}<span class="pct">${hp==null?'—':hp+'%'}</span></div>
+      <div class="track"><span class="lab">Spend</span>${rail(cp||0,over?'var(--red)':'var(--green)')}<span class="pct" style="color:${over?'var(--red)':'inherit'}">${cp==null?'—':cp+'%'}</span></div>
+      ${over?`<div class="warn red">Over budget by ${mdashFmtMoney(usedC-planC)}${hp!=null?' with '+Math.max(0,100-hp)+'% of hours left':''}</div>`:ahead?`<div class="warn">Spend is running ${cp-hp} points ahead of labour</div>`:(hp==null&&cp==null)?'<div class="warn" style="color:var(--mut)">Set planned hours and a budget on this project to track it</div>':''}
+    </div>`;}).join('')||'<div class="empty">All projects complete.</div>':'<div class="empty">No projects yet.</div>';
+
+  // --- crew today ---
+  const today=new Date();today.setHours(0,0,0,0);
+  const att=(store.attendance||[]).filter(r=>r.sign_in_at&&new Date(r.sign_in_at)>=today);
+  const onProj=att.filter(r=>r.project_id).length;
+  const crewRows=(store.crewAtt||[]).filter(r=>r.sign_in_at&&new Date(r.sign_in_at)>=today);
+  const crewHTML=`<div class="mdCrew"><div><div class="n" style="color:var(--green)">${att.length+crewRows.length}</div><div class="l">Signed in today</div></div><div><div class="n" style="color:var(--blue)">${onProj+crewRows.filter(r=>r.project_id).length}</div><div class="l">On a project / site</div></div><div><div class="n">${att.length-onProj+crewRows.filter(r=>!r.project_id).length}</div><div class="l">In factory (no project)</div></div><div><div class="n" style="color:var(--amber)">${(att.length?att.reduce((a,r)=>a+crewHours(r),0):0).toFixed(0)} h</div><div class="l">Hours so far today</div></div></div>`;
+
+  // --- site installation ---
+  const siteHTML=projs.length?projs.map(pr=>{
+    const mine=mdashItemsFor(pr,items); if(!mine.length)return '';
+    const installed=mine.filter(i=>i.stage==='Site').length, deliveredN=mine.filter(i=>prodStageIndex(i.stage)>=7).length;
+    const openSnags=snags.filter(s=>String(s.project_id)===String(pr.id)&&s.status!=='resolved'&&s.status!=='closed');
+    const pv=visits.filter(v=>String(v.project_id)===String(pr.id)||v.project_name===pr.name);
+    const last=pv[0]; const eng=last?(last.site_engineer_name||'—'):'—';
+    const ago=last&&last.created_at?Math.floor((Date.now()-new Date(last.created_at))/86400000):null;
+    const pct=Math.round(installed/mine.length*100);
+    const cells=[];for(let i=0;i<Math.min(mine.length,60);i++)cells.push(i<installed-Math.min(openSnags.length,installed)?'ins':i<installed?'snag':i<deliveredN?'del':'');
+    const note=last&&last.notes?String(last.notes).slice(0,140):'';
+    return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">${eng}${ago==null?' · no visits yet':ago===0?' · visited today':' · last visit '+ago+' day'+(ago===1?'':'s')+' ago'}</span></div>
+      <div class="cells" title="${installed} at site of ${mine.length}">${cells.map(c=>`<i class="${c}"></i>`).join('')}</div>
+      <div class="meta"><span><b style="color:var(--green)">${installed}</b> at site</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span><b>${mine.length-deliveredN}</b> still in factory</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>${pct}%</span></div>
+      ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
+
+  return `<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>
+  <div class="mdAttnRow">
+    ${attn(blocked.length,'Items blocked or on hold','red','production')}
+    ${attn(aging.length,'Items in one stage over 7 days','amber','production')}
+    ${attn(pending.length,`Orders awaiting your approval${pendingTotal?' · '+mdashFmtMoney(pendingTotal):''}`,'amber','approvals')}
+    ${attn(recentVisits.length,'Site visits logged this week','blue','sitevisits')}
+    ${attn(delivered.length,'Items delivered this week','green','tracking2')}
+  </div>
+  <div class="card"><div class="cardHead"><span>PRODUCTION PIPELINE — ${items.length} ITEMS ACROSS ${projs.length} PROJECTS</span><small style="color:var(--mut);font-weight:400">tap a stage to open it</small></div>
+    <div class="mdPipe">${pipeHTML}</div>
+    <div class="mdLegend"><span><i style="background:var(--blue)"></i>On track</span><span><i style="background:var(--amber)"></i>Over 7 days in stage</span><span><i style="background:var(--red)"></i>Blocked / on hold</span><span><i style="background:var(--green)"></i>At site</span></div></div>
+  <div class="mdCols">
+    <div>
+      <div class="card"><div class="cardHead"><span>NEEDS A DECISION</span><small style="color:var(--mut);font-weight:400">sorted by days stuck</small></div>
+        <div class="scroll"><table><thead><tr><th>Item</th><th>Project</th><th>Stage</th><th class="r">Days</th><th>Holding it</th></tr></thead><tbody>${stuckHTML}</tbody></table></div></div>
+      <div class="card"><div class="cardHead"><span>ORDERS AWAITING APPROVAL</span><small style="color:var(--mut);font-weight:400">from your estimators</small></div>
+        <div class="scroll"><table><thead><tr><th>Project</th><th>Supplier</th><th class="r">Total</th><th>From</th><th></th></tr></thead><tbody>${ordersHTML}</tbody></table></div></div>
+    </div>
+    <div>
+      <div class="card"><div class="cardHead"><span>PROJECT HEALTH</span><small style="color:var(--mut);font-weight:400">hours and spend vs plan</small></div>${projHTML}</div>
+      <div class="card"><div class="cardHead"><span>CREW TODAY</span><small style="color:var(--mut);font-weight:400">from timekeeper check-ins</small></div>${crewHTML}</div>
+      <div class="card"><div class="cardHead"><span>SITE INSTALLATION PROGRESS</span><small style="color:var(--mut);font-weight:400">from site visits and snags</small></div>${siteHTML}</div>
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- TAB 2
+function mdashProjectPlan(pr){
+  const start=pr.start_date?new Date(pr.start_date):(pr.created_at?new Date(pr.created_at):new Date());
+  let end=pr.end_date?new Date(pr.end_date):(pr.deadline?new Date(pr.deadline):null);
+  let assumed=false;
+  if(!end||isNaN(end)){end=new Date(start);end.setDate(end.getDate()+7*12);assumed=true;}
+  return {start:mdashWeekStart(start),end:mdashWeekStart(end),assumed};
+}
+function mdashSeries(){
+  const projs=store.projects||[], sel=store.dashReviewSel||'all', mode=store.dashReviewMode||'cost';
+  const ps=sel==='all'?projs:projs.filter(p=>String(p.id)===String(sel));
+  if(!ps.length)return {weeks:[],rows:[],total:0,assumed:false,ps};
+  const plans=ps.map(p=>({p,...mdashProjectPlan(p)}));
+  let first=new Date(Math.min(...plans.map(x=>x.start))), last=new Date(Math.max(...plans.map(x=>x.end)));
+  const todayW=mdashWeekStart(new Date());
+  // actuals can exist outside the planned window; extend the axis to cover them
+  const acts=[];
+  ps.forEach(p=>{
+    if(mode==='cost')actualsFor(p.id).forEach(x=>{if(x.created_at)acts.push({t:new Date(x.created_at),v:+x.cost||0});});
+    else{const inP=r=>String(r.project_id)===String(p.id);(store.attendance||[]).filter(inP).forEach(r=>acts.push({t:new Date(r.sign_in_at),v:crewHours(r)}));(store.crewAtt||[]).filter(inP).forEach(r=>acts.push({t:new Date(r.sign_in_at),v:crewHours(r)}));}
+  });
+  acts.forEach(a=>{if(a.t<first)first=mdashWeekStart(a.t);});
+  if(todayW>last)last=todayW;
+  const weeks=[];for(let d=new Date(first);d<=last&&weeks.length<80;d.setDate(d.getDate()+7))weeks.push(new Date(d));
+  const total=ps.reduce((a,p)=>a+(mode==='cost'?(+p.estimated_cost||0):(+p.planned_hours||0)),0);
+  let cp=0,cu=0;
+  const rows=weeks.map(ws=>{
+    const we=new Date(ws);we.setDate(we.getDate()+7);
+    let pw=0;plans.forEach(x=>{const n=Math.round((x.end-x.start)/6048e5)+1;const v=mode==='cost'?(+x.p.estimated_cost||0):(+x.p.planned_hours||0);if(ws>=x.start&&ws<=x.end)pw+=v/n;});
+    const past=ws<=todayW;
+    const uw=past?acts.filter(a=>a.t>=ws&&a.t<we).reduce((a,x)=>a+x.v,0):null;
+    cp+=pw;if(past)cu+=uw;
+    return {ws,w:mdashWeekNo(ws),pw,uw,cp,cu:past?cu:null,past,isToday:ws.getTime()===todayW.getTime()};
+  });
+  return {weeks,rows,total,assumed:plans.some(x=>x.assumed),ps,todayW};
+}
+function mgrReviewHTML(){
+  mdashLoadAll();
+  if(!store.projectsLoaded)return '<div class="hint" style="padding-top:14px">Loading&hellip;</div>';
+  const mode=store.dashReviewMode||'cost', sel=store.dashReviewSel||'all';
+  const fmt=v=>mode==='cost'?mdashFmtMoney(v):Math.round(v).toLocaleString()+' h';
+  const s=mdashSeries();
+  const chips=[{id:'all',name:'All projects'},...(store.projects||[])].map(p=>`<button class="chip ${String(sel)===String(p.id)?'on':''}" data-dashproj="${p.id}">${p.name||'(unnamed)'}</button>`).join('');
+  const pastRows=s.rows.filter(r=>r.past);
+  let upto=store.dashReviewUpto?pastRows.find(r=>r.w===store.dashReviewUpto):null; if(!upto)upto=pastRows[pastRows.length-1]||null;
+  const uptoIdx=upto?pastRows.indexOf(upto):0;
+  let kpis='';
+  if(upto&&s.total){
+    const pct=upto.cu/s.total*100, ppct=upto.cp/s.total*100, diff=upto.cu-upto.cp, over=diff>0;
+    const forecast=upto.cp?s.total*(upto.cu/upto.cp):s.total;
+    kpis=`<div class="mdKpis">
+      <div class="mdKpi"><div class="v">${fmt(s.total)}</div><div class="l">${mode==='cost'?'Total budget':'Total planned manpower'}</div><div class="d">${s.ps.length} project${s.ps.length===1?'':'s'}</div></div>
+      <div class="mdKpi"><div class="v" style="color:var(--green)">${fmt(upto.cu)}</div><div class="l">Used to week ${upto.w}</div><div class="mdRail"><i style="width:${Math.min(100,pct)}%;background:${over?'var(--red)':'var(--green)'}"></i><b style="left:${Math.min(100,ppct)}%"></b></div><div class="d">${pct.toFixed(0)}% used · ${ppct.toFixed(0)}% planned by now</div></div>
+      <div class="mdKpi"><div class="v" style="color:${over?'var(--red)':'var(--green)'}">${over?'+':'−'}${fmt(Math.abs(diff))}</div><div class="l">${over?'Ahead of plan (over)':'Behind plan (under)'}</div><div class="d">vs planned to date</div></div>
+      <div class="mdKpi"><div class="v" style="color:${forecast>s.total*1.02?'var(--red)':'var(--txt)'}">${fmt(forecast)}</div><div class="l">Forecast at completion</div><div class="d">at current burn rate</div></div></div>`;
+  }else{
+    kpis=`<div class="hint" style="padding:8px 0 14px;color:var(--amber)">Set ${mode==='cost'?'a budget (estimated cost)':'planned hours'} on ${sel==='all'?'your projects':'this project'} to see the plan line.</div>`;
+  }
+  const showFuture=!!store.dashShowFuture;
+  const tableRows=s.rows.map(r=>{const future=!r.past||(upto&&r.w>upto.w&&r.past);const d=r.uw==null?null:r.uw-r.pw;
+    return `<tr class="${r.isToday?'mdNow':''} ${future?'mdFuture':''}" ${future&&!showFuture?'style="display:none"':''}><td>W${r.w}${r.isToday?' <span style="color:var(--amber)">←</span>':''}</td><td style="color:var(--mut)">${mdashFmtRange(r.ws)}</td><td class="r">${fmt(r.pw)}</td><td class="r">${r.uw==null?'—':fmt(r.uw)}</td><td class="r">${d==null?'—':`<span class="mdVar ${d>0?'bad':'good'}">${d>0?'+':'−'}${fmt(Math.abs(d))}</span>`}</td><td class="r">${fmt(r.cp)}</td><td class="r">${r.cu==null?'—':fmt(r.cu)}</td><td class="r">${r.cu==null||!s.total?'—':(r.cu/s.total*100).toFixed(0)+'%'}</td></tr>`;}).join('');
+  // stash for the chart mount after render
+  store._mdashChart={s,upto,mode};
+  return `<div class="hint" style="padding-top:14px">Company-wide view of ${mode==='cost'?'budget':'manpower'} — planned vs used, cumulative by week. Pick a project, switch the measure, or drag the slider to replay.${s.assumed?' <span style="color:var(--amber)">Some projects have no start/end date, so their plan is spread over 12 weeks from creation. Add <code>start_date</code> and <code>end_date</code> to each project for an accurate plan line.</span>':''}</div>
+  <div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-bottom:14px"><div class="chips">${chips}</div>
+    <div class="unit"><button class="${mode==='cost'?'on':''}" data-dashmode="cost">BUDGET</button><button class="${mode==='hours'?'on':''}" data-dashmode="hours">MANPOWER</button></div></div>
+  ${kpis}
+  <div class="card"><div class="cardHead"><span>S-CURVE — ${mode==='cost'?'BUDGET':'MANPOWER'} PLANNED vs USED</span><small style="color:var(--mut);font-weight:400">hover a week for the numbers</small></div>
+    <div class="mdChart"><canvas id="mdashCurve"></canvas></div>
+    ${pastRows.length>1?`<div class="mdScrub"><span>Show up to</span><input type="range" id="mdashScrub" min="0" max="${pastRows.length-1}" value="${uptoIdx}"><strong>Week ${upto?upto.w:'—'}${upto&&upto.isToday?' (today)':''}</strong><button class="chip" id="mdashScrubReset">Today</button></div>`:''}</div>
+  <div class="card"><div class="cardHead"><span>WEEK BY WEEK</span><small style="color:var(--mut);font-weight:400"><label style="cursor:pointer"><input type="checkbox" id="mdashFuture" ${showFuture?'checked':''}> show remaining plan</label></small></div>
+    <div class="scroll"><table><thead><tr><th>Week</th><th>Dates</th><th class="r">Planned this week</th><th class="r">Used this week</th><th class="r">Variance</th><th class="r">Planned to date</th><th class="r">Used to date</th><th class="r">% of total</th></tr></thead><tbody>${tableRows||'<tr><td colspan="8" class="empty">No projects to review yet.</td></tr>'}</tbody></table></div></div>`;
+}
+let _mdashChartObj=null;
+function mdashMountChart(){
+  const cv=document.getElementById('mdashCurve'); const st=store._mdashChart;
+  if(!cv||!st||typeof Chart==='undefined')return;
+  const {s,upto,mode}=st; const fmt=v=>mode==='cost'?mdashFmtMoney(v):Math.round(v).toLocaleString()+' h';
+  const col=mode==='cost'?'#3ddc84':'#5db8ff';
+  const labels=s.rows.map(r=>'W'+r.w);
+  const planned=s.rows.map(r=>r.cp);
+  const used=s.rows.map(r=>(r.past&&upto&&r.w<=upto.w)?r.cu:null);
+  const todayIdx=s.rows.findIndex(r=>upto?r.w===upto.w:r.isToday);
+  if(_mdashChartObj){try{_mdashChartObj.destroy();}catch(e){}_mdashChartObj=null;}
+  _mdashChartObj=new Chart(cv,{type:'line',
+    data:{labels,datasets:[
+      {label:'Planned (cumulative)',data:planned,borderColor:'#8b929c',borderDash:[5,4],pointRadius:0,tension:.35,borderWidth:2},
+      {label:'Used (cumulative)',data:used,borderColor:col,backgroundColor:col+'22',fill:true,pointRadius:3,pointBackgroundColor:col,tension:.35,borderWidth:2.5,spanGaps:false}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#b9c0ca',font:{family:'JetBrains Mono, monospace',size:11},boxWidth:20}},
+        tooltip:{backgroundColor:'#1b1e24',borderColor:'#333944',borderWidth:1,titleColor:'#FFB300',bodyColor:'#e7e9ec',
+          callbacks:{title:i=>{const r=s.rows[i[0].dataIndex];return 'Week '+r.w+' · '+mdashFmtRange(r.ws);},
+            label:c=>c.raw==null?null:' '+c.dataset.label+': '+fmt(c.raw),
+            afterBody:i=>{const r=s.rows[i[0].dataIndex];if(r.cu==null)return '';const d=r.cu-r.cp;return ' Variance: '+(d>0?'+':'−')+fmt(Math.abs(d));}}}},
+      scales:{x:{ticks:{color:'#8b929c',font:{size:10}},grid:{color:'#2c313a'}},y:{ticks:{color:'#8b929c',font:{size:10},callback:v=>mode==='cost'?(v>=1000?(v/1000)+'k':v):v+'h'},grid:{color:'#2c313a'}}}},
+    plugins:[{id:'mdashToday',afterDraw(c){if(todayIdx<0)return;const x=c.scales.x.getPixelForValue(todayIdx);const g=c.ctx;g.save();g.strokeStyle='#FFB300';g.setLineDash([2,3]);g.beginPath();g.moveTo(x,c.chartArea.top);g.lineTo(x,c.chartArea.bottom);g.stroke();g.fillStyle='#FFB300';g.font='10px monospace';g.fillText(upto&&upto.isToday?'today':'W'+(upto?upto.w:''),x+4,c.chartArea.top+10);g.restore();}}]
+  });
+}
+function mdashWire(){
+  document.querySelectorAll('[data-dashproj]').forEach(b=>b.onclick=()=>{store.dashReviewSel=b.dataset.dashproj;store.dashReviewUpto=null;render();});
+  document.querySelectorAll('[data-dashmode]').forEach(b=>b.onclick=()=>{store.dashReviewMode=b.dataset.dashmode;store.dashReviewUpto=null;render();});
+  document.querySelectorAll('[data-dashstage]').forEach(b=>b.onclick=()=>{store.managerTab='production';store.prodView='items';render();});
+  const sc=document.getElementById('mdashScrub');
+  if(sc)sc.oninput=()=>{const st=store._mdashChart;if(!st)return;const past=st.s.rows.filter(r=>r.past);const r=past[+sc.value];if(r){store.dashReviewUpto=r.w;render();}};
+  const rs=document.getElementById('mdashScrubReset');if(rs)rs.onclick=()=>{store.dashReviewUpto=null;render();};
+  const sf=document.getElementById('mdashFuture');if(sf)sf.onchange=()=>{store.dashShowFuture=sf.checked;render();};
+  mdashMountChart();
+}
 
 // ---- Manager's SITE VISITS tab: request drawings for review, see what's pending/reviewed ----
 function mgrSiteVisitsTabHTML(){
@@ -7327,6 +7605,7 @@ function wire(){
     });
     const ca=document.getElementById('cancelApprove');if(ca)ca.onclick=()=>{store.approvingId=null;render();};
     document.querySelectorAll('[data-mgrtab]').forEach(b=>b.onclick=()=>{store.managerTab=b.dataset.mgrtab;render();});
+    mdashWire();
     {const mp=document.getElementById('manpowerProject'); if(mp)mp.onchange=()=>{store.manpowerProject=mp.value;render();};}
     {const mr=document.getElementById('manpowerRefresh'); if(mr)mr.onclick=()=>{store.attLoaded=false;store.crewAttLoaded=false;loadAttendance();loadCrewAttendance();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
