@@ -257,6 +257,19 @@
   .cta{width:100%;border:none;padding:13px;font-weight:800;font-size:12px;border-radius:4px;font-family:var(--mono);color:#000;margin-top:10px}
   .seEod{background:var(--steel);border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:8px}.seEod .t{font-size:10px;letter-spacing:1.5px;color:var(--amber);font-weight:800;margin-bottom:6px}.seEod div{font-size:11px;color:#c9ced5;margin-bottom:3px}
   body:has(.seSheetWrap) .body{padding-bottom:60vh}
+  .seActs .rt{border-color:var(--amber);color:var(--amber)}
+  .seTwo{display:grid;grid-template-columns:1fr;gap:0}
+  .scRow,.rtRow{display:flex;gap:12px;padding:10px 12px;border-bottom:1px solid var(--row);align-items:flex-start}.scRow:last-child,.rtRow:last-child{border-bottom:none}
+  .scPics{display:flex;gap:8px;flex-shrink:0}.scL{font-size:8px;letter-spacing:1.5px;color:var(--mut);margin-bottom:3px}.scTxt,.rtTxt{flex:1;font-size:11.5px;min-width:0}.scN{font-weight:700;font-size:12px}.scM{font-size:10px;color:var(--mut);margin-top:3px}
+  .rtSteps{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:6px;font-size:9.5px}.rtStep{padding:2px 7px;border:1px solid var(--line);border-radius:2px;color:var(--mut)}.rtStep.on{border-color:var(--amber);color:var(--amber)}.rtStep.cur{background:var(--amber);color:#000;font-weight:700}.rtArr{color:var(--mut)}
+  @media(min-width:900px){
+    .seZones{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}.seZone{margin-bottom:0}
+    .seTwo{grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    .seActs button{padding:11px 6px;font-size:11px;min-height:44px}
+    .seSheetWrap{left:auto;right:0;top:0;bottom:0;width:min(440px,42vw);max-height:none;padding:0;background:rgba(0,0,0,.35)}
+    .seSheet{height:100%;max-width:none;border-radius:0;border-left:2px solid var(--line);border-bottom:none;overflow:auto;box-shadow:-8px 0 30px rgba(0,0,0,.5)}
+    body:has(.seSheetWrap) .body{padding-bottom:0;padding-right:min(460px,44vw)}
+  }
   body.themeLight .inp,body.themeLight .num,body.themeLight .sel,body.themeLight .fi,body.themeLight .zinp,body.themeLight .cell{color:var(--txt)}
   body.themeLight .chip{color:var(--txt)}body.themeLight .chip.on{color:#000}
   body.themeLight .demoBanner,body.themeLight .zadd{background:#fff4d6}
@@ -450,7 +463,7 @@ const store={
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
   const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j._mdashPies;delete j.connCheck;delete j._seEod;delete j.seSheet;delete j.seSheetPhoto;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j._mdashPies;delete j.connCheck;delete j._seEod;delete j.seSheet;delete j.seSheetPhoto;delete j.returnsError;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -2432,7 +2445,9 @@ function demoSeed(){
       {id:'demo-r2',company_id:store.account&&store.account.companyId,project_id:DEMO_PROJECT_ID2,project_name:'DEMO · Al Barsha Villa',contractor_name:'Anita (supervisor)',currency:store.currency||'$',total:3150,status:'sent_to_contractor',supplier_name:'BuildCo',created_at:iso(2.1),
         items:[{item:'MR MDF 18mm 1220×2440',qty:15,cost:2550},{item:'6mm back panel',qty:10,cost:600}],notes:'BuildCo can deliver Thursday. Confirm quantities.',_demo:true},
     ],
-    snags:[{id:'demo-s1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',item_name:'Wall panelling P-01',description:'Paint scuff on panel 7, corridor side',status:'open',created_by_name:'Kamal',created_at:iso(1),_demo:true}],
+    snags:[{id:'demo-s1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',zone_name:'Reception',item_name:'Wall panelling P-01',description:'Paint scuff on panel 7, corridor side',fix_by:'Factory',status:'open',before_by:'Kamal',created_by_name:'Kamal',created_at:iso(1),_demo:true},
+      {id:'demo-s2',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',zone_name:'Meeting Room A',item_name:'Door set D-02',description:'Latch not engaging — keep adjusted',fix_by:'Site team',status:'resolved',before_by:'Kamal',after_by:'Sunil',after_at:iso(2),created_by_name:'Kamal',created_at:iso(4),_demo:true}],
+    returns:[{id:'demo-rt1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',item_id:'demo-i3',item_name:'Feature ceiling C-01 · slatted, black stain',zone_name:'Reception',reason:'Rework needed (finish)',note:'Stain patchy on 3 slats',status:'received',revert_stage:'Painting',created_by_name:'Kamal',created_at:iso(3),history:[{status:'sent_back',at:iso(3),by:'Kamal'},{status:'received',at:iso(2),by:'Rashid'}],_demo:true}],
     approvals:[{id:'demo-o1',status:'pending_approval',project_name:'DEMO · Marina Tower L12',supplier_name:'TimberLine',contractor_company:company,contractor_name:'Rashid (estimator)',currency:store.currency||'$',total:38200,revision:1,created_at:iso(0.4),
       items:[{item:'Oak veneer MDF 18mm 1220×2440',qty:40,cost:16800},{item:'Oak lipping 22×3600',qty:60,cost:2400},{item:'MR MDF 12mm 1220×2440',qty:30,cost:5100},{item:'Oak veneer sheet A-grade',qty:20,cost:13900}],_demo:true},
       {id:'demo-o2',status:'pending_approval',project_name:'DEMO · Al Barsha Villa',supplier_name:'BuildCo',contractor_company:company,contractor_name:'Anita (estimator)',currency:store.currency||'$',total:9850,revision:2,created_at:iso(1.2),
@@ -2476,17 +2491,17 @@ function applyDemo(){
   };
   fill('projects','projectsLoaded'); fill('prodItems','prodItemsLoaded'); fill('purchases','purchasesLoaded');
   fill('attendance','attLoaded'); fill('siteVisits','siteVisitsLoaded'); fill('snags','snagsLoaded'); fill('approvals','apprLoaded');
-  fill('crew','crewLoaded'); fill('crewAtt','crewAttLoaded'); fill('procReqs','procReqLoaded');
+  fill('crew','crewLoaded'); fill('crewAtt','crewAttLoaded'); fill('procReqs','procReqLoaded'); fill('returns','returnsLoaded');
 }
 function demoBannerHTML(){
   if(store.hideDemo)return '';
-  const on=['projects','prodItems','purchases','attendance','siteVisits','snags','approvals','crew','crewAtt','procReqs'].some(k=>(store[k]||[]).some(x=>x._demo));
+  const on=['projects','prodItems','purchases','attendance','siteVisits','snags','approvals','crew','crewAtt','procReqs','returns'].some(k=>(store[k]||[]).some(x=>x._demo));
   if(!on)return '';
   return `<div style="margin-top:14px;background:#2d2410;border:1px dashed var(--amber);border-radius:4px;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
     <div style="flex:1;font-size:11px;line-height:1.5;color:var(--amber)"><strong>Two demo projects shown.</strong> <span style="color:var(--txt)"><em>DEMO · Marina Tower L12</em> is seven weeks in — items in every stage, a snag, a site visit. <em>DEMO · Al Barsha Villa</em> is three weeks in — mostly drawing and sampling, one item on hold. Marina has 2 zones / 10 items; Al Barsha has 3 zones / 12 items. Both have purchases, crew hours, a procurement request and an order waiting for approval — and the same two projects appear on the supervisor, site engineer, procurement and timekeeper screens, so you can follow one item all the way through. Add your own project and copy the pattern — the demo stays alongside so you can compare, until you hide it. Demo rows can't be edited.</span></div>
     <button class="zadd" id="hideDemoBtn" style="white-space:nowrap">Hide demo</button></div>`;
 }
-function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclick=()=>{if(!confirm('Hide the demo projects? You can bring them back with the DEMO button in the header.'))return;store.hideDemo=true;['projects','prodItems','purchases','attendance','siteVisits','snags','approvals','crew','crewAtt','procReqs'].forEach(k=>{store[k]=(store[k]||[]).filter(x=>!x._demo);});render();};
+function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclick=()=>{if(!confirm('Hide the demo projects? You can bring them back with the DEMO button in the header.'))return;store.hideDemo=true;['projects','prodItems','purchases','attendance','siteVisits','snags','approvals','crew','crewAtt','procReqs','returns'].forEach(k=>{store[k]=(store[k]||[]).filter(x=>!x._demo);});render();};
   const s=document.getElementById('showDemoBtn');if(s)s.onclick=()=>{store.hideDemo=false;render();};}
 
 // ============================================================================
@@ -2499,6 +2514,7 @@ function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclic
 // ============================================================================
 function mdashLoadAll(){
   if(!store.projectsLoaded)loadProjects();
+  if(!store.returnsLoaded)loadReturns();
   if(store.projectsLoaded&&!store.prodItemsLoaded)loadProductionItems();
   if(!store.purchasesLoaded)loadActuals();
   if(!store.attLoaded)loadAttendance();
@@ -2775,6 +2791,8 @@ function mgrDashboardHTML(){
     return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">${eng}${ago==null?' · no visits yet':ago===0?' · visited today':' · last visit '+ago+' day'+(ago===1?'':'s')+' ago'}</span></div>
       <div class="meta"><span><b>${mine.length-deliveredN}</b> still in factory</span><span>&rarr;</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span>&rarr;</span><span><b style="color:var(--green)">${installed}</b> at site</span><span>·</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>·</span><span>${zones.length} zone${zones.length===1?'':'s'} · ${pct}% installed</span></div>
       ${zones.map(z=>zoneRow(z,mine.filter(i=>(i.zone_name||'').trim()===z),openSnags)).join('')}
+      ${openSnags.length?`<div class="snag">Open snags: ${openSnags.slice(0,4).map(sn=>(sn.item_name||'item')+(sn.description?' — '+String(sn.description).slice(0,50):'')+(sn.fix_by?' ('+sn.fix_by+')':'')).join('; ')}${openSnags.length>4?' +'+(openSnags.length-4)+' more':''}</div>`:''}
+      ${(()=>{const rt=returnsFor(pr.id).filter(r=>r.status!=='redelivered');return rt.length?`<div class="snag" style="color:var(--blue)">Returned to factory: ${rt.map(r=>(r.item_name||'item')+' — '+(r.reason||'')+(r.reason_other?' ('+r.reason_other+')':'')+' · '+(RETURN_STEPS[returnStepIdx(r.status)]||{}).l).join('; ')}</div>`:'';})()}
       ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
 
   const realProjs=allProjs.filter(p=>!p._demo);
@@ -4813,6 +4831,129 @@ async function catDelete(id){
   try{await sb.from('catalogue').delete().eq('id',id);}catch(e){}
 }
 
+
+// ============================================================================
+//  SITE COORDINATION — snags (before / after) and returns to factory.
+//  Photos are for the supervisor and site engineer; the manager gets counts
+//  and text only. New table: site_returns (SQL supplied with this build).
+// ============================================================================
+const RETURN_REASONS=['Damaged in transit','Damaged on site','Wrong size','Wrong item','Rework needed (finish)','Not required','Other'];
+const RETURN_STEPS=[{k:'sent_back',l:'Sent back to factory'},{k:'received',l:'Received at factory'},{k:'fixed',l:'Repaired / replaced'},{k:'redelivered',l:'Redelivered to site'}];
+function returnStepIdx(st){const i=RETURN_STEPS.findIndex(s=>s.k===st);return i<0?0:i;}
+async function loadReturns(){
+  store.returnsLoaded=true;
+  if(!sb||!store.account){store.returns=[];render();return;}
+  try{const {data,error}=await sb.from('site_returns').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});if(error)throw error;store.returns=data||[];}
+  catch(e){store.returns=[];store.returnsError=(e&&e.message)||'';}
+  render();
+}
+function returnsFor(pid){return (store.returns||[]).filter(r=>String(r.project_id)===String(pid));}
+function openSnagsFor(pid){return (store.snags||[]).filter(x=>String(x.project_id)===String(pid)&&x.status!=='resolved'&&x.status!=='closed');}
+function closedSnagsFor(pid){return (store.snags||[]).filter(x=>String(x.project_id)===String(pid)&&(x.status==='resolved'||x.status==='closed'));}
+const _thumb=(url,h)=>url?`<a href="${url}" target="_blank" rel="noopener"><img src="${url}" style="height:${h||64}px;border-radius:4px;border:1px solid var(--line);vertical-align:middle"></a>`:`<span style="display:inline-block;height:${h||64}px;width:${h||64}px;border:1px dashed var(--line);border-radius:4px;vertical-align:middle"></span>`;
+const _when=iso=>iso?seFmtWhen(iso):'';
+
+// ---- snag cards (photos) — used by site engineer walk-round and supervisor "From site" tab ----
+function snagCardsHTML(pid,opts){
+  opts=opts||{};
+  const open=openSnagsFor(pid), closed=closedSnagsFor(pid);
+  const row=s=>`<div class="scRow">
+    <div class="scPics"><div><div class="scL">BEFORE</div>${_thumb(s.before_photo_url,70)}</div><div><div class="scL">AFTER</div>${s.after_photo_url?_thumb(s.after_photo_url,70):(opts.canClose&&!s._demo?`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:10px;padding:22px 8px">📷 DONE — after photo<input type="file" accept="image/*" capture="environment" data-snagafter="${s.id}" style="display:none"></label>`:'<span style="display:inline-block;height:70px;width:70px;border:1px dashed var(--line);border-radius:4px"></span>')}</div></div>
+    <div class="scTxt"><div class="scN">${s.item_name||'(item not named)'}${s.zone_name?' <span style="color:var(--mut)">· '+s.zone_name+'</span>':''}</div>
+      <div>${s.description||''}</div>
+      <div class="scM">${s.fix_by?'Fix by: <b>'+s.fix_by+'</b> · ':''}raised ${_when(s.created_at)}${s.before_by?' by '+s.before_by:''}${s.after_at?' · <span style="color:var(--green)">closed '+_when(s.after_at)+(s.after_by?' by '+s.after_by:'')+'</span>':''}</div></div></div>`;
+  return `<div class="card"><div class="cardHead"><span>⚠ SNAGS — ${open.length} OPEN · ${closed.length} CLOSED</span><small style="color:var(--mut);font-weight:400">before / after photos</small></div>
+    ${open.map(row).join('')||'<div class="empty" style="padding:14px">No open snags.</div>'}
+    ${closed.length?`<details style="padding:0 12px 10px"><summary style="cursor:pointer;font-size:11px;color:var(--mut);padding:6px 0">Show ${closed.length} closed</summary>${closed.map(row).join('')}</details>`:''}</div>`;
+}
+// ---- returns cards ----
+function returnCardsHTML(pid,opts){
+  opts=opts||{};
+  if(!store.returnsLoaded)loadReturns();
+  const list=returnsFor(pid);
+  const row=r=>{const idx=returnStepIdx(r.status);
+    const steps=RETURN_STEPS.map((s,i)=>`<span class="rtStep ${i<=idx?'on':''} ${i===idx?'cur':''}">${s.l}</span>`).join('<span class="rtArr">→</span>');
+    const next=RETURN_STEPS[idx+1];
+    const canAdvance=next&&!r._demo&&(opts.role==='factory'?['received','fixed','redelivered'].indexOf(next.k)>-1:false);
+    return `<div class="rtRow"><div class="rtPic">${_thumb(r.photo_url,64)}</div><div class="rtTxt">
+      <div class="scN">${r.item_name||'(item)'}${r.zone_name?' <span style="color:var(--mut)">· '+r.zone_name+'</span>':''}</div>
+      <div><b>${r.reason||''}</b>${r.reason_other?' — '+r.reason_other:''}${r.note?' · '+r.note:''}</div>
+      <div class="scM">${_when(r.created_at)} by ${r.created_by_name||''}${r.revert_stage?' · item put back to <b>'+r.revert_stage+'</b>':''}</div>
+      <div class="rtSteps">${steps}</div>
+      ${canAdvance?`<button class="zadd" data-rtadvance="${r.id}" data-rtnext="${next.k}" style="margin-top:6px;font-size:10px">✓ ${next.l.toUpperCase()}</button>`:''}</div></div>`;};
+  return `<div class="card"><div class="cardHead"><span>↩ RETURNS TO FACTORY — ${list.filter(r=>r.status!=='redelivered').length} OPEN</span>${store.returnsError?`<small style="color:var(--red)">${store.returnsError}</small>`:''}</div>${list.map(row).join('')||'<div class="empty" style="padding:14px">No returns.</div>'}</div>`;
+}
+async function advanceReturn(id,next){
+  const r=(store.returns||[]).find(x=>String(x.id)===String(id)); if(!r)return;
+  if(demoGuard(id))return;
+  const me=store.account.name||store.account.email;
+  const hist=(Array.isArray(r.history)?r.history:[]).concat([{status:next,at:new Date().toISOString(),by:me}]);
+  const patch={status:next,history:hist,updated_at:new Date().toISOString()};
+  Object.assign(r,patch);render();
+  try{
+    const {error}=await sb.from('site_returns').update(patch).eq('id',id);if(error)throw error;
+    if(next==='redelivered'&&r.item_id){const it=(store.prodItems||[]).find(x=>String(x.id)===String(r.item_id));if(it&&prodStageIndex(it.stage)<7)await updateProductionItem(it.id,{stage:'Delivery'});}
+  }catch(e){alert('Could not update: '+(e.message||'error'));}
+}
+// ---- site engineer: create a return (sheet) ----
+function seReturnSheetHTML(it){
+  const rs=store.seRetReason||RETURN_REASONS[0];
+  const stages=PROD_STAGES.slice(1,7);
+  return `<div class="seSheet" style="border-color:var(--amber)"><div class="seSheetHead" style="color:var(--amber)"><span>↩ RETURN TO FACTORY — ${mdashItemName(it)}</span><button class="gbtn" id="seSheetClose" style="padding:4px 8px;font-size:10px">✕</button></div>
+    <label class="field"><span class="fl">REASON</span><select class="fi" id="seRetReason" style="width:100%">${RETURN_REASONS.map(r=>`<option ${r===rs?'selected':''}>${r}</option>`).join('')}</select></label>
+    ${rs==='Other'?`<input class="inp" id="seRetOther" placeholder="Describe the reason" style="margin-top:6px">`:''}
+    <label class="field" style="margin-top:8px"><span class="fl">PUT THE ITEM BACK TO STAGE</span><select class="fi" id="seRetStage" style="width:100%">${stages.map(s=>`<option ${s===(store.seRetStage||'Painting')?'selected':''}>${s}</option>`).join('')}</select></label>
+    <div class="hint" style="padding:4px 0 8px">So the factory pipeline shows it as work again, not "at site".</div>
+    ${(()=>{const ph=store.seSheetPhoto;return `<div class="sePhoto">${ph?`<img src="${ph}" style="max-height:120px;border-radius:4px"><br><button class="gbtn" id="sePhotoClear" style="margin-top:6px;font-size:10px">✕ remove photo</button>`:`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:11px">📷 PHOTO OF THE PROBLEM<input type="file" accept="image/*" capture="environment" id="sePhotoIn" style="display:none"></label>`}${store.seUploading?'<div style="font-size:10px;color:var(--amber);margin-top:4px">uploading…</div>':''}</div>`;})()}
+    <input class="inp" id="seNote" placeholder="Note for the factory (optional)">
+    <button class="cta" id="seReturnSave" ${store.seBusy?'disabled':''} style="background:var(--amber)">${store.seBusy?'SAVING…':'SEND BACK TO FACTORY'}</button></div>`;
+}
+async function seReturnSave(){
+  const sh=store.seSheet;const it=(store.prodItems||[]).find(x=>String(x.id)===String(sh.itemId)); if(!it)return;
+  if(demoGuard(it.id))return;
+  const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  const reason=g('seRetReason'), other=(g('seRetOther')||'').trim(), stage=g('seRetStage')||'Painting', note=(g('seNote')||'').trim();
+  if(reason==='Other'&&!other){seSay('Describe the reason.',true);return;}
+  const pr=(store.projects||[]).find(p=>String(p.id)===String(it.project_id));
+  const me=store.account.name||store.account.email;
+  const row={company_id:store.account.companyId,project_id:it.project_id,project_name:pr?pr.name:it.project_name,item_id:it.id,item_name:mdashItemName(it),zone_name:it.zone_name||'',
+    reason,reason_other:other||null,note:note||null,photo_url:store.seSheetPhoto||null,status:'sent_back',revert_stage:stage,created_by_name:me,history:[{status:'sent_back',at:new Date().toISOString(),by:me}]};
+  store.seBusy=true;render();
+  try{
+    const {data,error}=await sb.from('site_returns').insert(row).select().single();if(error)throw error;
+    store.returns=[data,...(store.returns||[])];
+    // move the item back so the pipeline reflects it; keep the reason in its history
+    const hist=(Array.isArray(it.stage_history)?it.stage_history.slice():[]);hist.push({stage,at:new Date().toISOString(),by:me,note:'returned: '+reason+(other?' — '+other:'')});
+    const patch={stage,stage_history:hist.slice(-40),stage_since:new Date().toISOString()};Object.assign(it,patch);
+    await sb.from('production_items').update(patch).eq('id',it.id);
+    store.seBusy=false;store.seSheet=null;store.seSheetPhoto=null;seSay('Return logged — the supervisor sees it under From Site.');
+  }catch(e){store.seBusy=false;seSay('Could not save: '+(e.message||'error'),true);}
+}
+function siteCoordWire(){
+  document.querySelectorAll('[data-rtadvance]').forEach(b=>b.onclick=()=>advanceReturn(b.dataset.rtadvance,b.dataset.rtnext));
+  const rr=document.getElementById('seRetReason');if(rr)rr.onchange=()=>{store.seRetReason=rr.value;render();};
+  const rst=document.getElementById('seRetStage');if(rst)rst.onchange=()=>{store.seRetStage=rst.value;};
+  const rs=document.getElementById('seReturnSave');if(rs)rs.onclick=seReturnSave;
+  const fb=document.getElementById('seFixBy');if(fb)fb.onchange=()=>{store.seFixBy=fb.value;};
+  // after-photo on snag cards (any role that shows them)
+  document.querySelectorAll('[data-snagafter]').forEach(inp=>{if(inp._wired)return;inp._wired=true;inp.onchange=async(e)=>{const f=e.target.files[0];if(!f)return;try{const url=await uploadSiteVisitPhoto(f);resolveSnag(inp.dataset.snagafter,url);}catch(ex){alert('Upload failed: '+(ex.message||'error'));}};});
+}
+// ---- supervisor "From site" tab ----
+function fromSiteHTML(){
+  if(!store.snagsLoaded&&typeof loadSnags==='function')loadSnags();
+  if(!store.returnsLoaded)loadReturns();
+  if(!store.siteVisitsLoaded)loadSiteVisits();
+  const pid=_workspaceId; const pr=(store.projects||[]).find(p=>String(p.id)===String(pid));
+  if(!pr)return '<div class="hint" style="padding-top:14px">Open a project first — this tab shows what the site engineer has sent back for it.</div>';
+  const visits=(store.siteVisits||[]).filter(v=>String(v.project_id)===String(pid)||v.project_name===pr.name).slice(0,12);
+  const vrow=v=>`<tr><td style="white-space:nowrap">${_when(v.created_at)}</td><td>${(seKind(v)||'visit').toUpperCase()}</td><td>${v.item_name||''}${v.location_name?' <span style="color:var(--mut)">· '+v.location_name+'</span>':''}</td><td>${[v.site_w,v.site_h,v.site_d].some(Boolean)?(v.site_w||'?')+' × '+(v.site_h||'?')+(v.site_d?' × '+v.site_d:''):''}</td><td style="max-width:360px">${String(v.notes||'').replace(/^\[[A-Z]+\]\s*/,'')}</td><td>${(Array.isArray(v.photos)?v.photos:[]).slice(0,2).map(u=>_thumb(u,36)).join(' ')}</td></tr>`;
+  return `<div class="hint" style="padding-top:14px">What the site engineer has recorded for <strong>${pr.name}</strong>: snags to fix (with before / after photos), items sent back to the factory, and measurements. Update the return steps here as the item comes through the factory.</div>
+    ${snagCardsHTML(pid,{canClose:true})}
+    ${returnCardsHTML(pid,{role:'factory'})}
+    <div class="card"><div class="cardHead"><span>📐 SITE MEASUREMENTS &amp; NOTES</span><small style="color:var(--mut);font-weight:400">latest ${visits.length}</small></div>
+      <div class="scroll"><table><thead><tr><th>Date</th><th>Type</th><th>Item</th><th>Site W×H×D</th><th>Note</th><th></th></tr></thead><tbody>${visits.map(vrow).join('')||'<tr><td colspan="6" class="empty">No site visits yet.</td></tr>'}</tbody></table></div></div>`;
+}
+
 // ============================================================================
 //  SITE ENGINEER — WALK-ROUND screen (new). The classic form screen stays under
 //  a "CLASSIC" toggle until the new one is proven, then can be removed.
@@ -4857,7 +4998,7 @@ function seWalkHTML(){
     const idx=prodStageIndex(it.stage), demo=it._demo, meas=seMeasured(it,visits);
     const canAct=idx<8;
     return `<div class="seIt"><div class="nm">${mdashItemName(it)}${it.qty>1?' <span style="color:var(--mut)">× '+it.qty+'</span>':''}</div>${seStatusChip(it,visits)}
-      ${idx>=7?`<div class="seActs"><button class="seUndo" data-seundo="${it.id}">↶ UNDO ${idx>=8?'INSTALLED':'DELIVERED'}</button>${idx===7?`<button class="in" data-seinstall="${it.id}">✓ INSTALLED</button>`:''}<button class="sn" data-sesnag="${it.id}">⚠ SNAG</button></div>`
+      ${idx>=7?`<div class="seActs"><button class="seUndo" data-seundo="${it.id}">↶ UNDO ${idx>=8?'INSTALLED':'DELIVERED'}</button>${idx===7?`<button class="in" data-seinstall="${it.id}">✓ INSTALLED</button>`:''}<button class="sn" data-sesnag="${it.id}">⚠ SNAG</button><button class="rt" data-sereturn="${it.id}">↩ RETURN</button></div>`
       :`<div class="seActs"><button class="m ${meas?'done':''}" data-semeasure="${it.id}">📐 ${meas?'MEASURED '+seFmtWhen(meas.created_at):'MEASURE'}</button><button class="dl" data-sedeliver="${it.id}">🚚 DELIVERED</button><button class="in" data-seinstall="${it.id}">✓ INSTALLED</button><button class="sn" data-sesnag="${it.id}">⚠ SNAG</button></div>`}
     </div>`;}).join('');
   const zoneCards=zones.map(z=>{const list=items.filter(i=>((i.zone_name||'').trim()||'No zone')===z);const inst=list.filter(i=>prodStageIndex(i.stage)>=8).length;
@@ -4870,8 +5011,9 @@ function seWalkHTML(){
       <div class="a"><div class="n">${needMeasure}</div><div class="l">Need site measure</div></div>
       <div class="r"><div class="n">${snags.length}</div><div class="l">Snags open</div></div></div>
     ${store.seMsg?`<div class="hint" style="padding:6px 0 10px;color:${store.seErr?'var(--red)':'var(--green)'}">${store.seMsg}</div>`:''}
-    ${zoneCards||'<div class="empty">No items in this project yet. The supervisor adds zones and items from the factory side; once they exist they appear here.</div>'}
-    <button class="pbtn" id="seEodBtn" style="width:100%;padding:13px;margin-top:6px">📋 END OF DAY REPORT</button>`
+    <div class="seZones">${zoneCards||'<div class="empty">No items in this project yet. The supervisor adds zones and items from the factory side; once they exist they appear here.</div>'}</div>
+    <button class="pbtn" id="seEodBtn" style="width:100%;padding:13px;margin-top:6px">📋 END OF DAY REPORT</button>
+    <div class="seTwo">${snagCardsHTML(pr.id,{canClose:true})}${returnCardsHTML(pr.id,{role:'site'})}</div>`
     :'<div class="empty">No projects yet.</div>'}
     ${seSheetHTML(pr,items,visits)}
   </div>`;
@@ -4899,8 +5041,10 @@ function seSheetHTML(pr,items,visits){
     ${photoBox(false)}
     <input class="inp" id="seNote" placeholder="e.g. ceiling out of level 12 mm left to right" style="margin-top:8px">
     <button class="cta" id="seMeasureSave" ${busy} style="background:var(--blue)">${store.seBusy?'SAVING…':'SAVE MEASUREMENT → factory notified'}</button></div></div>`;}
+  if(sh.type==='return'&&it)return `<div class="seSheetWrap">${seReturnSheetHTML(it)}</div>`;
   if(sh.type==='snag'&&it)return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--red)">${head('⚠ SNAG — '+mdashItemName(it),'var(--red)')}
-    ${photoBox(true)}
+    <div class="hint" style="padding:0 0 6px">BEFORE photo now; whoever fixes it adds the AFTER photo from the snag list.</div>${photoBox(true)}
+    <label class="field" style="margin-top:6px"><span class="fl">WHO MUST FIX IT</span><select class="fi" id="seFixBy" style="width:100%">${['Factory','Site team','Other trade'].map(o=>`<option ${(store.seFixBy||'Factory')===o?'selected':''}>${o}</option>`).join('')}</select></label>
     <input class="inp" id="seNote" placeholder="What is wrong? e.g. paint scuff on panel 7, corridor side" style="margin-top:8px">
     <button class="cta" id="seSnagSave" ${busy} style="background:var(--red);color:#fff">${store.seBusy?'SAVING…':'LOG SNAG'}</button></div></div>`;
   if(sh.type==='eod'){
@@ -4989,7 +5133,7 @@ async function seSnagSave(){
   const sh=store.seSheet;const it=(store.prodItems||[]).find(x=>String(x.id)===String(sh.itemId)); if(!it)return;
   if(demoGuard(it.id))return;
   const desc=((document.getElementById('seNote')||{}).value||'').trim();
-  store.snagDraft={project_id:it.project_id,zone_name:it.zone_name||'',item_name:mdashItemName(it),description:desc,beforeUrl:store.seSheetPhoto};
+  store.snagDraft={project_id:it.project_id,zone_name:it.zone_name||'',item_name:mdashItemName(it),description:desc,beforeUrl:store.seSheetPhoto,fix_by:(document.getElementById('seFixBy')||{}).value||'Factory'};
   store.seBusy=true;render();
   await addSnag();
   store.seBusy=false;
@@ -5014,6 +5158,8 @@ function seWalkWire(){
   document.querySelectorAll('[data-seinstall]').forEach(b=>b.onclick=()=>seOpen('install',b.dataset.seinstall));
   document.querySelectorAll('[data-semeasure]').forEach(b=>b.onclick=()=>seOpen('measure',b.dataset.semeasure));
   document.querySelectorAll('[data-sesnag]').forEach(b=>b.onclick=()=>seOpen('snag',b.dataset.sesnag));
+  document.querySelectorAll('[data-sereturn]').forEach(b=>b.onclick=()=>seOpen('return',b.dataset.sereturn));
+  siteCoordWire();
   document.querySelectorAll('[data-seundo]').forEach(b=>b.onclick=()=>seUndo(b.dataset.seundo));
   const eod=document.getElementById('seEodBtn');if(eod)eod.onclick=()=>seOpen('eod',null);
   const cl=document.getElementById('seSheetClose');if(cl)cl.onclick=seClose;
@@ -5932,6 +6078,7 @@ async function addSnag(){
     zone_name:(d.zone_name||'').trim(), item_name:(d.item_name||'').trim(),
     before_photo_url:d.beforeUrl, before_by:store.account.name||store.account.email, status:'open'
   };
+  if(d.fix_by)row.fix_by=d.fix_by;
   try{
     const {data,error}=await sb.from('snags').insert(row).select().single();
     if(error)throw error;
@@ -6945,8 +7092,9 @@ function appHTML(){
     <button class="tab ${store.tab==='catalogue'?'on':''}" data-tab="catalogue" style="color:var(--blue)">⊕ CATALOGUE</button>
     <button class="tab ${store.tab==='sitedrawings'?'on':''}" data-tab="sitedrawings" style="color:var(--amber)">📐 SITE DRAWINGS</button>
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
+    <button class="tab ${store.tab==='fromsite'?'on':''}" data-tab="fromsite" style="color:var(--green)">📍 FROM SITE${(()=>{const n=_workspaceId?openSnagsFor(_workspaceId).length+returnsFor(_workspaceId).filter(r=>r.status!=='redelivered').length:0;return n?' ('+n+')':'';})()}</button>
   </div></div>
-  <div class="body">${({assembly:assemblyHTML,linear:linearHTML,timber:timberHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab]||assemblyHTML)()}</div>
+  <div class="body">${({fromsite:fromSiteHTML,assembly:assemblyHTML,linear:linearHTML,timber:timberHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab]||assemblyHTML)()}</div>
   <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="myAccountBtn" style="cursor:pointer;text-decoration:underline">my account</span> · <a href="${helpDeskLink()}" target="_blank" rel="noopener" title="Help via WhatsApp" style="vertical-align:middle">${whatsappIcon(14)}</a> · <span style="font-size:11px;color:var(--mut)">Account: ${store.account.email} &middot; ${store.account.company}</span>&nbsp;&middot;&nbsp;<span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span>&nbsp;&middot;&nbsp;<span id="myAccountBtn" style="cursor:pointer;text-decoration:underline;color:var(--amber)">my account</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}${accountOverlayHTML()}`;}
 
 // export picker: choose which sheets go into the Excel
@@ -8413,6 +8561,7 @@ function wire(){
   const rt=document.getElementById('reuseToggle');if(rt)rt.onclick=()=>{store.reuseSheetOffcuts=!store.reuseSheetOffcuts;render();};
   {const sg=document.getElementById('strictGrainToggle'); if(sg)sg.onclick=()=>{store.strictGrain=(store.strictGrain===false);render();};}
   const psb=document.getElementById('pullSiteBtn');if(psb)psb.onclick=()=>{store.showSitePull=true;render();};
+  if(typeof siteCoordWire==='function')siteCoordWire();
   const spClose=document.getElementById('sitePullClose');if(spClose)spClose.onclick=()=>{store.showSitePull=false;render();};
   document.querySelectorAll('[data-pullvisit]').forEach(b=>b.onclick=()=>{if(!b.disabled)applySiteVisitToZone(b.dataset.pullvisit);});
   const sdr=document.getElementById('sdRefresh');if(sdr)sdr.onclick=()=>{store.siteVisitsLoaded=false;loadSiteVisits();};
