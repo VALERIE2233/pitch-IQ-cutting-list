@@ -233,8 +233,8 @@
 // server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
 // request and compares it to the one we loaded with. Any redeploy changes the
 // fingerprint, so it works whether or not anyone remembers to update anything.
-const APP_VERSION='1.4.2';   // display only - not what triggers the banner
-const APP_BUILD='20260908.f92013';  // stamped at build time so the live version is verifiable
+const APP_VERSION='1.4.3';   // display only - not what triggers the banner
+const APP_BUILD='20260908.5a9e28';  // stamped at build time so the live version is verifiable
 let _appFingerprint=null;
 function fingerprintOf(res){
   return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
@@ -456,16 +456,23 @@ async function cloudSave(){
 // (so contractor/manager/site engineer see the same shared project list)
 async function loadProjects(){
   if(!sb||!store.account)return;
+  store.projectsError='';
   try{
-    let q=sb.from('jobs').select('id,name,updated_at,owner_id,company_id,open_for_site_visit,site_lat,site_lng,planned_hours,estimated_cost,data->editors').order('updated_at',{ascending:false});
+    let q=sb.from('jobs').select('*').order('updated_at',{ascending:false});
     if(store.account.companyId){
       q=q.or(`owner_id.eq.${store.account.uid},company_id.eq.${store.account.companyId}`);
     }else{
       q=q.eq('owner_id',store.account.uid);
     }
-    const {data}=await q;
-    store.projects=data||[];
-  }catch(e){store.projects=[];}
+    const {data,error}=await q;
+    if(error)throw error;
+    // the editors map lives inside data; lift it so callers can read it directly
+    store.projects=(data||[]).map(r=>Object.assign({},r,{editors:(r.data&&r.data.editors)||r.editors||null}));
+  }catch(e){
+    store.projects=[];
+    store.projectsError=(e&&e.message)||'Could not load projects';
+    console.error('loadProjects failed:',e);
+  }
   store.projectsLoaded=true;render();
 }
 async function toggleProjectSiteVisit(id,val){
@@ -5995,7 +6002,8 @@ function appHTML(){
   ${store.showProjects&&!store.projectsLoaded?(loadProjects(),'')||'':''}
   ${store.showProjects?`<div style="padding:12px 14px;background:#15181d;border-bottom:1px solid var(--line)">
     <div style="font-size:11px;color:var(--mut);margin-bottom:8px">${store.projectsLoaded?'ALL PROJECTS IN '+(store.account.company||'YOUR COMPANY').toUpperCase():'LOADING PROJECTS\u2026'} — tap to open</div>
-    ${!(store.projects||[]).length&&store.projectsLoaded?`<div class="hint" style="padding:8px 0">No projects in this company yet. Use + NEW PROJECT to create the first one.</div>`:''}
+    ${store.projectsError?`<div style="padding:8px 10px;margin-bottom:8px;border:1px solid var(--red);border-radius:4px;color:var(--red);font-size:11px">Could not load projects: ${store.projectsError}</div>`:''}
+    ${!(store.projects||[]).length&&store.projectsLoaded&&!store.projectsError?`<div class="hint" style="padding:8px 0">No projects in this company yet. Use + NEW PROJECT to create the first one.</div>`:''}
     ${(store.projects||[]).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid ${p.id===_workspaceId?'var(--amber)':'var(--line)'};border-radius:5px;margin-bottom:6px"><span style="cursor:pointer;flex:1" data-openproj="${p.id}">${p.name}${p.id===_workspaceId?' <small style="color:var(--amber)">(open)</small>':''}${p.owner_id!==store.account.uid?' <small style="color:var(--blue)">· shared</small>':''}</span><span style="font-size:10px;color:var(--mut);margin-right:8px">${new Date(p.updated_at).toLocaleDateString()}</span>${(p.owner_id===store.account.uid||p.name==='My First Project')?`<button data-delproj="${p.id}" data-delprojname="${p.name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Delete this project">🗑</button>`:''}</div>`).join('')||'<div class="empty">No projects yet.</div>'}
   </div>`:''}
   <header><div class="brand"><div class="mark">▰▰</div><div><div class="title">FIT-OUT&nbsp;IQ &middot; SUPERVISOR</div><div class="sub">${store.account.company||'<span style="color:var(--red)">NO COMPANY SET &mdash; open my account</span>'}</div></div></div>
