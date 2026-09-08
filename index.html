@@ -244,7 +244,7 @@
   tr.mdNow td{background:rgba(255,179,0,.08)}tr.mdFuture td{color:var(--mut)}
   .mdVar{font-weight:700}.mdVar.bad{color:var(--red)}.mdVar.good{color:var(--green)}
   /* site engineer walk-round */
-  .seToday{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0}.seToday>div{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:4px;padding:8px 10px}.seToday .n{font-size:22px;font-weight:800;line-height:1}.seToday .l{font-size:9px;color:var(--mut);margin-top:3px}
+  .seToday{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin:12px 0}.seToday>div{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:4px;padding:8px 10px}.seToday .n{font-size:22px;font-weight:800;line-height:1}.seToday .l{font-size:9px;color:var(--mut);margin-top:3px}
   .seToday .b{border-left-color:var(--blue)}.seToday .b .n{color:var(--blue)}.seToday .a{border-left-color:var(--amber)}.seToday .a .n{color:var(--amber)}.seToday .r{border-left-color:var(--red)}.seToday .r .n{color:var(--red)}
   .seIt{padding:9px 12px;border-bottom:1px solid var(--row)}.seIt:last-child{border-bottom:none}.seIt .nm{font-size:12px;font-weight:600}
   .seSt{display:inline-block;font-size:9px;padding:1px 6px;border-radius:2px;border:1px solid var(--line);color:var(--mut);margin-top:3px}.seSt.f{border-color:var(--blue);color:var(--blue)}.seSt.d{border-color:var(--amber);color:var(--amber)}.seSt.s{border-color:var(--green);color:var(--green)}.seSt.n{border-color:#666;color:#999}
@@ -258,6 +258,9 @@
   .seEod{background:var(--steel);border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:8px}.seEod .t{font-size:10px;letter-spacing:1.5px;color:var(--amber);font-weight:800;margin-bottom:6px}.seEod div{font-size:11px;color:#c9ced5;margin-bottom:3px}
   body:has(.seSheetWrap) .body{padding-bottom:60vh}
   .seActs .rt{border-color:var(--amber);color:var(--amber)}
+  .seSt.x{border-color:var(--red);color:var(--red)}
+  .seReady{display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap}.seReady .fl{margin-right:4px}.seReady button{background:transparent;border:1px solid var(--line);color:var(--mut);font-family:var(--mono);font-size:10px;padding:6px 9px;border-radius:3px;font-weight:700}.seReady button.on{background:var(--green);color:#000;border-color:var(--green)}.seReady button.onx{background:var(--red);color:#000;border-color:var(--red)}
+  .seDraw{margin-top:6px;display:flex;align-items:center;flex-wrap:wrap}
   .seTwo{display:grid;grid-template-columns:1fr;gap:0}
   .scRow,.rtRow{display:flex;gap:12px;padding:10px 12px;border-bottom:1px solid var(--row);align-items:flex-start}.scRow:last-child,.rtRow:last-child{border-bottom:none}
   .scPics{display:flex;gap:8px;flex-shrink:0}.scL{font-size:8px;letter-spacing:1.5px;color:var(--mut);margin-bottom:3px}.scTxt,.rtTxt{flex:1;font-size:11.5px;min-width:0}.scN{font-weight:700;font-size:12px}.scM{font-size:10px;color:var(--mut);margin-top:3px}
@@ -2369,10 +2372,10 @@ function demoSeed(){
     prodItems:[
       // Zone 1 — Reception (5 items)
       item(1,'Reception desk R-01 · curved front, oak veneer','Reception','Sample Approved',14,{flag:'Blocked',ready_drawing:true,ready_material:true,ready_veneer:false,ready_ironmongery:true,ready_paint:true,ready_accessories:false,assignee:'Ravi'}),
-      item(2,'Wall panelling P-01 · fluted oak, 12 panels','Reception','Assembly',9,Object.assign({assignee:'Ahmed'},ready)),
+      item(2,'Wall panelling P-01 · fluted oak, 12 panels','Reception','Assembly',9,Object.assign({assignee:'Ahmed',site_ready:true,site_ready_by:'Kamal',site_ready_at:iso(2)},ready)),
       item(3,'Feature ceiling C-01 · slatted, black stain','Reception','Painting',3,Object.assign({assignee:'Ahmed'},ready)),
       item(4,'Door set D-01 · 2100 flush, oak lipped','Reception','Site',6,ready),
-      item(5,'Skirting & architrave · 24 lm','Reception','Not Started',0,{ready_drawing:true,ready_material:false,ready_veneer:true,ready_ironmongery:true,ready_paint:false,ready_accessories:true}),
+      item(5,'Skirting & architrave · 24 lm','Reception','Not Started',0,{ready_drawing:true,ready_material:false,ready_veneer:true,ready_ironmongery:true,ready_paint:false,ready_accessories:true,site_ready:false,site_ready_note:'Floor screed not finished',site_ready_by:'Kamal',site_ready_at:iso(1)}),
       // Zone 2 — Meeting Room A (5 items)
       item(6,'Meeting table T-02 · 3.6m, cable box','Meeting Room A','Machinery',4,Object.assign({assignee:'Ravi'},ready)),
       item(7,'Credenza CR-02 · 2 door, push-latch','Meeting Room A','Started',2,Object.assign({assignee:'Joseph'},ready)),
@@ -2635,6 +2638,7 @@ function clientReportHTML(pr){
     return `<div class="zone"><span class="n">${esc(z)}</span><div class="bar"><i style="width:${w('g')}%;background:var(--green)"></i><i style="width:${w('b')}%;background:var(--blue)"></i><i style="width:${w('a')}%;background:var(--amber)"></i></div><span class="r">${zr.filter(r=>r.s.c==='g').length} of ${zr.length} installed</span></div>`;}).join('');
   // remarks per item: hold reason / latest history note / site visit for that item
   const remark=r=>{const it=r.it;
+    const rdy=it.site_ready===false?'<b>Site not ready</b> — '+esc(it.site_ready_note||'')+'. ':(it.site_ready===true?'Site ready. ':'');
     if(r.s.asks&&r.s.asks.length)return '<b>Awaiting your approval of: '+esc(r.s.asks.map(a=>a.label.replace(' approved','').toLowerCase()).join(', '))+'.</b>';
     if(it.flag==='On Hold')return 'On hold at your request.';
     const v=visits.find(x=>x.item_name&&String(it.description||it.item||'').indexOf(x.item_name)>-1);
@@ -2642,14 +2646,20 @@ function clientReportHTML(pr){
     const d=mdashDaysInStage(it);
     if(r.s.t==='Installed'){const h=Array.isArray(it.stage_history)?it.stage_history[it.stage_history.length-1]:null;return h&&h.at?'Fitted '+dfmt(h.at)+'.':'Fitted.';}
     return d!=null&&d>7?'Delayed — being expedited.':'On programme.';};
+  const remark2=r=>{const it=r.it;const rdy=it.site_ready===false?'<b>Site not ready</b> — '+esc(it.site_ready_note||'')+'. ':'';return rdy+remark(r);};
   const order={g:0,b:1,a:2,x:3};
   const tableHTML=rows.slice().sort((a,b)=>zones.indexOf((a.it.zone_name||'').trim()||'General')-zones.indexOf((b.it.zone_name||'').trim()||'General')||order[a.s.c]-order[b.s.c])
-    .map(r=>`<tr><td>${esc((r.it.zone_name||'').trim()||'General')}</td><td>${esc(mdashItemName(r.it))}</td><td><span class="st ${r.s.c}">${r.s.t}</span></td><td>${remark(r)}</td></tr>`).join('')
+    .map(r=>`<tr><td>${esc((r.it.zone_name||'').trim()||'General')}</td><td>${esc(mdashItemName(r.it))}</td><td><span class="st ${r.s.c}">${r.s.t}</span></td><td>${remark2(r)}</td></tr>`).join('')
     ||'<tr><td colspan="4" style="color:var(--mut)">No items recorded yet.</td></tr>';
   // actions for the client
   const asks=rows.filter(r=>r.s.asks&&r.s.asks.length).map(r=>{const d=mdashDaysInStage(r.it);return `<li><b>${esc(mdashItemName(r.it))}</b> — approve ${esc(r.s.asks.map(a=>a.label.replace(' approved','').toLowerCase()).join(', '))}${d!=null&&d>0?' (outstanding '+d+' day'+(d===1?'':'s')+')':''}.</li>`;});
   // next steps: what is finishing / delivered
   const next=rows.filter(r=>['Finishing','Delivered to site'].indexOf(r.s.t)>-1).map(r=>`<li>${esc(mdashItemName(r.it))} — ${r.s.t==='Delivered to site'?'fitting on site':'finishing, then delivery'}</li>`);
+  const rets=returnsFor(pr.id);
+  const retStep=st=>({sent_back:'Returned to factory',received:'At factory for rework',fixed:'Repaired / replaced',redelivered:'Redelivered to site'})[st]||st;
+  const returnsHTML=rets.length?`<h2>Items returned for rework</h2><table><thead><tr><th>Zone</th><th>Item</th><th>Reason</th><th>Status</th><th>Since</th></tr></thead><tbody>${rets.map(r=>`<tr><td>${esc(r.zone_name||'')}</td><td>${esc(r.item_name||'')}</td><td>${esc(r.reason||'')}${r.reason_other?' — '+esc(r.reason_other):''}</td><td><span class="st ${r.status==='redelivered'?'g':'a'}">${retStep(r.status)}</span></td><td>${dfmt(r.created_at)}</td></tr>`).join('')}</tbody></table>`:'';
+  const notReady=rows.filter(r=>r.it.site_ready===false);
+  const readyAsks=notReady.map(r=>`<li><b>${esc(mdashItemName(r.it))}</b> — site not ready for installation: ${esc(r.it.site_ready_note||'')}.</li>`);
   const lastVisit=visits[0];
   const siteNote=lastVisit&&lastVisit.notes?`<div class="note"><b>Site note${lastVisit.site_engineer_name?' ('+esc(lastVisit.site_engineer_name)+', '+dfmt(lastVisit.created_at)+')':''}:</b> ${esc(String(lastVisit.notes).slice(0,300))}${snags.length?' <b>'+snags.length+' snag'+(snags.length>1?'s':'')+' open.</b>':''}</div>`:(snags.length?`<div class="note">${snags.length} snag${snags.length>1?'s':''} open on site, being attended to.</div>`:'');
   return `<!doctype html><html><head><meta charset="utf-8"><title>Project Status Report — ${esc(pr.name)}</title>
@@ -2684,10 +2694,12 @@ table{width:100%;border-collapse:collapse;font-size:10.5px}th{text-align:left;fo
     <div class="kpi"><div class="v" style="color:var(--blue)">${delivered}</div><div class="l">Delivered, awaiting fitting</div></div>
     <div class="kpi"><div class="v">${Math.max(0,inProd)}</div><div class="l">In production at factory</div></div>
     <div class="kpi"><div class="v" style="color:var(--amber)">${waiting}</div><div class="l">Awaiting client approval</div></div></div>
+  ${(rets.filter(r=>r.status!=='redelivered').length||notReady.length)?`<div class="note" style="margin:-6px 0 10px">${rets.filter(r=>r.status!=='redelivered').length?rets.filter(r=>r.status!=='redelivered').length+' item'+(rets.filter(r=>r.status!=='redelivered').length>1?'s':'')+' back at the factory for rework. ':''}${notReady.length?notReady.length+' item'+(notReady.length>1?'s':'')+' waiting for the site to be ready.':''}</div>`:''}
   <h2>Progress by zone</h2>${zoneHTML||'<div style="color:var(--mut)">No zones yet.</div>'}
   <div class="legend"><span><i style="background:var(--green)"></i>Installed</span><span><i style="background:var(--blue)"></i>In production / delivery</span><span><i style="background:var(--amber)"></i>Waiting on approval</span><span><i style="background:#e9e6df"></i>Not yet started</span></div>
   <h2>Item status</h2><table><thead><tr><th>Zone</th><th>Item</th><th>Status</th><th>Remarks</th></tr></thead><tbody>${tableHTML}</tbody></table>
-  <div class="two"><div><h2>Actions required from client</h2>${asks.length?'<ul>'+asks.join('')+'</ul>':'<div style="color:var(--mut)">Nothing outstanding from the client at present.</div>'}</div>
+  ${returnsHTML}
+  <div class="two"><div><h2>Actions required from client</h2>${(asks.length||readyAsks.length)?'<ul>'+asks.join('')+readyAsks.join('')+'</ul>':'<div style="color:var(--mut)">Nothing outstanding from the client at present.</div>'}</div>
     <div><h2>Next steps</h2>${next.length?'<ul>'+next.join('')+'</ul>':''}<ul><li class="fill">[add dates and plans for the coming weeks]</li></ul></div></div>
   ${siteNote}
   <div class="sign"><div>For ${esc(store.account.company||'')} — name, signature, date</div><div>Acknowledged for the client — name, signature, date</div></div>
@@ -2789,10 +2801,11 @@ function mgrDashboardHTML(){
     const zones=[];mine.forEach(i=>{const z=(i.zone_name||'').trim();if(zones.indexOf(z)<0)zones.push(z);});
     const note=last&&last.notes?String(last.notes).slice(0,140):'';
     return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">${eng}${ago==null?' · no visits yet':ago===0?' · visited today':' · last visit '+ago+' day'+(ago===1?'':'s')+' ago'}</span></div>
-      <div class="meta"><span><b>${mine.length-deliveredN}</b> still in factory</span><span>&rarr;</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span>&rarr;</span><span><b style="color:var(--green)">${installed}</b> at site</span><span>·</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>·</span><span>${zones.length} zone${zones.length===1?'':'s'} · ${pct}% installed</span></div>
+      <div class="meta"><span><b>${mine.length-deliveredN}</b> still in factory</span><span>&rarr;</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span>&rarr;</span><span><b style="color:var(--green)">${installed}</b> at site</span><span>·</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>·</span><span><b style="color:${mine.some(i=>i.site_ready===false)?'var(--red)':'inherit'}">${mine.filter(i=>i.site_ready===false).length}</b> sites not ready</span><span>·</span><span>${zones.length} zone${zones.length===1?'':'s'} · ${pct}% installed</span></div>
+      ${mine.some(i=>i.site_ready===false)?`<div class="snag" style="color:var(--red)">Not ready: ${mine.filter(i=>i.site_ready===false).map(i=>mdashItemName(i)+(i.site_ready_note?' — '+i.site_ready_note:'')).join('; ')}</div>`:''}
       ${zones.map(z=>zoneRow(z,mine.filter(i=>(i.zone_name||'').trim()===z),openSnags)).join('')}
       ${openSnags.length?`<div class="snag">Open snags: ${openSnags.slice(0,4).map(sn=>(sn.item_name||'item')+(sn.description?' — '+String(sn.description).slice(0,50):'')+(sn.fix_by?' ('+sn.fix_by+')':'')).join('; ')}${openSnags.length>4?' +'+(openSnags.length-4)+' more':''}</div>`:''}
-      ${(()=>{const rt=returnsFor(pr.id).filter(r=>r.status!=='redelivered');return rt.length?`<div class="snag" style="color:var(--blue)">Returned to factory: ${rt.map(r=>(r.item_name||'item')+' — '+(r.reason||'')+(r.reason_other?' ('+r.reason_other+')':'')+' · '+(RETURN_STEPS[returnStepIdx(r.status)]||{}).l).join('; ')}</div>`:'';})()}
+      ${(()=>{const rt=returnsFor(pr.id).filter(r=>r.status!=='redelivered');return rt.length?`<div class="snag" style="color:var(--blue)"><b>Returned to factory (${rt.length}):</b>${rt.map(r=>`<div style="margin-top:3px">↩ ${r.item_name||'item'} <span style="color:var(--mut)">· ${r.zone_name||''}</span> — ${r.reason||''}${r.reason_other?' ('+r.reason_other+')':''} → <b>${(RETURN_STEPS[returnStepIdx(r.status)]||{}).l}</b> <span style="color:var(--mut)">${_when(r.created_at)}</span></div>`).join('')}</div>`:'';})()}
       ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
 
   const realProjs=allProjs.filter(p=>!p._demo);
@@ -4898,13 +4911,13 @@ async function advanceReturn(id,next){
 // ---- site engineer: create a return (sheet) ----
 function seReturnSheetHTML(it){
   const rs=store.seRetReason||RETURN_REASONS[0];
-  const stages=PROD_STAGES.slice(1,7);
+  const stages=PROD_STAGES.slice(0,7);
   return `<div class="seSheet" style="border-color:var(--amber)"><div class="seSheetHead" style="color:var(--amber)"><span>↩ RETURN TO FACTORY — ${mdashItemName(it)}</span><button class="gbtn" id="seSheetClose" style="padding:4px 8px;font-size:10px">✕</button></div>
     <label class="field"><span class="fl">REASON</span><select class="fi" id="seRetReason" style="width:100%">${RETURN_REASONS.map(r=>`<option ${r===rs?'selected':''}>${r}</option>`).join('')}</select></label>
     ${rs==='Other'?`<input class="inp" id="seRetOther" placeholder="Describe the reason" style="margin-top:6px">`:''}
     <label class="field" style="margin-top:8px"><span class="fl">PUT THE ITEM BACK TO STAGE</span><select class="fi" id="seRetStage" style="width:100%">${stages.map(s=>`<option ${s===(store.seRetStage||'Painting')?'selected':''}>${s}</option>`).join('')}</select></label>
     <div class="hint" style="padding:4px 0 8px">So the factory pipeline shows it as work again, not "at site".</div>
-    ${(()=>{const ph=store.seSheetPhoto;return `<div class="sePhoto">${ph?`<img src="${ph}" style="max-height:120px;border-radius:4px"><br><button class="gbtn" id="sePhotoClear" style="margin-top:6px;font-size:10px">✕ remove photo</button>`:`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:11px">📷 PHOTO OF THE PROBLEM<input type="file" accept="image/*" capture="environment" id="sePhotoIn" style="display:none"></label>`}${store.seUploading?'<div style="font-size:10px;color:var(--amber);margin-top:4px">uploading…</div>':''}</div>`;})()}
+    ${(()=>{const ph=store.seSheetPhoto;return `<div class="sePhoto">${ph?`<img src="${ph}" style="max-height:120px;border-radius:4px"><br><button class="gbtn" id="sePhotoClear" style="margin-top:6px;font-size:10px">✕ remove photo</button>`:`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:11px">📷 TAKE PHOTO<input type="file" accept="image/*" capture="environment" id="sePhotoIn" style="display:none"></label><label class="gbtn" style="display:inline-block;cursor:pointer;font-size:11px;margin-left:6px">🖼 CHOOSE<input type="file" accept="image/*" id="sePhotoIn2" style="display:none"></label><div style="font-size:9px;color:var(--mut);margin-top:4px">photo of the problem — the factory sees it under From Site</div>`}${store.seUploading?'<div style="font-size:10px;color:var(--amber);margin-top:4px">uploading…</div>':''}</div>`;})()}
     <input class="inp" id="seNote" placeholder="Note for the factory (optional)">
     <button class="cta" id="seReturnSave" ${store.seBusy?'disabled':''} style="background:var(--amber)">${store.seBusy?'SAVING…':'SEND BACK TO FACTORY'}</button></div>`;
 }
@@ -4947,7 +4960,14 @@ function fromSiteHTML(){
   if(!pr)return '<div class="hint" style="padding-top:14px">Open a project first — this tab shows what the site engineer has sent back for it.</div>';
   const visits=(store.siteVisits||[]).filter(v=>String(v.project_id)===String(pid)||v.project_name===pr.name).slice(0,12);
   const vrow=v=>`<tr><td style="white-space:nowrap">${_when(v.created_at)}</td><td>${(seKind(v)||'visit').toUpperCase()}</td><td>${v.item_name||''}${v.location_name?' <span style="color:var(--mut)">· '+v.location_name+'</span>':''}</td><td>${[v.site_w,v.site_h,v.site_d].some(Boolean)?(v.site_w||'?')+' × '+(v.site_h||'?')+(v.site_d?' × '+v.site_d:''):''}</td><td style="max-width:360px">${String(v.notes||'').replace(/^\[[A-Z]+\]\s*/,'')}</td><td>${(Array.isArray(v.photos)?v.photos:[]).slice(0,2).map(u=>_thumb(u,36)).join(' ')}</td></tr>`;
-  return `<div class="hint" style="padding-top:14px">What the site engineer has recorded for <strong>${pr.name}</strong>: snags to fix (with before / after photos), items sent back to the factory, and measurements. Update the return steps here as the item comes through the factory.</div>
+  const pitems=(store.prodItems||[]).filter(i=>String(i.project_id)===String(pid)||i.project_name===pr.name);
+  const ready=pitems.filter(i=>i.site_ready===true), notReady=pitems.filter(i=>i.site_ready===false), unknown=pitems.filter(i=>i.site_ready!==true&&i.site_ready!==false&&prodStageIndex(i.stage)<8);
+  const readyCard=`<div class="card"><div class="cardHead"><span>🏗 SITE READINESS</span><small style="color:var(--mut);font-weight:400">${ready.length} ready · ${notReady.length} not ready · ${unknown.length} not checked</small></div>
+    ${notReady.length?`<div style="padding:8px 12px;border-bottom:1px solid var(--row)"><div class="fl" style="color:var(--red);margin-bottom:4px">HOLD DELIVERY — SITE NOT READY</div>${notReady.map(i=>`<div style="font-size:11.5px;margin:3px 0">${mdashItemName(i)} <span style="color:var(--mut)">· ${i.zone_name||''}</span> — ${i.site_ready_note||''} <span style="color:var(--mut)">(${i.site_ready_by||''}, ${_when(i.site_ready_at)})</span></div>`).join('')}</div>`:''}
+    ${ready.length?`<div style="padding:8px 12px"><div class="fl" style="color:var(--green);margin-bottom:4px">READY FOR INSTALLATION</div>${ready.map(i=>`<span class="chip" style="border-color:var(--green);margin:2px">${mdashItemName(i)}</span>`).join('')}</div>`:''}
+    ${!ready.length&&!notReady.length?'<div class="empty" style="padding:14px">The site engineer has not marked readiness on any item yet.</div>':''}</div>`;
+  return `<div class="hint" style="padding-top:14px">What the site engineer has recorded for <strong>${pr.name}</strong>: site readiness per item, snags to fix (with before / after photos), items sent back to the factory, and measurements. Update the return steps here as the item comes through the factory.</div>
+    ${readyCard}
     ${snagCardsHTML(pid,{canClose:true})}
     ${returnCardsHTML(pid,{role:'factory'})}
     <div class="card"><div class="cardHead"><span>📐 SITE MEASUREMENTS &amp; NOTES</span><small style="color:var(--mut);font-weight:400">latest ${visits.length}</small></div>
@@ -4979,6 +4999,30 @@ function seStatusChip(it,visits){
 }
 function seMeasured(it,visits){return visits.find(v=>seKind(v)==='measure'&&v.item_name&&(mdashItemName(it).indexOf(v.item_name)>-1||v.item_name.indexOf(mdashItemName(it))>-1));}
 
+// drawings the factory attached to this project's site visits, grouped by item
+function seDrawingsFor(pr,visits){
+  const out=[];(visits||[]).forEach(v=>{(Array.isArray(v.factory_attachments)?v.factory_attachments:[]).forEach((a,i)=>out.push({v,a,i,item:v.item_name||'',pending:a.status!=='reviewed'}));});
+  return out;
+}
+function seDrawingsHTML(list){
+  if(!list.length)return '';
+  return `<div class="seDraw">${list.map(d=>`<div style="position:relative;display:inline-block;margin:2px">${attachCell(d.a.url,44)}${d.pending&&!d.v._demo?`<button data-markup="factory:${d.v.id}:${d.i}|${encodeURIComponent(d.a.url)}" title="Mark up & send back" style="position:absolute;bottom:-4px;right:-4px;background:var(--amber);color:#000;border:none;border-radius:3px;font-size:9px;padding:2px 4px;cursor:pointer">✎</button>`:(d.pending?'':'<span style="position:absolute;bottom:-4px;right:-4px;background:var(--green);color:#000;border-radius:3px;font-size:9px;padding:1px 4px">✓</span>')}</div>`).join('')}<span class="hint" style="padding:0 6px">${list.filter(d=>d.pending).length?list.filter(d=>d.pending).length+' drawing'+(list.filter(d=>d.pending).length>1?'s':'')+' to mark up — tap ✎, draw, send back':'drawings from factory'}</span></div>`;
+}
+function seReadyChip(it){
+  if(it.site_ready===true)return `<span class="seSt s">SITE READY${it.site_ready_at?' · '+seFmtWhen(it.site_ready_at):''}${it.site_ready_by?' · '+String(it.site_ready_by).split(' ')[0]:''}</span>`;
+  if(it.site_ready===false)return `<span class="seSt x">SITE NOT READY${it.site_ready_note?' — '+it.site_ready_note:''}${it.site_ready_at?' · '+seFmtWhen(it.site_ready_at):''}</span>`;
+  return '';
+}
+async function seSetReady(id,val){
+  const it=(store.prodItems||[]).find(x=>String(x.id)===String(id)); if(!it)return;
+  if(demoGuard(it.id))return;
+  let note='';
+  if(val===false){note=(prompt('Why is the site not ready? (e.g. MEP not complete, floor not finished, other trade in the way)','')||'').trim();if(!note)return;}
+  const patch={site_ready:val,site_ready_note:val?null:note,site_ready_by:store.account.name||store.account.email,site_ready_at:new Date().toISOString()};
+  Object.assign(it,patch);render();
+  try{const {error}=await sb.from('production_items').update(patch).eq('id',id);if(error)throw error;seSay(val?'Marked site ready — factory can deliver.':'Marked not ready — the supervisor is told to hold delivery.');}
+  catch(e){seSay('Could not save: '+(e.message||'error'),true);}
+}
 function seWalkHTML(){
   if(!store.projectsLoaded)loadProjects();
   if(store.projectsLoaded&&!store.prodItemsLoaded)loadProductionItems();
@@ -4991,15 +5035,20 @@ function seWalkHTML(){
   const snags=pr?(store.snags||[]).filter(x=>String(x.project_id)===String(pr.id)&&x.status!=='resolved'&&x.status!=='closed'):[];
   const arriving=items.filter(i=>prodStageIndex(i.stage)===7).length;
   const needMeasure=items.filter(i=>prodStageIndex(i.stage)<=2&&!seMeasured(i,visits)).length;
+  const drawings=pr?seDrawingsFor(pr,visits):[]; const toMark=drawings.filter(d=>d.pending).length;
+  const notReady=items.filter(i=>i.site_ready===false).length;
   const zones=[];items.forEach(i=>{const z=(i.zone_name||'').trim()||'No zone';if(zones.indexOf(z)<0)zones.push(z);});
   const opts=projs.map(p=>`<option value="${p.id}" ${pr&&String(p.id)===String(pr.id)?'selected':''}>${p.name||'(unnamed)'}</option>`).join('');
   const busy=store.seBusy;
   const rows=z=>items.filter(i=>((i.zone_name||'').trim()||'No zone')===z).map(it=>{
     const idx=prodStageIndex(it.stage), demo=it._demo, meas=seMeasured(it,visits);
     const canAct=idx<8;
-    return `<div class="seIt"><div class="nm">${mdashItemName(it)}${it.qty>1?' <span style="color:var(--mut)">× '+it.qty+'</span>':''}</div>${seStatusChip(it,visits)}
+    const myDraw=drawings.filter(d=>d.item&&(mdashItemName(it).indexOf(d.item)>-1||d.item.indexOf(mdashItemName(it))>-1));
+    return `<div class="seIt"><div class="nm">${mdashItemName(it)}${it.qty>1?' <span style="color:var(--mut)">× '+it.qty+'</span>':''}</div>${seStatusChip(it,visits)} ${seReadyChip(it)}
+      ${idx<8?`<div class="seReady"><span class="fl">SITE FOR THIS ITEM:</span><button class="${it.site_ready===true?'on':''}" data-seready="${it.id}" data-val="1">🟢 READY</button><button class="${it.site_ready===false?'onx':''}" data-seready="${it.id}" data-val="0">🔴 NOT READY</button></div>`:''}
+      ${seDrawingsHTML(myDraw)}
       ${idx>=7?`<div class="seActs"><button class="seUndo" data-seundo="${it.id}">↶ UNDO ${idx>=8?'INSTALLED':'DELIVERED'}</button>${idx===7?`<button class="in" data-seinstall="${it.id}">✓ INSTALLED</button>`:''}<button class="sn" data-sesnag="${it.id}">⚠ SNAG</button><button class="rt" data-sereturn="${it.id}">↩ RETURN</button></div>`
-      :`<div class="seActs"><button class="m ${meas?'done':''}" data-semeasure="${it.id}">📐 ${meas?'MEASURED '+seFmtWhen(meas.created_at):'MEASURE'}</button><button class="dl" data-sedeliver="${it.id}">🚚 DELIVERED</button><button class="in" data-seinstall="${it.id}">✓ INSTALLED</button><button class="sn" data-sesnag="${it.id}">⚠ SNAG</button></div>`}
+      :`<div class="seActs"><button class="m ${meas?'done':''}" data-semeasure="${it.id}">📐 ${meas?'MEASURED '+seFmtWhen(meas.created_at):'MEASURE'}</button><button class="dl" data-sedeliver="${it.id}">🚚 DELIVERED</button><button class="in" data-seinstall="${it.id}">✓ INSTALLED</button><button class="sn" data-sesnag="${it.id}">⚠ SNAG</button><button class="rt" data-sereturn="${it.id}">↩ RETURN</button></div>`}
     </div>`;}).join('');
   const zoneCards=zones.map(z=>{const list=items.filter(i=>((i.zone_name||'').trim()||'No zone')===z);const inst=list.filter(i=>prodStageIndex(i.stage)>=8).length;
     return `<div class="card seZone"><div class="cardHead"><span>${z.toUpperCase()}</span><small style="color:var(--mut);font-weight:400">${inst}/${list.length} installed</small></div>${rows(z)}</div>`;}).join('');
@@ -5009,10 +5058,13 @@ function seWalkHTML(){
     ${pr?`<div class="seToday">
       <div class="b"><div class="n">${arriving}</div><div class="l">On site to fit</div></div>
       <div class="a"><div class="n">${needMeasure}</div><div class="l">Need site measure</div></div>
+      <div class="a"><div class="n">${toMark}</div><div class="l">Drawings to mark up</div></div>
+      <div class="r"><div class="n">${notReady}</div><div class="l">Sites not ready</div></div>
       <div class="r"><div class="n">${snags.length}</div><div class="l">Snags open</div></div></div>
     ${store.seMsg?`<div class="hint" style="padding:6px 0 10px;color:${store.seErr?'var(--red)':'var(--green)'}">${store.seMsg}</div>`:''}
     <div class="seZones">${zoneCards||'<div class="empty">No items in this project yet. The supervisor adds zones and items from the factory side; once they exist they appear here.</div>'}</div>
     <button class="pbtn" id="seEodBtn" style="width:100%;padding:13px;margin-top:6px">📋 END OF DAY REPORT</button>
+    ${(()=>{const loose=drawings.filter(d=>!d.item||!items.some(it=>mdashItemName(it).indexOf(d.item)>-1||d.item.indexOf(mdashItemName(it))>-1));return loose.length?`<div class="card"><div class="cardHead"><span>📐 DRAWINGS FROM FACTORY (${loose.length})</span><small style="color:var(--mut);font-weight:400">not tied to one item</small></div><div style="padding:10px 12px">${seDrawingsHTML(loose)}</div></div>`:'';})()}
     <div class="seTwo">${snagCardsHTML(pr.id,{canClose:true})}${returnCardsHTML(pr.id,{role:'site'})}</div>`
     :'<div class="empty">No projects yet.</div>'}
     ${seSheetHTML(pr,items,visits)}
@@ -5159,6 +5211,7 @@ function seWalkWire(){
   document.querySelectorAll('[data-semeasure]').forEach(b=>b.onclick=()=>seOpen('measure',b.dataset.semeasure));
   document.querySelectorAll('[data-sesnag]').forEach(b=>b.onclick=()=>seOpen('snag',b.dataset.sesnag));
   document.querySelectorAll('[data-sereturn]').forEach(b=>b.onclick=()=>seOpen('return',b.dataset.sereturn));
+  document.querySelectorAll('[data-seready]').forEach(b=>b.onclick=()=>seSetReady(b.dataset.seready,b.dataset.val==='1'));
   siteCoordWire();
   document.querySelectorAll('[data-seundo]').forEach(b=>b.onclick=()=>seUndo(b.dataset.seundo));
   const eod=document.getElementById('seEodBtn');if(eod)eod.onclick=()=>seOpen('eod',null);
