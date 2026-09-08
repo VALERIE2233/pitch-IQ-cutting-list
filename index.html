@@ -228,6 +228,7 @@
   .mdProj{padding:12px 16px;border-bottom:1px solid #2c313a}.mdProj:last-child{border-bottom:none}
   .mdProj .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}.mdProj .nm{font-weight:700}.mdProj .due{font-size:11px;color:var(--mut)}
   .mdProj .track{display:grid;grid-template-columns:60px 1fr 48px;gap:10px;align-items:center;margin-top:8px;font-size:11px}.mdProj .lab{color:var(--mut)}.mdProj .pct{text-align:right;font-weight:700}
+  .mdPies{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}.mdPie{flex:1 1 140px;text-align:center}.mdPie canvas{width:150px;height:110px;max-width:100%}.mdPie .pl{font-size:10px;color:var(--mut);margin-top:-4px}
   .mdProj .warn{font-size:11px;color:var(--amber);margin-top:6px}.mdProj .warn.red{color:var(--red)}
   .mdRail{height:7px;background:var(--steel);border:1px solid var(--line);border-radius:3px;overflow:hidden;position:relative;margin-top:2px}.mdRail i{display:block;height:100%;border-radius:3px}.mdRail b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--txt);opacity:.7}
   .mdCrew{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:12px 16px}.mdCrew>div{background:var(--steel);border:1px solid var(--line);border-radius:4px;padding:10px 12px}.mdCrew .n{font-size:22px;font-weight:800;line-height:1}.mdCrew .l{font-size:10px;color:var(--mut);margin-top:4px}
@@ -431,7 +432,7 @@ const store={
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
   const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j.connCheck;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j._mdashPies;delete j.connCheck;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -2593,15 +2594,23 @@ function mgrDashboardHTML(){
 
   // --- project health ---
   const rail=(pct,col)=>`<div class="mdRail"><i style="width:${Math.min(100,pct)}%;background:${col}"></i></div>`;
-  const projHTML=projs.length?projs.map(pr=>{
+  // Project health as 3D pies: one pie for Spend (used / remaining / over) and
+  // one for Hours (used / remaining) per project. Drawn on canvas after render.
+  store._mdashPies=[];
+  const projHTML=projs.length?projs.map((pr,pi)=>{
     const st=mgrProjectStats(pr,items); if(st.complete)return '';
     const planH=+pr.planned_hours||0, usedH=projectHoursUsed(pr), planC=+pr.estimated_cost||0, usedC=actualsTotal(pr.id);
     const hp=planH?Math.round(usedH/planH*100):null, cp=planC?Math.round(usedC/planC*100):null;
     const over=cp!=null&&cp>100, ahead=hp!=null&&cp!=null&&cp>hp+5;
+    const pieC='mdPieC'+pi, pieH='mdPieH'+pi;
+    if(planC)store._mdashPies.push({id:pieC,segs:over?[{v:planC,c:'#3ddc84',l:'Budget'},{v:usedC-planC,c:'#ff5d5d',l:'Over'}]:[{v:usedC,c:'#3ddc84',l:'Used'},{v:Math.max(0,planC-usedC),c:'#2c313a',l:'Remaining'}],label:cp+'%'});
+    if(planH)store._mdashPies.push({id:pieH,segs:[{v:usedH,c:'#5db8ff',l:'Used'},{v:Math.max(0,planH-usedH),c:'#2c313a',l:'Remaining'}].concat(usedH>planH?[{v:usedH-planH,c:'#ff5d5d',l:'Over'}]:[]),label:hp+'%'});
     return `<div class="mdProj"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="due">${st.done}/${st.items} items at site</span></div>
-      <div class="track"><span class="lab">Hours</span>${rail(hp||0,'var(--blue)')}<span class="pct">${hp==null?'—':hp+'%'}</span></div>
-      <div class="track"><span class="lab">Spend</span>${rail(cp||0,over?'var(--red)':'var(--green)')}<span class="pct" style="color:${over?'var(--red)':'inherit'}">${cp==null?'—':cp+'%'}</span></div>
-      ${over?`<div class="warn red">Over budget by ${mdashFmtMoney(usedC-planC)}${hp!=null?' with '+Math.max(0,100-hp)+'% of hours left':''}</div>`:ahead?`<div class="warn">Spend is running ${cp-hp} points ahead of labour</div>`:(hp==null&&cp==null)?'<div class="warn" style="color:var(--mut)">Set planned hours and a budget on this project to track it</div>':''}
+      <div class="mdPies">
+        <div class="mdPie"><canvas id="${pieC}" width="150" height="110"></canvas><div class="pl">Spend${cp==null?'':' · '+mdashFmtMoney(usedC)+' of '+mdashFmtMoney(planC)}</div>${planC?'':'<div class="pl" style="color:var(--amber)">no budget set</div>'}</div>
+        <div class="mdPie"><canvas id="${pieH}" width="150" height="110"></canvas><div class="pl">Hours${hp==null?'':' · '+Math.round(usedH)+' of '+planH+' h'}</div>${planH?'':'<div class="pl" style="color:var(--amber)">no planned hours</div>'}</div>
+      </div>
+      ${over?`<div class="warn red">Over budget by ${mdashFmtMoney(usedC-planC)}${hp!=null?' with '+Math.max(0,100-hp)+'% of hours left':''}</div>`:ahead?`<div class="warn">Spend is running ${cp-hp} points ahead of labour</div>`:''}
     </div>`;}).join('')||'<div class="empty">All projects complete.</div>':'<div class="empty">No projects yet.</div>';
 
   // --- crew today ---
@@ -2739,6 +2748,25 @@ function mgrReviewHTML(){
   <div class="card"><div class="cardHead"><span>WEEK BY WEEK</span><small style="color:var(--mut);font-weight:400"><label style="cursor:pointer"><input type="checkbox" id="mdashFuture" ${showFuture?'checked':''}> show remaining plan</label></small></div>
     <div class="scroll"><table><thead><tr><th>Week</th><th>Dates</th><th class="r">Planned this week</th><th class="r">Used this week</th><th class="r">Variance</th><th class="r">Planned to date</th><th class="r">Used to date</th><th class="r">% of total</th></tr></thead><tbody>${tableRows||'<tr><td colspan="8" class="empty">No projects to review yet.</td></tr>'}</tbody></table></div></div>`;
 }
+// ---- 3D pie (canvas). Elliptical top face + extruded side, drawn back-to-front. ----
+function mdashDrawPie3D(cv,segs,label){
+  const g=cv.getContext&&cv.getContext('2d'); if(!g)return;
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2-6,rx=Math.min(W,H*1.6)/2-8,ry=rx*0.55,depth=14;
+  const total=segs.reduce((a,s)=>a+Math.max(0,s.v),0);
+  g.clearRect(0,0,W,H);
+  if(!total){g.strokeStyle='#333944';g.beginPath();g.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);g.stroke();return;}
+  const arcs=[];let a0=-Math.PI/2;
+  segs.forEach(s=>{const a1=a0+Math.max(0,s.v)/total*Math.PI*2;arcs.push({a0,a1,c:s.c});a0=a1;});
+  const shade=(hex,k)=>{const n=parseInt(hex.slice(1),16);const r=Math.round(((n>>16)&255)*k),gg=Math.round(((n>>8)&255)*k),b=Math.round((n&255)*k);return 'rgb('+r+','+gg+','+b+')';};
+  // sides: only the part of each arc that faces the viewer (sin(a)>0), drawn in thin slivers so ordering is right
+  for(let d=depth;d>0;d--){arcs.forEach(ar=>{const step=0.08;for(let a=ar.a0;a<ar.a1;a+=step){const b=Math.min(ar.a1,a+step);const m=(a+b)/2;if(Math.sin(m)<=0)continue;g.beginPath();g.moveTo(cx+rx*Math.cos(a),cy+ry*Math.sin(a)+d);g.lineTo(cx+rx*Math.cos(b),cy+ry*Math.sin(b)+d);g.lineTo(cx+rx*Math.cos(b),cy+ry*Math.sin(b)+d-1);g.lineTo(cx+rx*Math.cos(a),cy+ry*Math.sin(a)+d-1);g.closePath();g.fillStyle=shade(ar.c,0.55+0.25*Math.sin(m));g.fill();}});}
+  // top face
+  arcs.forEach(ar=>{g.beginPath();g.moveTo(cx,cy);g.ellipse(cx,cy,rx,ry,0,ar.a0,ar.a1);g.closePath();g.fillStyle=ar.c;g.fill();g.strokeStyle='#15171c';g.lineWidth=1;g.stroke();});
+  // highlight
+  g.beginPath();g.ellipse(cx,cy-ry*0.15,rx*0.6,ry*0.35,0,0,Math.PI*2);g.fillStyle='rgba(255,255,255,0.06)';g.fill();
+  if(label){g.fillStyle='#e7e9ec';g.font='bold 15px JetBrains Mono, monospace';g.textAlign='center';g.textBaseline='middle';g.fillText(label,cx,cy+depth+ry+8>H-6?cy:cy);}
+}
+function mdashMountPies(){(store._mdashPies||[]).forEach(p=>{const cv=document.getElementById(p.id);if(cv)mdashDrawPie3D(cv,p.segs,p.label);});}
 let _mdashChartObj=null;
 function mdashMountChart(){
   const cv=document.getElementById('mdashCurve'); const st=store._mdashChart;
@@ -2775,7 +2803,7 @@ function mdashWire(){
   const sf=document.getElementById('mdashFuture');if(sf)sf.onchange=()=>{store.dashShowFuture=sf.checked;render();};
   const cc=document.getElementById('connCheckBtn');if(cc)cc.onclick=()=>{cc.textContent='CHECKING…';runConnCheck();};
   document.querySelectorAll('[data-mergeco]').forEach(b=>b.onclick=()=>mergeCompany(b.dataset.mergeco));
-  mdashMountChart();
+  mdashMountChart(); mdashMountPies();
 }
 
 // ---- Manager's SITE VISITS tab: request drawings for review, see what's pending/reviewed ----
