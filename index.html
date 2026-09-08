@@ -2253,6 +2253,7 @@ function wireMarkupOverlay(){
   }
 }
 function managerHTML(){
+  if(store.managerTab==='overview2'||store.managerTab==='production')store.managerTab='dash';
   if(!store.apprLoaded){loadApprovals();}
   mdashLoadAll();
   const all=store.approvals||[];
@@ -2279,9 +2280,7 @@ function managerHTML(){
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="color:var(--amber)">DASHBOARD</button>
     <button class="tab ${store.managerTab==='review'?'on':''}" data-mgrtab="review" style="color:var(--amber)">COMPANY REVIEW</button>
-    <button class="tab ${store.managerTab==='overview2'?'on':''}" data-mgrtab="overview2" style="color:var(--blue)">1 &middot; OVERVIEW</button>
-    <button class="tab ${store.managerTab==='tracking2'?'on':''}" data-mgrtab="tracking2" style="color:var(--blue)">2 &middot; PROJECT TRACKING</button>
-    <button class="tab ${store.managerTab==='production'?'on':''}" data-mgrtab="production">DETAILED (old)</button>
+    <button class="tab ${store.managerTab==='tracking2'?'on':''}" data-mgrtab="tracking2" style="color:var(--blue)">PROJECT TRACKING</button>
     <button class="tab ${store.managerTab==='approvals'?'on':''}" data-mgrtab="approvals">📋 APPROVALS${pending.length?` (${pending.length})`:''}</button>
 
     <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="color:var(--amber)">👷 SITE VISITS</button>
@@ -2294,7 +2293,7 @@ function managerHTML(){
     <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
     ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
     ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`:(!store.managerTab||store.managerTab==='dash')?`<div class="body">${mgrDashboardHTML()}</div>`:store.managerTab==='review'?`<div class="body">${mgrReviewHTML()}</div>`:store.managerTab==='overview2'?`<div class="body">${mgrOverviewHTML()}</div>`:store.managerTab==='tracking2'?`<div class="body">${mgrTrackingHTML()}</div>`:store.managerTab==='production'?productionTabHTML():store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
+  </div>`:(!store.managerTab||store.managerTab==='dash')?`<div class="body">${mgrDashboardHTML()}</div>`:store.managerTab==='review'?`<div class="body">${mgrReviewHTML()}</div>`:store.managerTab==='tracking2'?`<div class="body">${mgrTrackingHTML()}</div>`:store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -2584,8 +2583,8 @@ function mgrDashboardHTML(){
 
   return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>
   <div class="mdAttnRow">
-    ${attn(blocked.length,'Items blocked or on hold','red','production')}
-    ${attn(aging.length,'Items in one stage over 7 days','amber','production')}
+    ${attn(blocked.length,'Items blocked or on hold','red','tracking2')}
+    ${attn(aging.length,'Items in one stage over 7 days','amber','tracking2')}
     ${attn(pending.length,`Orders awaiting your approval${pendingTotal?' · '+mdashFmtMoney(pendingTotal):''}`,'amber','approvals')}
     ${attn(recentVisits.length,'Site visits logged this week','blue','sitevisits')}
     ${attn(delivered.length,'Items delivered this week','green','tracking2')}
@@ -2709,7 +2708,7 @@ function mdashMountChart(){
 function mdashWire(){
   const mp=document.getElementById('mdashProj');if(mp)mp.onchange=()=>{store.dashReviewSel=mp.value;store.dashReviewUpto=null;render();};
   document.querySelectorAll('[data-dashmode]').forEach(b=>b.onclick=()=>{store.dashReviewMode=b.dataset.dashmode;store.dashReviewUpto=null;render();});
-  document.querySelectorAll('[data-dashstage]').forEach(b=>b.onclick=()=>{store.managerTab='production';store.prodView='items';render();});
+  document.querySelectorAll('[data-dashstage]').forEach(b=>b.onclick=()=>{store.managerTab='tracking2';render();});
   const sc=document.getElementById('mdashScrub');
   if(sc)sc.oninput=()=>{const st=store._mdashChart;if(!st)return;const past=st.s.rows.filter(r=>r.past);const r=past[+sc.value];if(r){store.dashReviewUpto=r.w;render();}};
   const rs=document.getElementById('mdashScrubReset');if(rs)rs.onclick=()=>{store.dashReviewUpto=null;render();};
@@ -3086,69 +3085,6 @@ function projectHoursUsed(pr){
   const inP=x=>String(x.project_id)===String(pr.id);
   return (store.attendance||[]).filter(inP).reduce((a,r)=>a+hh(r),0)
        + (store.crewAtt||[]).filter(inP).reduce((a,r)=>a+crewHours(r),0);
-}
-function mgrOverviewHTML(){
-  if(!store.projectsLoaded)loadProjects();
-  if(!store.prodItemsLoaded)loadProductionItems();
-  if(!store.purchasesLoaded)loadActuals();
-  if(!store.attLoaded)loadAttendance();
-  if(!store.crewAttLoaded&&typeof loadCrewAttendance==='function')loadCrewAttendance();
-  const projs=store.projects||[], items=store.prodItems||[];
-  if(!store.projectsLoaded)return '<div class="hint" style="padding-top:14px">Loading projects&hellip;</div>';
-  let complete=0, active=0, planH=0, usedH=0, planC=0, usedC=0;
-  projs.forEach(pr=>{
-    const st=mgrProjectStats(pr,items);
-    if(st.complete)complete++; else active++;
-    planH+=+pr.planned_hours||0;
-    usedH+=projectHoursUsed(pr);
-    planC+=+pr.estimated_cost||0;
-    usedC+=actualsTotal(pr.id);
-  });
-  const hPct=planH?Math.round(usedH/planH*100):0;
-  const cPct=planC?Math.round(usedC/planC*100):0;
-  const note = (planH&&planC)
-    ? (cPct>hPct+3
-        ? `${cPct}% of budget used against ${hPct}% of hours &mdash; money is running ahead of labour`
-        : cPct<hPct-3
-          ? `${cPct}% of budget used against ${hPct}% of hours &mdash; labour is running ahead of spend`
-          : `budget and labour are tracking together`)
-    : 'Set a budget and planned hours on each project to see this comparison';
-  const tile=(v,l,c,pct,pc)=>`<div class="stat" style="flex:1;min-width:150px"><div class="sv" style="font-size:24px;color:${c}">${v}</div><div class="sl">${l}</div>`+
-    (pct!=null?`<div style="height:7px;background:var(--steel);border-radius:3px;margin-top:8px;border:1px solid var(--line)"><div style="height:100%;width:${Math.min(100,pct)}%;background:${pc};border-radius:3px"></div></div>`:'')+`</div>`;
-  return `<div class="card" style="border-color:var(--blue)"><div style="padding:16px 18px">
-      <div style="font-size:20px;font-weight:800">${store.account.company||'Your company'}</div>
-      <div style="font-size:12px;color:var(--mut);margin-top:4px">All projects</div></div></div>
-
-    <div class="settings">
-      ${tile(complete,'PROJECTS COMPLETE','var(--green)')}
-      ${tile(active,'PROJECTS IN PROGRESS','var(--blue)')}
-    </div>
-
-    <div class="card"><div class="cardHead"><span>MANPOWER &mdash; PLANNED vs USED</span></div>
-      <div style="padding:14px 16px 18px"><div class="settings" style="margin-bottom:4px">
-        ${tile(planH?planH.toFixed(0)+' h':'&mdash;','TOTAL PLANNED','var(--txt)')}
-        ${tile(usedH.toFixed(0)+' h','TOTAL USED SO FAR','var(--green)',planH?hPct:null,'var(--green)')}
-        ${tile(planH?Math.max(0,planH-usedH).toFixed(0)+' h':'&mdash;','REMAINING','var(--mut)')}
-      </div>${planH?`<div style="font-size:11px;color:${hPct>100?'var(--red)':'var(--green)'};padding-top:6px">${hPct}% of planned hours used</div>`:'<div class="hint" style="padding:6px 0 0">No planned hours set yet.</div>'}</div></div>
-
-    <div class="card"><div class="cardHead"><span>BUDGET &mdash; PLANNED vs USED</span></div>
-      <div style="padding:14px 16px 18px"><div class="settings" style="margin-bottom:4px">
-        ${tile(planC?money(planC):'&mdash;','TOTAL BUDGET PLANNED','var(--txt)')}
-        ${tile(money(usedC),'TOTAL SPENT SO FAR','var(--amber)',planC?cPct:null,'var(--amber)')}
-        ${tile(planC?money(Math.max(0,planC-usedC)):'&mdash;','REMAINING','var(--mut)')}
-      </div><div style="font-size:11px;color:${cPct>100?'var(--red)':'var(--amber)'};padding-top:6px">${note}</div></div></div>
-
-    <div class="card"><div class="cardHead"><span>PROJECTS &mdash; ${projs.length}</span><small style="color:var(--mut)">tap one to open its tracking</small></div>
-      <div style="padding:4px 14px 14px">
-        ${projs.length?projs.map(pr=>{const st=mgrProjectStats(pr,items);
-          const col=st.pct>=70?'var(--green)':st.pct>=40?'var(--amber)':'var(--red)';
-          return `<div data-mgrproj="${(pr.name||'').replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer">
-            <span style="flex:1;font-size:13px;font-weight:700">${pr.name}</span>
-            <span style="font-size:11px;color:var(--mut);width:88px">${st.complete?'complete':st.items?'in progress':'not started'}</span>
-            <span style="width:64px;height:7px;background:var(--steel);border-radius:3px;border:1px solid var(--line)"><span style="display:block;height:100%;width:${st.pct}%;background:${col};border-radius:3px"></span></span>
-            <span style="font-size:12px;width:36px;text-align:right">${st.pct}%</span><span style="color:var(--mut)">&rsaquo;</span></div>`;}).join('')
-        :'<div class="empty">No projects yet.</div>'}
-      </div></div>`;
 }
 function mgrTrackingHTML(){
   if(!store.projectsLoaded)loadProjects();
