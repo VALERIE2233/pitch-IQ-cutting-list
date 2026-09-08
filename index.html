@@ -497,7 +497,12 @@ async function loadProjects(){
   try{
     let q=sb.from('jobs').select('*').order('updated_at',{ascending:false});
     if(store.account.companyId){
-      q=q.or(`owner_id.eq.${store.account.uid},company_id.eq.${store.account.companyId}`);
+      // Every project made by anyone in this company. Older projects were saved
+      // before jobs carried company_id, so also match by the owner's profile.
+      let mates=[];
+      try{const {data:ps}=await sb.from('profiles').select('id').eq('company_id',store.account.companyId);mates=(ps||[]).map(p=>p.id);}catch(e){}
+      if(mates.indexOf(store.account.uid)<0)mates.push(store.account.uid);
+      q=q.or(`owner_id.in.(${mates.join(',')}),company_id.eq.${store.account.companyId}`);
     }else{
       q=q.eq('owner_id',store.account.uid);
     }
@@ -505,6 +510,8 @@ async function loadProjects(){
     if(error)throw error;
     // the editors map lives inside data; lift it so callers can read it directly
     store.projects=(data||[]).map(r=>Object.assign({},r,{editors:(r.data&&r.data.editors)||r.editors||null}));
+    // stamp company_id on any of ours that is missing it, so the simple match works next time
+    if(store.account.companyId){(data||[]).filter(r=>!r.company_id).forEach(r=>{sb.from('jobs').update({company_id:store.account.companyId}).eq('id',r.id).then(()=>{},()=>{});});}
   }catch(e){
     store.projects=[];
     store.projectsError=(e&&e.message)||'Could not load projects';
