@@ -2257,7 +2257,7 @@ function wireMarkupOverlay(){
   }
 }
 function managerHTML(){
-  if(store.managerTab==='overview2'||store.managerTab==='production')store.managerTab='dash';
+  if(['overview2','production','tracking2','approvals'].indexOf(store.managerTab)>-1)store.managerTab='dash';
   if(!store.apprLoaded){loadApprovals();}
   mdashLoadAll();
   const all=store.approvals||[];
@@ -2289,13 +2289,7 @@ function managerHTML(){
     <button class="tab ${store.managerTab==='editor'?'on':''}" data-mgrtab="editor" style="color:var(--amber)">🔧 EDITOR</button>
     <button class="tab ${store.managerTab==='manpower'?'on':''}" data-mgrtab="manpower" style="color:var(--green)">👷 MANPOWER</button>
   </div>
-  ${(store.managerTab==='approvals')?`<div class="body"><button class="gbtn" data-mgrtab="dash" style="margin-top:12px">&larr; BACK TO DASHBOARD</button>
-    <div class="hint" style="padding-top:14px">Review cutting lists and orders your estimators submit. Approve to release them to suppliers, or reject with a reason. Only orders from <strong>${store.account.company}</strong> appear here.</div>
-    ${mgrProcurementSection()}
-    <div class="card"><div class="cardHead" style="color:var(--amber)"><span>AWAITING APPROVAL — ${pending.length}</span></div></div>
-    ${pending.length?pending.map(card).join(''):'<div class="empty">Nothing waiting for approval right now.</div>'}
-    ${done.length?`<div class="card" style="margin-top:18px"><div class="cardHead"><span>RECENT DECISIONS</span></div></div>${done.slice(0,10).map(card).join('')}`:''}
-  </div>`:(!store.managerTab||store.managerTab==='dash')?`<div class="body">${mgrDashboardHTML()}</div>`:store.managerTab==='review'?`<div class="body">${mgrReviewHTML()}</div>`:store.managerTab==='tracking2'?`<div class="body"><button class="gbtn" data-mgrtab="dash" style="margin-top:12px">&larr; BACK TO DASHBOARD</button>${mgrTrackingHTML()}</div>`:store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
+  ${(!store.managerTab||store.managerTab==='dash')?`<div class="body">${mgrDashboardHTML()}</div>`:store.managerTab==='review'?`<div class="body">${mgrReviewHTML()}</div>`:store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
     <div style="background:var(--panel);border:1px solid var(--amber);border-radius:6px;max-width:380px;width:100%;padding:20px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:6px">APPROVE AS…</div>
@@ -2577,12 +2571,12 @@ function mgrDashboardHTML(){
   const pendingTotal=pending.reduce((a,o)=>a+(+o.total||0),0);
   const recentVisits=visits.filter(v=>v.created_at&&new Date(v.created_at)>weekAgo);
   const delivered=items.filter(i=>{const idx=prodStageIndex(i.stage);if(idx<7)return false;const h=Array.isArray(i.stage_history)?i.stage_history:[];const last=h.length?h[h.length-1].at:i.stage_since;return last&&new Date(last)>weekAgo;});
-  const attn=(n,l,c,tab)=>`<button class="mdAttn ${c}" data-mgrtab="${tab}"><span class="n">${n}</span><span class="l">${l}</span></button>`;
+  const attn=(n,l,c,tab)=>`<div class="mdAttn ${c}" ${tab?'data-mgrtab="'+tab+'" role="button" style="cursor:pointer"':''}><span class="n">${n}</span><span class="l">${l}</span></div>`;
 
   // --- pipeline ---
   const pipe=PROD_STAGES.map(s=>{const mine=items.filter(i=>(i.stage||'Not Started')===s);return {s,ok:mine.filter(i=>!mdashBlocked(i)&&(mdashDaysInStage(i)||0)<=7).length,ag:mine.filter(i=>!mdashBlocked(i)&&(mdashDaysInStage(i)||0)>7).length,bl:mine.filter(mdashBlocked).length};});
   const pipeHTML=pipe.map((p,i)=>{const total=p.ok+p.ag+p.bl,done=i===8;const blocks=[...Array(p.bl).fill('blocked'),...Array(p.ag).fill('aging'),...Array(p.ok).fill(done?'done':'')].slice(0,60);
-    return `<button class="mdStage" data-dashstage="${p.s}"><div class="cnt" style="color:${done?'var(--green)':p.bl?'var(--red)':p.ag?'var(--amber)':'var(--txt)'}">${total}</div><div class="nm">${p.s}</div><div class="bar">${blocks.map(c=>`<span class="blk ${c}"></span>`).join('')}</div></button>`;}).join('');
+    return `<div class="mdStage"><div class="cnt" style="color:${done?'var(--green)':p.bl?'var(--red)':p.ag?'var(--amber)':'var(--txt)'}">${total}</div><div class="nm">${p.s}</div><div class="bar">${blocks.map(c=>`<span class="blk ${c}"></span>`).join('')}</div></div>`;}).join('');
 
   // --- stuck list ---
   const stuck=items.filter(i=>i.stage!=='Site'&&(mdashBlocked(i)||(mdashDaysInStage(i)||0)>7)).sort((a,b)=>(mdashDaysInStage(b)||0)-(mdashDaysInStage(a)||0)).slice(0,12);
@@ -2637,26 +2631,26 @@ function mgrDashboardHTML(){
 
   const realProjs=projs.filter(p=>!p._demo);
   const noItems=realProjs.filter(p=>!mdashItemsFor(p,items).length);
-  const projStrip=`<div class="card" style="margin-top:14px"><div class="cardHead"><span>PROJECTS IN ${(store.account.company||'YOUR COMPANY').toUpperCase()} — ${realProjs.length}${projs.length>realProjs.length?' (+'+(projs.length-realProjs.length)+' demo)':''}</span><button class="gbtn" data-mgrtab="tracking2" style="padding:5px 9px;font-size:10px">OPEN ALL &rarr;</button></div>
+  const projStrip=`<div class="card" style="margin-top:14px"><div class="cardHead"><span>PROJECTS IN ${(store.account.company||'YOUR COMPANY').toUpperCase()} — ${realProjs.length}${projs.length>realProjs.length?' (+'+(projs.length-realProjs.length)+' demo)':''}</span></div>
     ${store.projectsError?`<div class="hint" style="color:var(--red);padding:10px 16px">Could not load projects: ${store.projectsError}</div>`:''}
     <div class="chips" style="padding:10px 16px">${projs.map(p=>{const n=mdashItemsFor(p,items).length;const st=mgrProjectStats(p,items);return `<span class="chip" style="${p._demo?'border-style:dashed;':''}${st.complete?'color:var(--green);':''}" title="${(p.editors&&Object.keys(p.editors).join(', '))||''}">${p.name||'(unnamed)'} <span style="color:var(--mut)">· ${n?st.done+'/'+n+' at site':'no items yet'}</span></span>`;}).join('')||'<span class="empty">No projects yet.</span>'}</div>
     ${noItems.length?`<div class="hint" style="padding:0 16px 12px">${noItems.length} project${noItems.length>1?'s have':' has'} a cutting list but no production items yet, so ${noItems.length>1?'they':'it'} won't show in the pipeline until a supervisor adds items on the Projects &amp; Items screen.</div>`:''}</div>`;
-  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it. Tap a number to open that area.</div>${projStrip}${(!realProjs.length||store.connCheck)?connCheckHTML():''}
+  return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Where everything stands today, and what is holding it.</div>${projStrip}${(!realProjs.length||store.connCheck)?connCheckHTML():''}
   <div class="mdAttnRow">
-    ${attn(blocked.length,'Items blocked or on hold','red','tracking2')}
-    ${attn(aging.length,'Items in one stage over 7 days','amber','tracking2')}
-    ${attn(pending.length,`Orders awaiting your approval${pendingTotal?' · '+mdashFmtMoney(pendingTotal):''}`,'amber','approvals')}
+    ${attn(blocked.length,'Items blocked or on hold','red','')}
+    ${attn(aging.length,'Items in one stage over 7 days','amber','')}
+    ${attn(pending.length,`Orders awaiting your approval${pendingTotal?' · '+mdashFmtMoney(pendingTotal):''}`,'amber','')}
     ${attn(recentVisits.length,'Site visits logged this week','blue','sitevisits')}
-    ${attn(delivered.length,'Items delivered this week','green','tracking2')}
+    ${attn(delivered.length,'Items delivered this week','green','')}
   </div>
-  <div class="card"><div class="cardHead"><span>PRODUCTION PIPELINE — ${items.length} ITEMS · ${(()=>{const z={};items.forEach(i=>{z[(i.project_name||'')+'|'+(i.zone_name||'')]=1;});return Object.keys(z).length;})()} ZONES · ${projs.length} PROJECTS</span><small style="color:var(--mut);font-weight:400">tap a stage to open it</small></div>
+  <div class="card"><div class="cardHead"><span>PRODUCTION PIPELINE — ${items.length} ITEMS · ${(()=>{const z={};items.forEach(i=>{z[(i.project_name||'')+'|'+(i.zone_name||'')]=1;});return Object.keys(z).length;})()} ZONES · ${projs.length} PROJECTS</span></div>
     <div class="mdPipe">${pipeHTML}</div>
     <div class="mdLegend"><span><i style="background:var(--blue)"></i>On track</span><span><i style="background:var(--amber)"></i>Over 7 days in stage</span><span><i style="background:var(--red)"></i>Blocked / on hold</span><span><i style="background:var(--green)"></i>At site</span></div></div>
   <div class="mdCols">
     <div>
-      <div class="card"><div class="cardHead"><span>NEEDS A DECISION</span><button class="gbtn" data-mgrtab="tracking2" style="padding:5px 9px;font-size:10px">ALL ITEMS BY PROJECT &rarr;</button></div>
+      <div class="card"><div class="cardHead"><span>NEEDS A DECISION</span><small style="color:var(--mut);font-weight:400">sorted by days stuck</small></div>
         <div class="scroll"><table><thead><tr><th>Item</th><th>Project</th><th>Stage</th><th class="r">Days</th><th>Holding it</th></tr></thead><tbody>${stuckHTML}</tbody></table></div></div>
-      <div class="card"><div class="cardHead"><span>ORDERS AWAITING APPROVAL</span><button class="gbtn" data-mgrtab="approvals" style="padding:5px 9px;font-size:10px">FULL DETAILS &amp; HISTORY &rarr;</button></div>
+      <div class="card"><div class="cardHead"><span>ORDERS AWAITING APPROVAL</span><small style="color:var(--mut);font-weight:400">from your estimators</small></div>
         <div class="scroll"><table><thead><tr><th>Project</th><th>Supplier</th><th class="r">Total</th><th>From</th><th></th></tr></thead><tbody>${ordersHTML}</tbody></table></div></div>
     </div>
     <div>
@@ -2768,7 +2762,6 @@ function mdashMountChart(){
 function mdashWire(){
   const mp=document.getElementById('mdashProj');if(mp)mp.onchange=()=>{store.dashReviewSel=mp.value;store.dashReviewUpto=null;render();};
   document.querySelectorAll('[data-dashmode]').forEach(b=>b.onclick=()=>{store.dashReviewMode=b.dataset.dashmode;store.dashReviewUpto=null;render();});
-  document.querySelectorAll('[data-dashstage]').forEach(b=>b.onclick=()=>{store.managerTab='tracking2';render();});
   const sc=document.getElementById('mdashScrub');
   if(sc)sc.oninput=()=>{const st=store._mdashChart;if(!st)return;const past=st.s.rows.filter(r=>r.past);const r=past[+sc.value];if(r){store.dashReviewUpto=r.w;render();}};
   const rs=document.getElementById('mdashScrubReset');if(rs)rs.onclick=()=>{store.dashReviewUpto=null;render();};
