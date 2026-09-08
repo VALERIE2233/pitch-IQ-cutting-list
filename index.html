@@ -2643,7 +2643,7 @@ function mgrReviewHTML(){
   const mode=store.dashReviewMode||'cost', sel=store.dashReviewSel||'all';
   const fmt=v=>mode==='cost'?mdashFmtMoney(v):Math.round(v).toLocaleString()+' h';
   const s=mdashSeries();
-  const chips=[{id:'all',name:'All projects'},...(store.projects||[])].map(p=>`<button class="chip ${String(sel)===String(p.id)?'on':''}" data-dashproj="${p.id}">${p.name||'(unnamed)'}</button>`).join('');
+  const projOpts=[{id:'all',name:'All projects ('+(store.projects||[]).length+')'},...(store.projects||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''))].map(p=>`<option value="${p.id}" ${String(sel)===String(p.id)?'selected':''}>${p.name||'(unnamed)'}</option>`).join('');
   const pastRows=s.rows.filter(r=>r.past);
   let upto=store.dashReviewUpto?pastRows.find(r=>r.w===store.dashReviewUpto):null; if(!upto)upto=pastRows[pastRows.length-1]||null;
   const uptoIdx=upto?pastRows.indexOf(upto):0;
@@ -2665,7 +2665,7 @@ function mgrReviewHTML(){
   // stash for the chart mount after render
   store._mdashChart={s,upto,mode};
   return `${demoBannerHTML()}<div class="hint" style="padding-top:14px">Company-wide view of ${mode==='cost'?'budget':'manpower'} — planned vs used, cumulative by week. Pick a project, switch the measure, or drag the slider to replay.${s.assumed?' <span style="color:var(--amber)">Some projects have no start/end date, so their plan is spread over 12 weeks from creation. Add <code>start_date</code> and <code>end_date</code> to each project for an accurate plan line.</span>':''}</div>
-  <div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-bottom:14px"><div class="chips">${chips}</div>
+  <div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-bottom:14px"><span class="zlbl">PROJECT</span><select class="sel" id="mdashProj" style="min-width:220px;max-width:100%;padding:8px 10px;font-size:12px">${projOpts}</select><span style="flex:1"></span>
     <div class="unit"><button class="${mode==='cost'?'on':''}" data-dashmode="cost">BUDGET</button><button class="${mode==='hours'?'on':''}" data-dashmode="hours">MANPOWER</button></div></div>
   ${kpis}
   <div class="card"><div class="cardHead"><span>S-CURVE — ${mode==='cost'?'BUDGET':'MANPOWER'} PLANNED vs USED</span><small style="color:var(--mut);font-weight:400">hover a week for the numbers</small></div>
@@ -2700,7 +2700,7 @@ function mdashMountChart(){
   });
 }
 function mdashWire(){
-  document.querySelectorAll('[data-dashproj]').forEach(b=>b.onclick=()=>{store.dashReviewSel=b.dataset.dashproj;store.dashReviewUpto=null;render();});
+  const mp=document.getElementById('mdashProj');if(mp)mp.onchange=()=>{store.dashReviewSel=mp.value;store.dashReviewUpto=null;render();};
   document.querySelectorAll('[data-dashmode]').forEach(b=>b.onclick=()=>{store.dashReviewMode=b.dataset.dashmode;store.dashReviewUpto=null;render();});
   document.querySelectorAll('[data-dashstage]').forEach(b=>b.onclick=()=>{store.managerTab='production';store.prodView='items';render();});
   const sc=document.getElementById('mdashScrub');
