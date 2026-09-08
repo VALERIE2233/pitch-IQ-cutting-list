@@ -2785,7 +2785,14 @@ function mgrDashboardHTML(){
         <div class="scroll"><table><thead><tr><th>Project</th><th>Supplier</th><th class="r">Total</th><th>From</th><th></th></tr></thead><tbody>${ordersHTML}</tbody></table></div></div>
     </div>
     <div>
-      <div class="card"><div class="cardHead"><span>PROJECT HEALTH</span><small style="color:var(--mut);font-weight:400">${dsel==='all'?'all projects combined':'this project'}</small></div>${projHTML}</div>
+      <div class="card"><div class="cardHead"><span>PROJECT HEALTH</span>${dsel==='all'?`<small style="color:var(--mut);font-weight:400">all projects combined</small>`:(projs[0]&&!projs[0]._demo)?`<button class="gbtn" id="mgrPlanBtn" style="padding:5px 9px;font-size:10px">${store.mgrPlanOpen?'✕ CLOSE':'✎ SET BUDGET & HOURS'}</button>`:`<small style="color:var(--mut);font-weight:400">demo — plan fixed</small>`}</div>
+      ${(dsel!=='all'&&store.mgrPlanOpen&&projs[0]&&!projs[0]._demo)?`<div style="padding:10px 16px;border-bottom:1px solid var(--row);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end">
+        <label class="field"><span class="fl">BUDGET / CONTRACT VALUE (${store.currency||'$'})</span><input class="fi" id="mgr_bud_cost" type="number" min="0" value="${+projs[0].estimated_cost||''}"></label>
+        <label class="field"><span class="fl">PLANNED HOURS</span><input class="fi" id="mgr_bud_hours" type="number" min="0" value="${+projs[0].planned_hours||''}"></label>
+        <label class="field"><span class="fl">START DATE</span><input class="fi" id="mgr_bud_start" type="date" value="${(projs[0].start_date||'').slice(0,10)}"></label>
+        <label class="field"><span class="fl">TARGET END DATE</span><input class="fi" id="mgr_bud_end" type="date" value="${(projs[0].end_date||'').slice(0,10)}"></label>
+        <button class="pbtn" id="mgr_bud_save" ${store.budgetBusy?'disabled':''}>${store.budgetBusy?'SAVING…':'✓ SAVE PLAN'}</button>
+        <div class="hint" style="grid-column:1/-1;padding:0;${store.budgetErr?'color:var(--red)':'color:var(--green)'}">${store.budgetMsg||'Procurement can also set these from Purchases → Project Budget. Start and end dates drive the plan line on Company Review.'}</div></div>`:''}${projHTML}</div>
       <div class="card"><div class="cardHead"><span>CREW TODAY</span><small style="color:var(--mut);font-weight:400">from timekeeper check-ins</small></div>${crewHTML}</div>
       <div class="card"><div class="cardHead"><span>SITE INSTALLATION PROGRESS</span><small style="color:var(--mut);font-weight:400">from site visits and snags</small></div>${siteHTML}</div>
     </div>
@@ -2913,6 +2920,8 @@ function mdashWire(){
   const mp=document.getElementById('mdashProj');if(mp)mp.onchange=()=>{store.dashReviewSel=mp.value;store.dashReviewUpto=null;render();};
   const dp=document.getElementById('mdashDashProj');if(dp)dp.onchange=()=>{store.dashProjSel=dp.value;render();};
   const cr=document.getElementById('clientReportBtn');if(cr)cr.onclick=()=>openClientReport(store.dashProjSel);
+  const pb=document.getElementById('mgrPlanBtn');if(pb)pb.onclick=()=>{store.mgrPlanOpen=!store.mgrPlanOpen;store.budgetMsg='';render();};
+  const ps=document.getElementById('mgr_bud_save');if(ps)ps.onclick=()=>saveManagerPlan(store.dashProjSel);
   document.querySelectorAll('[data-dashpick]').forEach(c=>c.onclick=()=>{store.dashProjSel=String(store.dashProjSel)===String(c.dataset.dashpick)?'all':c.dataset.dashpick;render();});
   document.querySelectorAll('[data-dashmode]').forEach(b=>b.onclick=()=>{store.dashReviewMode=b.dataset.dashmode;store.dashReviewUpto=null;render();});
   const sc=document.getElementById('mdashScrub');
@@ -3836,6 +3845,22 @@ async function deletePurchase(id){
   if(!confirm('Remove this purchase record?'))return;
   store.purchases=(store.purchases||[]).filter(x=>String(x.id)!==String(id)); render();
   try{await sb.from('purchases').delete().eq('id',id);}catch(e){}
+}
+async function saveManagerPlan(pid){
+  const pr=(store.projects||[]).find(x=>String(x.id)===String(pid)); if(!pr)return;
+  if(demoGuard(pid))return;
+  const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  const patch={estimated_cost:+g('mgr_bud_cost')||0, planned_hours:+g('mgr_bud_hours')||0};
+  const sd=g('mgr_bud_start'), ed=g('mgr_bud_end');
+  store.budgetBusy=true; store.budgetMsg=''; render();
+  try{
+    let {error}=await sb.from('jobs').update(Object.assign({},patch,{start_date:sd||null,end_date:ed||null})).eq('id',pid);
+    if(error&&/start_date|end_date|column/i.test(error.message||'')){({error}=await sb.from('jobs').update(patch).eq('id',pid));if(!error)store.budgetMsg='Saved budget and hours. (Dates not saved — add start_date and end_date columns to the jobs table to keep them.)';}
+    if(error)throw error;
+    Object.assign(pr,patch,{start_date:sd||null,end_date:ed||null});
+    if(!store.budgetMsg)store.budgetMsg='Plan saved for '+pr.name+'.'; store.budgetErr=false;
+  }catch(e){store.budgetMsg='Could not save: '+(e.message||'error'); store.budgetErr=true;}
+  store.budgetBusy=false; render();
 }
 async function saveProjectBudget(){
   const d=store.budgetDraft||{};
