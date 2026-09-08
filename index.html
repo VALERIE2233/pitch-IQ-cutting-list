@@ -2562,6 +2562,110 @@ function connCheckHTML(){
       :`<div style="color:var(--mut)">No duplicate company names. If people are still missing, ask them to open Account &rarr; set company to exactly "${store.account.company}".</div>`}
   </div></div>`;
 }
+
+// ============================================================================
+//  CLIENT STATUS REPORT — printable A4, generated from live data for one project.
+//  Deliberately shows no cost, hours, manpower or supplier information.
+// ============================================================================
+function clientReportHTML(pr){
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const items=(store.prodItems||[]).filter(i=>String(i.project_id)===String(pr.id)||i.project_name===pr.name);
+  const visits=(store.siteVisits||[]).filter(v=>String(v.project_id)===String(pr.id)||v.project_name===pr.name);
+  const snags=(store.snags||[]).filter(x=>String(x.project_id)===String(pr.id)&&x.status!=='resolved'&&x.status!=='closed');
+  const today=new Date(), wk=mdashWeekNo(today);
+  const dfmt=d=>{const x=new Date(d);return isNaN(x)?'':x.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]+' '+x.getFullYear();};
+  const initials=(store.account.company||'FIQ').split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,4);
+  const projCode=(pr.name||'P').replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,6);
+  // client-facing wording for factory stages
+  const cls=it=>{
+    const idx=prodStageIndex(it.stage);
+    if(it.flag==='On Hold')return {t:'On hold',c:'x'};
+    if(idx>=8)return {t:'Installed',c:'g'};
+    if(idx===7)return {t:'Delivered to site',c:'b'};
+    const missing=READINESS_CHECKS.filter(c=>!it[c.k]);
+    const clientSide=missing.filter(m=>['ready_drawing','ready_veneer','ready_ironmongery','ready_paint','ready_accessories'].indexOf(m.k)>-1);
+    if(it.flag==='Blocked'||(idx<=2&&clientSide.length))return {t:'Awaiting approval',c:'a',asks:clientSide};
+    if(idx===0)return {t:'Not started',c:'x'};
+    if(idx<=2)return {t:'Design & samples',c:'b'};
+    if(idx<=5)return {t:'In production',c:'b'};
+    return {t:'Finishing',c:'b'};
+  };
+  const rows=items.map(it=>({it,s:cls(it)}));
+  const n=(k)=>rows.filter(r=>r.s.c===k).length;
+  const installed=rows.filter(r=>r.s.t==='Installed').length, delivered=rows.filter(r=>r.s.t==='Delivered to site').length, waiting=n('a');
+  const inProd=rows.length-installed-delivered-waiting-rows.filter(r=>r.s.t==='Not started'||r.s.t==='On hold').length;
+  // zones
+  const zones=[];rows.forEach(r=>{const z=(r.it.zone_name||'').trim()||'General';if(zones.indexOf(z)<0)zones.push(z);});
+  const zoneHTML=zones.map(z=>{const zr=rows.filter(r=>((r.it.zone_name||'').trim()||'General')===z);const tot=zr.length||1;
+    const w=k=>Math.round(zr.filter(r=>r.s.c===k).length/tot*100);
+    return `<div class="zone"><span class="n">${esc(z)}</span><div class="bar"><i style="width:${w('g')}%;background:var(--green)"></i><i style="width:${w('b')}%;background:var(--blue)"></i><i style="width:${w('a')}%;background:var(--amber)"></i></div><span class="r">${zr.filter(r=>r.s.c==='g').length} of ${zr.length} installed</span></div>`;}).join('');
+  // remarks per item: hold reason / latest history note / site visit for that item
+  const remark=r=>{const it=r.it;
+    if(r.s.asks&&r.s.asks.length)return '<b>Awaiting your approval of: '+esc(r.s.asks.map(a=>a.label.replace(' approved','').toLowerCase()).join(', '))+'.</b>';
+    if(it.flag==='On Hold')return 'On hold at your request.';
+    const v=visits.find(x=>x.item_name&&String(it.description||it.item||'').indexOf(x.item_name)>-1);
+    if(v&&v.notes)return esc(String(v.notes).slice(0,120));
+    const d=mdashDaysInStage(it);
+    if(r.s.t==='Installed'){const h=Array.isArray(it.stage_history)?it.stage_history[it.stage_history.length-1]:null;return h&&h.at?'Fitted '+dfmt(h.at)+'.':'Fitted.';}
+    return d!=null&&d>7?'Delayed — being expedited.':'On programme.';};
+  const order={g:0,b:1,a:2,x:3};
+  const tableHTML=rows.slice().sort((a,b)=>zones.indexOf((a.it.zone_name||'').trim()||'General')-zones.indexOf((b.it.zone_name||'').trim()||'General')||order[a.s.c]-order[b.s.c])
+    .map(r=>`<tr><td>${esc((r.it.zone_name||'').trim()||'General')}</td><td>${esc(mdashItemName(r.it))}</td><td><span class="st ${r.s.c}">${r.s.t}</span></td><td>${remark(r)}</td></tr>`).join('')
+    ||'<tr><td colspan="4" style="color:var(--mut)">No items recorded yet.</td></tr>';
+  // actions for the client
+  const asks=rows.filter(r=>r.s.asks&&r.s.asks.length).map(r=>{const d=mdashDaysInStage(r.it);return `<li><b>${esc(mdashItemName(r.it))}</b> — approve ${esc(r.s.asks.map(a=>a.label.replace(' approved','').toLowerCase()).join(', '))}${d!=null&&d>0?' (outstanding '+d+' day'+(d===1?'':'s')+')':''}.</li>`;});
+  // next steps: what is finishing / delivered
+  const next=rows.filter(r=>['Finishing','Delivered to site'].indexOf(r.s.t)>-1).map(r=>`<li>${esc(mdashItemName(r.it))} — ${r.s.t==='Delivered to site'?'fitting on site':'finishing, then delivery'}</li>`);
+  const lastVisit=visits[0];
+  const siteNote=lastVisit&&lastVisit.notes?`<div class="note"><b>Site note${lastVisit.site_engineer_name?' ('+esc(lastVisit.site_engineer_name)+', '+dfmt(lastVisit.created_at)+')':''}:</b> ${esc(String(lastVisit.notes).slice(0,300))}${snags.length?' <b>'+snags.length+' snag'+(snags.length>1?'s':'')+' open.</b>':''}</div>`:(snags.length?`<div class="note">${snags.length} snag${snags.length>1?'s':''} open on site, being attended to.</div>`:'');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Project Status Report — ${esc(pr.name)}</title>
+<style>
+:root{--ink:#1c1f24;--mut:#6b7280;--line:#d9d6ce;--amber:#e39a00;--green:#1f9d5a;--blue:#2f7fc4;--bg:#f6f4ef}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:var(--ink);background:#e8e6e1;font-size:11.5px;line-height:1.45}
+.page{background:#fff;width:210mm;min-height:297mm;margin:18px auto;padding:16mm 16mm 14mm;position:relative;box-shadow:0 4px 24px rgba(0,0,0,.12)}
+@media print{body{background:#fff}.page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:12mm 14mm}.noprint{display:none}}@page{size:A4;margin:0}
+.toolbar{max-width:210mm;margin:14px auto 0;display:flex;gap:8px;justify-content:flex-end}.toolbar button,.toolbar input{font:inherit;padding:8px 12px;border:1px solid var(--line);background:#fff;border-radius:4px}.toolbar button.p{background:var(--amber);border-color:var(--amber);color:#fff;font-weight:700;cursor:pointer}
+.head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--amber);padding-bottom:10px;margin-bottom:14px}.co{font-size:20px;font-weight:800;letter-spacing:1px}.co small{display:block;font-size:10px;color:var(--mut);letter-spacing:2px;font-weight:600;margin-top:2px}
+.meta{text-align:right;font-size:10.5px;color:var(--mut)}.meta b{color:var(--ink)}h1{font-size:16px;font-weight:800;margin:0 0 2px}.subtitle{color:var(--mut);font-size:11px;margin-bottom:12px}
+.subtitle input{font:inherit;border:none;border-bottom:1px dashed var(--line);background:transparent;min-width:180px;color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.kpi{border:1px solid var(--line);border-radius:5px;padding:9px 10px;background:var(--bg)}.kpi .v{font-size:20px;font-weight:800;line-height:1}.kpi .l{font-size:9.5px;color:var(--mut);margin-top:4px;letter-spacing:.5px;text-transform:uppercase}
+h2{font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);border-bottom:1px solid var(--line);padding-bottom:4px;margin:14px 0 8px}
+.bar{height:9px;background:#e9e6df;border-radius:4px;overflow:hidden;display:flex}.bar i{display:block;height:100%}.zone{display:grid;grid-template-columns:150px 1fr 90px;gap:10px;align-items:center;margin-bottom:6px;font-size:11px}.zone .n{font-weight:700}.zone .r{text-align:right;color:var(--mut)}
+.legend{display:flex;gap:14px;font-size:9.5px;color:var(--mut);margin-top:6px}.legend i{display:inline-block;width:10px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+table{width:100%;border-collapse:collapse;font-size:10.5px}th{text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);padding:5px 6px;border-bottom:1px solid var(--line)}td{padding:5px 6px;border-bottom:1px solid #eeece6;vertical-align:top}
+.st{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9.5px;font-weight:700;white-space:nowrap}.st.g{background:#e3f4ea;color:var(--green)}.st.b{background:#e4eef8;color:var(--blue)}.st.a{background:#fdf1d6;color:#9a6700}.st.x{background:#f0f0f0;color:var(--mut)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}ul{padding-left:16px}li{margin-bottom:3px}.note{background:var(--bg);border-left:3px solid var(--amber);padding:8px 10px;font-size:10.5px;margin-top:8px}
+.foot{position:absolute;left:16mm;right:16mm;bottom:10mm;display:flex;justify-content:space-between;font-size:9px;color:var(--mut);border-top:1px solid var(--line);padding-top:6px}@media print{.foot{position:fixed;bottom:8mm}}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px}.sign div{border-top:1px solid var(--ink);padding-top:4px;font-size:10px;color:var(--mut)}
+textarea.free{width:100%;font:inherit;border:1px dashed var(--line);border-radius:4px;padding:6px;min-height:40px;background:transparent}@media print{textarea.free{border:none;resize:none}input{border:none!important}}
+</style></head><body>
+<div class="toolbar noprint"><span style="align-self:center;font-size:11px;color:var(--mut)">Fill the client name and any free-text lines, then print.</span><button class="p" onclick="window.print()">Print / Save as PDF</button></div>
+<div class="page">
+  <div class="head"><div><div class="co">${esc((store.account.company||'').toUpperCase())}<small>JOINERY &amp; FIT-OUT</small></div></div>
+    <div class="meta">Report no. <b>${initials}-${projCode}-W${wk}</b><br>Week <b>${wk}</b> · ${dfmt(today)}<br>Prepared by <b>${esc(store.account.name||store.account.email||'')}</b></div></div>
+  <h1>Project Status Report — ${esc(pr.name)}</h1>
+  <div class="subtitle">Client: <input placeholder="client name" value="${esc(pr.client_name||'')}"> · Site: <input placeholder="site / address" value="${esc(pr.site_address||'')}"> · Started ${dfmt(pr.start_date||pr.created_at)}${pr.end_date?' · Target handover '+dfmt(pr.end_date):''}</div>
+  <div class="kpis">
+    <div class="kpi"><div class="v" style="color:var(--green)">${installed} <span style="font-size:12px;color:var(--mut)">/ ${rows.length}</span></div><div class="l">Items installed on site</div></div>
+    <div class="kpi"><div class="v" style="color:var(--blue)">${delivered}</div><div class="l">Delivered, awaiting fitting</div></div>
+    <div class="kpi"><div class="v">${Math.max(0,inProd)}</div><div class="l">In production at factory</div></div>
+    <div class="kpi"><div class="v" style="color:var(--amber)">${waiting}</div><div class="l">Awaiting client approval</div></div></div>
+  <h2>Progress by zone</h2>${zoneHTML||'<div style="color:var(--mut)">No zones yet.</div>'}
+  <div class="legend"><span><i style="background:var(--green)"></i>Installed</span><span><i style="background:var(--blue)"></i>In production / delivery</span><span><i style="background:var(--amber)"></i>Waiting on approval</span><span><i style="background:#e9e6df"></i>Not yet started</span></div>
+  <h2>Item status</h2><table><thead><tr><th>Zone</th><th>Item</th><th>Status</th><th>Remarks</th></tr></thead><tbody>${tableHTML}</tbody></table>
+  <div class="two"><div><h2>Actions required from client</h2>${asks.length?'<ul>'+asks.join('')+'</ul>':'<div style="color:var(--mut)">Nothing outstanding from the client at present.</div>'}</div>
+    <div><h2>Next steps</h2>${next.length?'<ul>'+next.join('')+'</ul>':''}<textarea class="free" placeholder="Add dates and plans for the coming weeks…"></textarea></div></div>
+  ${siteNote}
+  <div class="sign"><div>For ${esc(store.account.company||'')} — name, signature, date</div><div>Acknowledged for the client — name, signature, date</div></div>
+  <div class="foot"><span>Generated by Fit-Out IQ · fit-out-iq.com</span><span>Confidential — prepared for the client named above</span><span>Page 1 of 1</span></div>
+</div></body></html>`;
+}
+function openClientReport(pid){
+  const pr=(store.projects||[]).find(p=>String(p.id)===String(pid)); if(!pr){alert('Pick one project first.');return;}
+  const w=window.open('','_blank'); if(!w){alert('Your browser blocked the report window — allow pop-ups for this site.');return;}
+  w.document.open(); w.document.write(clientReportHTML(pr)); w.document.close();
+}
+
 // ---------------------------------------------------------------- TAB 1
 function mgrDashboardHTML(){
   mdashLoadAll();
@@ -2658,7 +2762,7 @@ function mgrDashboardHTML(){
   const realProjs=allProjs.filter(p=>!p._demo);
   const noItems=realProjs.filter(p=>!mdashItemsFor(p,store.prodItems||[]).length);
   const projOpts=[{id:'all',name:'All projects ('+allProjs.length+')'},...allProjs.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''))].map(p=>`<option value="${p.id}" ${String(dsel)===String(p.id)?'selected':''}>${p.name||'(unnamed)'}</option>`).join('');
-  const projStrip=`<div class="card" style="margin-top:14px"><div class="cardHead"><span>PROJECTS IN ${(store.account.company||'YOUR COMPANY').toUpperCase()} — ${realProjs.length}${allProjs.length>realProjs.length?' (+'+(allProjs.length-realProjs.length)+' demo)':''}</span><select class="sel" id="mdashDashProj" style="min-width:200px;max-width:100%;padding:7px 10px;font-size:12px">${projOpts}</select></div>
+  const projStrip=`<div class="card" style="margin-top:14px"><div class="cardHead"><span>PROJECTS IN ${(store.account.company||'YOUR COMPANY').toUpperCase()} — ${realProjs.length}${allProjs.length>realProjs.length?' (+'+(allProjs.length-realProjs.length)+' demo)':''}</span><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><select class="sel" id="mdashDashProj" style="min-width:200px;max-width:100%;padding:7px 10px;font-size:12px">${projOpts}</select>${dsel!=='all'?`<button class="pbtn" id="clientReportBtn" style="padding:7px 12px;font-size:10px">🖨 CLIENT REPORT</button>`:''}</span></div>
     ${store.projectsError?`<div class="hint" style="color:var(--red);padding:10px 16px">Could not load projects: ${store.projectsError}</div>`:''}
     <div class="chips" style="padding:10px 16px">${allProjs.map(p=>{const n=mdashItemsFor(p,store.prodItems||[]).length;const st=mgrProjectStats(p,store.prodItems||[]);return `<span class="chip ${String(dsel)===String(p.id)?'on':''}" data-dashpick="${p.id}" style="cursor:pointer;${p._demo?'border-style:dashed;':''}${st.complete&&String(dsel)!==String(p.id)?'color:var(--green);':''}" title="${(p.editors&&Object.keys(p.editors).join(', '))||''}">${p.name||'(unnamed)'} <span style="color:var(--mut)">· ${n?st.done+'/'+n+' at site':'no items yet'}</span></span>`;}).join('')||'<span class="empty">No projects yet.</span>'}</div>
     ${noItems.length?`<div class="hint" style="padding:0 16px 12px">${noItems.length} project${noItems.length>1?'s have':' has'} a cutting list but no production items yet, so ${noItems.length>1?'they':'it'} won't show in the pipeline until a supervisor adds items on the Projects &amp; Items screen.</div>`:''}</div>`;
@@ -2808,6 +2912,7 @@ function mdashMountChart(){
 function mdashWire(){
   const mp=document.getElementById('mdashProj');if(mp)mp.onchange=()=>{store.dashReviewSel=mp.value;store.dashReviewUpto=null;render();};
   const dp=document.getElementById('mdashDashProj');if(dp)dp.onchange=()=>{store.dashProjSel=dp.value;render();};
+  const cr=document.getElementById('clientReportBtn');if(cr)cr.onclick=()=>openClientReport(store.dashProjSel);
   document.querySelectorAll('[data-dashpick]').forEach(c=>c.onclick=()=>{store.dashProjSel=String(store.dashProjSel)===String(c.dataset.dashpick)?'all':c.dataset.dashpick;render();});
   document.querySelectorAll('[data-dashmode]').forEach(b=>b.onclick=()=>{store.dashReviewMode=b.dataset.dashmode;store.dashReviewUpto=null;render();});
   const sc=document.getElementById('mdashScrub');
