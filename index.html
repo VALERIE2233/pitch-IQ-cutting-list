@@ -258,6 +258,7 @@
   .seEod{background:var(--steel);border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:8px}.seEod .t{font-size:10px;letter-spacing:1.5px;color:var(--amber);font-weight:800;margin-bottom:6px}.seEod div{font-size:11px;color:#c9ced5;margin-bottom:3px}
   body:has(.seSheetWrap) .body{padding-bottom:60vh}
   .seActs .rt{border-color:var(--amber);color:var(--amber)}
+  .seAttWrap{margin-top:14px}.seAttWrap .card{margin-bottom:0}
   .seSt.x{border-color:var(--red);color:var(--red)}
   .seReady{display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap}.seReady .fl{margin-right:4px}.seReady button{background:transparent;border:1px solid var(--line);color:var(--mut);font-family:var(--mono);font-size:10px;padding:6px 9px;border-radius:3px;font-weight:700}.seReady button.on{background:var(--green);color:#000;border-color:var(--green)}.seReady button.onx{background:var(--red);color:#000;border-color:var(--red)}
   .seDraw{margin-top:6px;display:flex;align-items:center;flex-wrap:wrap}
@@ -2421,7 +2422,8 @@ function demoSeed(){
       {id:'demo-a9',project_id:DEMO_PROJECT_ID2,worker_name:'Joseph',sign_in_at:iso(9.3),sign_out_at:iso(8.95),_demo:true},
       {id:'demo-a10',project_id:DEMO_PROJECT_ID2,worker_name:'Ahmed',sign_in_at:iso(9.3),sign_out_at:iso(8.9),_demo:true},
     ],
-    siteVisits:[{id:'demo-v1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',company_id:store.account&&store.account.companyId,site_engineer_name:'Kamal',location_name:'L12 reception',item_name:'Door set D-01',site_w:2110,site_h:2145,site_d:210,status:'reviewed',
+    siteVisits:[{id:'demo-v3',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',company_id:store.account&&store.account.companyId,site_engineer_name:'Kamal',location_name:'Reception',item_name:'Umbrella stand cabinet · 450 wide',visit_type:'item_request',status:'open',notes:'Requested qty 1. Shown on the interior designer\'s latest sketch, not on our list.',photos:[],created_at:iso(0.5),_demo:true},
+      {id:'demo-v1',project_id:DEMO_PROJECT_ID,project_name:'DEMO · Marina Tower L12',company_id:store.account&&store.account.companyId,site_engineer_name:'Kamal',location_name:'L12 reception',item_name:'Door set D-01',site_w:2110,site_h:2145,site_d:210,status:'reviewed',
       notes:'Door set D-01 fitted. Reception wall opening measures 2110 wide, drawing says 2100 — allow 5mm packer each side. Two panel faces need paint touch-up.',created_at:iso(1),_demo:true},
       {id:'demo-v2',project_id:DEMO_PROJECT_ID2,project_name:'DEMO · Al Barsha Villa',company_id:store.account&&store.account.companyId,site_engineer_name:'Priya',location_name:'Master bedroom',item_name:'Walk-in wardrobe W-01',site_w:4180,site_h:2760,site_d:640,status:'pending',
       notes:'Wardrobe recess measured 4180 wide (drawing 4200). Ceiling not level — 12mm drop left to right. Suggest scribe fillet on left side.',created_at:iso(5),_demo:true}],
@@ -4943,6 +4945,8 @@ async function seReturnSave(){
   }catch(e){store.seBusy=false;seSay('Could not save: '+(e.message||'error'),true);}
 }
 function siteCoordWire(){
+  document.querySelectorAll('[data-supcreate]').forEach(b=>b.onclick=()=>supCreateRequestedItem(b.dataset.supcreate));
+  document.querySelectorAll('[data-supdecline]').forEach(b=>b.onclick=()=>supDeclineRequestedItem(b.dataset.supdecline));
   document.querySelectorAll('[data-rtadvance]').forEach(b=>b.onclick=()=>advanceReturn(b.dataset.rtadvance,b.dataset.rtnext));
   const rr=document.getElementById('seRetReason');if(rr)rr.onchange=()=>{store.seRetReason=rr.value;render();};
   const rst=document.getElementById('seRetStage');if(rst)rst.onchange=()=>{store.seRetStage=rst.value;};
@@ -4958,7 +4962,7 @@ function fromSiteHTML(){
   if(!store.siteVisitsLoaded)loadSiteVisits();
   const pid=_workspaceId; const pr=(store.projects||[]).find(p=>String(p.id)===String(pid));
   if(!pr)return '<div class="hint" style="padding-top:14px">Open a project first — this tab shows what the site engineer has sent back for it.</div>';
-  const visits=(store.siteVisits||[]).filter(v=>String(v.project_id)===String(pid)||v.project_name===pr.name).slice(0,12);
+  const visits=(store.siteVisits||[]).filter(v=>(String(v.project_id)===String(pid)||v.project_name===pr.name)&&seKind(v)!=='item_request').slice(0,12);
   const vrow=v=>`<tr><td style="white-space:nowrap">${_when(v.created_at)}</td><td>${(seKind(v)||'visit').toUpperCase()}</td><td>${v.item_name||''}${v.location_name?' <span style="color:var(--mut)">· '+v.location_name+'</span>':''}</td><td>${[v.site_w,v.site_h,v.site_d].some(Boolean)?(v.site_w||'?')+' × '+(v.site_h||'?')+(v.site_d?' × '+v.site_d:''):''}</td><td style="max-width:360px">${String(v.notes||'').replace(/^\[[A-Z]+\]\s*/,'')}</td><td>${(Array.isArray(v.photos)?v.photos:[]).slice(0,2).map(u=>_thumb(u,36)).join(' ')}</td></tr>`;
   const pitems=(store.prodItems||[]).filter(i=>String(i.project_id)===String(pid)||i.project_name===pr.name);
   const ready=pitems.filter(i=>i.site_ready===true), notReady=pitems.filter(i=>i.site_ready===false), unknown=pitems.filter(i=>i.site_ready!==true&&i.site_ready!==false&&prodStageIndex(i.stage)<8);
@@ -4968,6 +4972,7 @@ function fromSiteHTML(){
     ${!ready.length&&!notReady.length?'<div class="empty" style="padding:14px">The site engineer has not marked readiness on any item yet.</div>':''}</div>`;
   return `<div class="hint" style="padding-top:14px">What the site engineer has recorded for <strong>${pr.name}</strong>: site readiness per item, snags to fix (with before / after photos), items sent back to the factory, and measurements. Update the return steps here as the item comes through the factory.</div>
     ${readyCard}
+    ${itemRequestsHTML(pid,{role:'factory'})}
     ${snagCardsHTML(pid,{canClose:true})}
     ${returnCardsHTML(pid,{role:'factory'})}
     <div class="card"><div class="cardHead"><span>📐 SITE MEASUREMENTS &amp; NOTES</span><small style="color:var(--mut);font-weight:400">latest ${visits.length}</small></div>
@@ -5051,10 +5056,13 @@ function seWalkHTML(){
       :`<div class="seActs"><button class="m ${meas?'done':''}" data-semeasure="${it.id}">📐 ${meas?'MEASURED '+seFmtWhen(meas.created_at):'MEASURE'}</button><button class="dl" data-sedeliver="${it.id}">🚚 DELIVERED</button><button class="in" data-seinstall="${it.id}">✓ INSTALLED</button><button class="sn" data-sesnag="${it.id}">⚠ SNAG</button><button class="rt" data-sereturn="${it.id}">↩ RETURN</button></div>`}
     </div>`;}).join('');
   const zoneCards=zones.map(z=>{const list=items.filter(i=>((i.zone_name||'').trim()||'No zone')===z);const inst=list.filter(i=>prodStageIndex(i.stage)>=8).length;
-    return `<div class="card seZone"><div class="cardHead"><span>${z.toUpperCase()}</span><small style="color:var(--mut);font-weight:400">${inst}/${list.length} installed</small></div>${rows(z)}</div>`;}).join('');
+    return `<div class="card seZone"><div class="cardHead"><span>${z.toUpperCase()}</span><small style="color:var(--mut);font-weight:400">${inst}/${list.length} installed</small></div>${rows(z)}<button class="add" data-sereqitem="${z}">+ ITEM MISSING FROM THIS ZONE? ASK THE SUPERVISOR</button></div>`;}).join('');
+  const shift=myOpenShift(); const onThis=shift&&pr&&String(shift.project_id)===String(pr.id);
+  const shiftTag=shift?(onThis?`<span class="seSt s">✓ SIGNED IN HERE${shift.sign_in_at?' · since '+new Date(shift.sign_in_at).toTimeString().slice(0,5):''} ${shift.sign_in_lat!=null?distanceTag(shift.sign_in_lat,shift.sign_in_lng,pr):''}</span>`:`<span class="seSt x">SIGNED IN ON ${(shift.project_name||'another project').toUpperCase()} — not this one</span>`):`<span class="seSt n">NOT SIGNED IN</span>`;
   return `<div class="body">
     ${demoBannerHTML()}
-    <div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-top:14px"><span class="zlbl">PROJECT</span><select class="sel" id="seProjSel" style="min-width:200px;max-width:100%;padding:8px 10px;font-size:12px">${opts}</select></div>
+    <div class="seAttWrap">${attendanceHTML()}</div>
+    <div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-top:14px"><span class="zlbl">PROJECT</span><select class="sel" id="seProjSel" style="min-width:200px;max-width:100%;padding:8px 10px;font-size:12px">${opts}</select>${shiftTag}<span style="flex:1"></span><button class="gbtn" id="seRefresh" style="padding:7px 10px;font-size:10px">⟳ REFRESH</button></div>
     ${pr?`<div class="seToday">
       <div class="b"><div class="n">${arriving}</div><div class="l">On site to fit</div></div>
       <div class="a"><div class="n">${needMeasure}</div><div class="l">Need site measure</div></div>
@@ -5065,6 +5073,7 @@ function seWalkHTML(){
     <div class="seZones">${zoneCards||'<div class="empty">No items in this project yet. The supervisor adds zones and items from the factory side; once they exist they appear here.</div>'}</div>
     <button class="pbtn" id="seEodBtn" style="width:100%;padding:13px;margin-top:6px">📋 END OF DAY REPORT</button>
     ${(()=>{const loose=drawings.filter(d=>!d.item||!items.some(it=>mdashItemName(it).indexOf(d.item)>-1||d.item.indexOf(mdashItemName(it))>-1));return loose.length?`<div class="card"><div class="cardHead"><span>📐 DRAWINGS FROM FACTORY (${loose.length})</span><small style="color:var(--mut);font-weight:400">not tied to one item</small></div><div style="padding:10px 12px">${seDrawingsHTML(loose)}</div></div>`:'';})()}
+    ${itemRequestsHTML(pr.id,{role:'site'})}
     <div class="seTwo">${snagCardsHTML(pr.id,{canClose:true})}${returnCardsHTML(pr.id,{role:'site'})}</div>`
     :'<div class="empty">No projects yet.</div>'}
     ${seSheetHTML(pr,items,visits)}
@@ -5093,6 +5102,13 @@ function seSheetHTML(pr,items,visits){
     ${photoBox(false)}
     <input class="inp" id="seNote" placeholder="e.g. ceiling out of level 12 mm left to right" style="margin-top:8px">
     <button class="cta" id="seMeasureSave" ${busy} style="background:var(--blue)">${store.seBusy?'SAVING…':'SAVE MEASUREMENT → factory notified'}</button></div></div>`;}
+  if(sh.type==='reqitem')return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--blue)">${head('＋ REQUEST NEW ITEM — '+(sh.zone||''),'var(--blue)')}
+    <div class="hint" style="padding:0 0 8px">Goes to the supervisor. It joins production only once they create it — nothing is added to the factory list from here.</div>
+    <input class="inp" id="seReqName" placeholder="What is missing? e.g. Vanity unit V-02, 900 wide">
+    <input class="inp" id="seReqQty" type="number" min="1" value="1" placeholder="qty" style="margin-top:6px;width:110px">
+    ${photoBox(false)}
+    <input class="inp" id="seNote" placeholder="Why / where (optional)" style="margin-top:8px">
+    <button class="cta" id="seReqSave" ${busy} style="background:var(--blue)">${store.seBusy?'SENDING…':'SEND REQUEST TO SUPERVISOR'}</button></div></div>`;
   if(sh.type==='return'&&it)return `<div class="seSheetWrap">${seReturnSheetHTML(it)}</div>`;
   if(sh.type==='snag'&&it)return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--red)">${head('⚠ SNAG — '+mdashItemName(it),'var(--red)')}
     <div class="hint" style="padding:0 0 6px">BEFORE photo now; whoever fixes it adds the AFTER photo from the snag list.</div>${photoBox(true)}
@@ -5114,17 +5130,26 @@ function seSheetHTML(pr,items,visits){
       <div>✓ Installed: ${did('Site').join(', ')||'—'}</div><div>🚚 Received: ${did('Delivery').join(', ')||'—'}</div><div>📐 Measured: ${meas.join(', ')||'—'}</div><div>⚠ Snags raised: ${sn} · closed: ${sc}</div><div style="color:var(--mut);margin-top:4px">${zl}</div></div>
     <div class="seEod"><div class="t">FOR TOMORROW</div><input class="inp" id="seTomorrow" placeholder="e.g. AV contractor cabling must be done before 09:00"></div>
     <div class="seEod"><div class="t">SITE CONDITIONS</div><label class="seChk"><input type="checkbox" id="seS1" checked> Site access OK</label><label class="seChk"><input type="checkbox" id="seS2"> Other trades blocking our zone</label><label class="seChk"><input type="checkbox" id="seS3"> Client / consultant visited</label></div>
+    ${myOpenShift()?`<label class="seChk" style="margin-top:8px"><input type="checkbox" id="seEodSignOut" checked> Sign me out when this is sent</label>`:''}
     <button class="cta" id="seEodSave" ${busy} style="background:var(--amber)">${store.seBusy?'SENDING…':'SEND TO MANAGER'}</button>
     <div style="text-align:center;font-size:10px;color:var(--mut);margin-top:6px">Becomes today's site note on Project Status and the client report.</div></div></div>`;}
   return '';
 }
 // ---- actions ----
-function seOpen(type,itemId){store.seSheet={type,itemId};store.seSheetPhoto=null;store.seMsg='';render();window.scrollTo(0,document.body.scrollHeight);}
+function seCheckSignedIn(){
+  const shift=myOpenShift(); const pid=store.seProj;
+  if(shift&&String(shift.project_id)===String(pid))return true;
+  const pr=(store.projects||[]).find(p=>String(p.id)===String(pid));
+  if(pr&&pr._demo)return true;
+  return confirm(shift?'You are signed in on '+(shift.project_name||'another project')+', not this one. Record it anyway? (Sign in here first to attach your location.)':'You are not signed in at this site. Record it anyway? (Sign in at the top first to attach your location.)');
+}
+function seOpen(type,itemId){if(['install','measure','return','snag'].indexOf(type)>-1&&!seCheckSignedIn())return;store.seSheet={type,itemId};store.seSheetPhoto=null;store.seMsg='';render();window.scrollTo(0,document.body.scrollHeight);}
 function seClose(){store.seSheet=null;store.seSheetPhoto=null;render();}
 function seSay(msg,err){store.seMsg=msg;store.seErr=!!err;render();setTimeout(()=>{if(store.seMsg===msg){store.seMsg='';render();}},4000);}
 async function seVisitInsert(row,kind){
   // visit_type is optional in the schema: try it, fall back to a tag in notes
   row=Object.assign({company_id:store.account.companyId,site_engineer_id:store.account.uid,site_engineer_name:store.account.name||store.account.email,status:'reviewed'},row);
+  const sh=myOpenShift();if(sh&&sh.sign_in_lat!=null){const pr=(store.projects||[]).find(p=>String(p.id)===String(row.project_id));const m=pr&&pr.site_lat!=null?metresBetween(sh.sign_in_lat,sh.sign_in_lng,pr.site_lat,pr.site_lng):null;row.notes=(row.notes||'')+(m!=null?' [signed in '+(m<1000?m+' m':(m/1000).toFixed(1)+' km')+' from site]':' [signed in, site location not set]');}
   let r=await sb.from('site_visits').insert(Object.assign({},row,{visit_type:kind})).select().single();
   if(r.error&&/visit_type|column/i.test(r.error.message||'')){row.notes='['+kind.toUpperCase()+'] '+(row.notes||'');r=await sb.from('site_visits').insert(row).select().single();}
   if(r.error)throw r.error;
@@ -5134,6 +5159,7 @@ async function seDeliver(id){
   const it=(store.prodItems||[]).find(x=>String(x.id)===String(id)); if(!it)return;
   if(demoGuard(it.id))return;
   if(prodStageIndex(it.stage)>=7)return;
+  if(!seCheckSignedIn())return;
   await updateProductionItem(it.id,{stage:'Delivery'});
   seSay('Marked delivered — the supervisor sees it too.');
 }
@@ -5192,6 +5218,41 @@ async function seSnagSave(){
   if(store.snagErr){seSay(store.snagMsg,true);return;}
   store.seSheet=null;store.seSheetPhoto=null;seSay('Snag logged.');
 }
+async function seReqSave(){
+  const pr=(store.projects||[]).find(p=>String(p.id)===String(store.seProj)); if(!pr)return;
+  if(demoGuard(pr.id))return;
+  const name=((document.getElementById('seReqName')||{}).value||'').trim(); if(!name){seSay('Name the item.',true);return;}
+  const qty=Math.max(1,+((document.getElementById('seReqQty')||{}).value)||1); const note=((document.getElementById('seNote')||{}).value||'').trim();
+  store.seBusy=true;render();
+  try{await seVisitInsert({project_id:pr.id,project_name:pr.name,item_name:name,location_name:store.seSheet.zone||'',notes:'Requested qty '+qty+'. '+note,photos:store.seSheetPhoto?[store.seSheetPhoto]:[],status:'open'},'item_request');
+    store.seBusy=false;store.seSheet=null;store.seSheetPhoto=null;seSay('Request sent to the supervisor.');}
+  catch(e){store.seBusy=false;seSay('Could not send: '+(e.message||'error'),true);}
+}
+// supervisor: create the requested item in production, or decline
+async function supCreateRequestedItem(visitId){
+  const v=(store.siteVisits||[]).find(x=>String(x.id)===String(visitId)); if(!v)return;
+  if(demoGuard(visitId))return;
+  const qty=+((String(v.notes||'').match(/Requested qty (\d+)/)||[])[1])||1;
+  const row={company_id:store.account.companyId,created_by:store.account.uid,created_by_name:store.account.name||store.account.email,created_by_role:store.account.accountType,origin:'site_request',
+    project_id:v.project_id,project_name:v.project_name||'',zone_name:v.location_name||'',description:v.item_name||'(requested item)',qty,assignee:'Unassigned',flag:'—',stage:'Not Started',status_note:'Requested from site by '+(v.site_engineer_name||'')};
+  try{const {data,error}=await sb.from('production_items').insert(row).select().single();if(error)throw error;store.prodItems=[data,...(store.prodItems||[])];
+    await sb.from('site_visits').update({status:'reviewed'}).eq('id',visitId);v.status='reviewed';render();}
+  catch(e){alert('Could not create the item: '+(e.message||'error'));}
+}
+async function supDeclineRequestedItem(visitId){
+  const v=(store.siteVisits||[]).find(x=>String(x.id)===String(visitId)); if(!v)return;
+  if(demoGuard(visitId))return;
+  const why=(prompt('Reason for declining (the site engineer will see it):','')||'').trim(); if(!why)return;
+  try{await sb.from('site_visits').update({status:'declined',notes:(v.notes||'')+' — DECLINED: '+why}).eq('id',visitId);v.status='declined';v.notes=(v.notes||'')+' — DECLINED: '+why;render();}
+  catch(e){alert('Could not update: '+(e.message||'error'));}
+}
+function itemRequestsHTML(pid,opts){
+  const reqs=(store.siteVisits||[]).filter(v=>String(v.project_id)===String(pid)&&seKind(v)==='item_request');
+  if(!reqs.length)return '';
+  const open=reqs.filter(v=>v.status==='open'||!v.status);
+  return `<div class="card"><div class="cardHead"><span>＋ ITEM REQUESTS FROM SITE — ${open.length} OPEN</span></div>${reqs.map(v=>`<div class="rtRow"><div class="rtPic">${_thumb((Array.isArray(v.photos)?v.photos[0]:null),56)}</div><div class="rtTxt"><div class="scN">${v.item_name||''} <span style="color:var(--mut)">· ${v.location_name||''}</span></div><div>${String(v.notes||'').replace(/^\[[A-Z_]+\]\s*/,'')}</div><div class="scM">${_when(v.created_at)} by ${v.site_engineer_name||''} · <b style="color:${v.status==='reviewed'?'var(--green)':v.status==='declined'?'var(--red)':'var(--amber)'}">${v.status==='reviewed'?'created in production':v.status==='declined'?'declined':'waiting for supervisor'}</b></div>
+    ${(opts&&opts.role==='factory'&&(v.status==='open'||!v.status)&&!v._demo)?`<div style="margin-top:6px;display:flex;gap:6px"><button class="zadd" data-supcreate="${v.id}" style="font-size:10px">✓ CREATE IN PRODUCTION</button><button class="zadd" data-supdecline="${v.id}" style="font-size:10px;border-color:var(--red);color:var(--red)">✕ DECLINE</button></div>`:''}</div></div>`).join('')}</div>`;
+}
 async function seEodSave(){
   const pr=(store.projects||[]).find(p=>String(p.id)===String(store.seProj)); if(!pr)return;
   if(demoGuard(pr.id))return;
@@ -5201,16 +5262,20 @@ async function seEodSave(){
   const cond=[g('seS1')?'access OK':'access problem',g('seS2')?'other trades blocking':'',g('seS3')?'client/consultant visited':''].filter(Boolean).join(', ');
   const notes=`Installed: ${e.did('Site').join(', ')||'—'}. Received: ${e.did('Delivery').join(', ')||'—'}. Measured: ${e.meas.join(', ')||'—'}. Snags raised ${e.sn}, closed ${e.sc}. Progress: ${e.zl}. Site: ${cond}.${tm?' Tomorrow: '+tm:''}`;
   store.seBusy=true;render();
-  try{await seVisitInsert({project_id:pr.id,project_name:pr.name,item_name:'',location_name:'',notes,photos:[]},'daily');store.seBusy=false;store.seSheet=null;seSay('Sent. The manager sees it as today\'s site note.');}
+  try{await seVisitInsert({project_id:pr.id,project_name:pr.name,item_name:'',location_name:'',notes,photos:[]},'daily');const so=document.getElementById('seEodSignOut');store.seBusy=false;store.seSheet=null;if(so&&so.checked&&myOpenShift()){await attendanceSignOut();}seSay('Sent. The manager sees it as today\'s site note.'+((so&&so.checked)?' Signed out.':''));}
   catch(ex){store.seBusy=false;seSay('Could not send: '+(ex.message||'error'),true);}
 }
 function seWalkWire(){
-  const ps=document.getElementById('seProjSel');if(ps)ps.onchange=()=>{store.seProj=ps.value;store.seSheet=null;render();};
+  const ps=document.getElementById('seProjSel');if(ps)ps.onchange=()=>{store.seProj=ps.value;store.attProject=ps.value;store.seSheet=null;render();};
+  const rf=document.getElementById('seRefresh');if(rf)rf.onclick=()=>{['prodItemsLoaded','siteVisitsLoaded','snagsLoaded','returnsLoaded','attLoaded'].forEach(k=>store[k]=false);store.seMsg='Refreshing…';render();};
+  if(store.account.accountType==='site_engineer')wireAttendance();
   document.querySelectorAll('[data-sedeliver]').forEach(b=>b.onclick=()=>seDeliver(b.dataset.sedeliver));
   document.querySelectorAll('[data-seinstall]').forEach(b=>b.onclick=()=>seOpen('install',b.dataset.seinstall));
   document.querySelectorAll('[data-semeasure]').forEach(b=>b.onclick=()=>seOpen('measure',b.dataset.semeasure));
   document.querySelectorAll('[data-sesnag]').forEach(b=>b.onclick=()=>seOpen('snag',b.dataset.sesnag));
   document.querySelectorAll('[data-sereturn]').forEach(b=>b.onclick=()=>seOpen('return',b.dataset.sereturn));
+  document.querySelectorAll('[data-sereqitem]').forEach(b=>b.onclick=()=>{store.seSheet={type:'reqitem',itemId:null,zone:b.dataset.sereqitem};store.seSheetPhoto=null;render();});
+  const rq=document.getElementById('seReqSave');if(rq)rq.onclick=seReqSave;
   document.querySelectorAll('[data-seready]').forEach(b=>b.onclick=()=>seSetReady(b.dataset.seready,b.dataset.val==='1'));
   siteCoordWire();
   document.querySelectorAll('[data-seundo]').forEach(b=>b.onclick=()=>seUndo(b.dataset.seundo));
@@ -5798,7 +5863,7 @@ function attendanceHTML(){
   </div>`;
 }
 function wireAttendance(){
-  const si=document.getElementById('attSignIn'); if(si)si.onclick=()=>attendanceSignIn();
+  const si=document.getElementById('attSignIn'); if(si)si.onclick=async()=>{await attendanceSignIn();const sel=document.getElementById('att_project');if(sel&&sel.value&&store.account.accountType==='site_engineer'){store.seProj=sel.value;store.attProject=sel.value;render();}};
   const so=document.getElementById('attSignOut'); if(so)so.onclick=()=>attendanceSignOut();
   const rb=document.getElementById('attRegBio'); if(rb)rb.onclick=()=>registerBiometric();
   document.querySelectorAll('[data-worklocation]').forEach(b=>b.onclick=()=>{store.workLocation=b.dataset.worklocation;render();});
@@ -7145,7 +7210,7 @@ function appHTML(){
     <button class="tab ${store.tab==='catalogue'?'on':''}" data-tab="catalogue" style="color:var(--blue)">⊕ CATALOGUE</button>
     <button class="tab ${store.tab==='sitedrawings'?'on':''}" data-tab="sitedrawings" style="color:var(--amber)">📐 SITE DRAWINGS</button>
     <button class="tab ${store.tab==='order'?'on':''}" data-tab="order">◆ ORDER</button>
-    <button class="tab ${store.tab==='fromsite'?'on':''}" data-tab="fromsite" style="color:var(--green)">📍 FROM SITE${(()=>{const n=_workspaceId?openSnagsFor(_workspaceId).length+returnsFor(_workspaceId).filter(r=>r.status!=='redelivered').length:0;return n?' ('+n+')':'';})()}</button>
+    <button class="tab ${store.tab==='fromsite'?'on':''}" data-tab="fromsite" style="color:var(--green)">📍 FROM SITE${(()=>{const n=_workspaceId?openSnagsFor(_workspaceId).length+returnsFor(_workspaceId).filter(r=>r.status!=='redelivered').length+(store.siteVisits||[]).filter(v=>String(v.project_id)===String(_workspaceId)&&seKind(v)==='item_request'&&(v.status==='open'||!v.status)).length:0;return n?' ('+n+')':'';})()}</button>
   </div></div>
   <div class="body">${({fromsite:fromSiteHTML,assembly:assemblyHTML,linear:linearHTML,timber:timberHTML,sheet:sheetHTML,paint:paintHTML,bank:bankHTML,prices:priceHTML,catalogue:catalogueHTML,sitedrawings:siteDrawingsHTML,order:orderHTML}[store.tab]||assemblyHTML)()}</div>
   <footer>Optimiser uses a guillotine packer — strong practical yield, not a guaranteed optimum. Grain runs along the sheet length. Prices come from your Price Book (set them once). Demo paywall is not a real payment system.<br>Account: ${store.account.email} · ${store.account.location} · <span id="myAccountBtn" style="cursor:pointer;text-decoration:underline">my account</span> · <a href="${helpDeskLink()}" target="_blank" rel="noopener" title="Help via WhatsApp" style="vertical-align:middle">${whatsappIcon(14)}</a> · <span style="font-size:11px;color:var(--mut)">Account: ${store.account.email} &middot; ${store.account.company}</span>&nbsp;&middot;&nbsp;<span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span>&nbsp;&middot;&nbsp;<span id="myAccountBtn" style="cursor:pointer;text-decoration:underline;color:var(--amber)">my account</span></footer>${accRulesOverlay()}${exportPickerOverlay()}${sitePullOverlay()}${accountOverlayHTML()}`;}
