@@ -39,6 +39,10 @@
     .authWrap .authPitch{margin:0;padding:0;max-width:none}
     .authWrap .authPitch .pitchTop{border-top:none;padding-top:0}
   }
+  .phRow{display:flex;gap:6px;align-items:stretch}.phCC{display:flex;align-items:center;gap:6px;background:var(--steel);color:#fff;border:1px solid var(--line);border-radius:3px;padding:0 10px;font-family:var(--mono);font-size:13px;white-space:nowrap;cursor:pointer}
+  .phPanel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px;margin-top:6px}.phList{max-height:220px;overflow:auto}.phOpt{display:flex;align-items:center;gap:8px;padding:7px 8px;font-size:12px;cursor:pointer;border-radius:3px}.phOpt:hover,.phOpt.on{background:#2a2614}.phOpt .n{flex:1}.phOpt .c{color:var(--mut)}
+  .cmBar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.cmBtn{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--steel);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:10px 6px;font-family:var(--mono);cursor:pointer}.cmBtn .ic{font-size:22px}.cmBtn .l{font-size:11px;font-weight:800;letter-spacing:1px}.cmBtn .s{font-size:9px;color:var(--mut)}.cmBtn.on{border-color:var(--amber);background:#2a2614}.cmBtn.on .l{color:var(--amber)}
+  .cmFace{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px}.cmFaceBox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;width:min(520px,100%)}.cmFaceT{font-size:12px;font-weight:800;letter-spacing:1px;color:var(--amber);margin-bottom:8px}
   .authCard{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
   .authHead{padding:22px;border-bottom:2px solid var(--amber);text-align:center}
   .logo{color:var(--amber);font-size:26px;letter-spacing:-2px}
@@ -1878,30 +1882,33 @@ const COUNTRY_FIRST=['AE','SA','QA','OM','KW','BH','IN','PK','BD','NP','LK','PH'
 const COUNTRY_CODES=COUNTRY_FIRST.map(iso=>COUNTRY_CODES_ALL.find(c=>c[2]===iso)).filter(Boolean)
   .concat(COUNTRY_CODES_ALL.filter(c=>COUNTRY_FIRST.indexOf(c[2])<0))
   .map(c=>[c[0],c[1],flagOf(c[2]),c[2]]);
+function flagImg(iso,h){return iso==='XK'?'🏳':`<img src="https://flagcdn.com/${h||20}x${Math.round((h||20)*0.75)}/${iso.toLowerCase()}.png" alt="${iso}" style="height:${Math.round((h||20)*0.75)}px;vertical-align:-2px;border-radius:2px">`;}
 function phoneFieldHTML(){
-  const cc=store.signupCC||'+971';
+  const iso=store.signupISO||'AE'; const c=COUNTRY_CODES.find(x=>x[3]===iso)||COUNTRY_CODES[0];
   return `<label class="lbl">PHONE</label>
-    <div style="display:flex;gap:6px">
-      <div style="position:relative;flex:0 0 46%">
-        <input class="inp" id="f_ccsearch" placeholder="Search country…" autocomplete="off" style="padding:8px 10px;font-size:12px;margin-bottom:4px">
-        <select class="inp" id="f_cc" size="1" style="padding:10px 8px;font-size:13px">${COUNTRY_CODES.map(c=>`<option value="${c[1]}" data-iso="${c[3]}" data-name="${c[0].toLowerCase()}" ${c[3]===(store.signupISO||'AE')?'selected':''}>${c[2]} ${c[0]} ${c[1]}</option>`).join('')}</select>
-      </div>
-      <div style="flex:1"><div style="height:32px;display:flex;align-items:center;font-size:11px;color:var(--mut)" id="f_ccshow">${cc}</div><input class="inp" id="f_phone" type="tel" inputmode="tel" placeholder="50 123 4567"></div>
-    </div>`;
+    <div class="phRow">
+      <button type="button" class="phCC" id="f_ccbtn" title="${c[0]}">${flagImg(c[3],20)} <span>${c[1]}</span> <span style="color:var(--mut)">▾</span></button>
+      <input class="inp" id="f_phone" type="tel" inputmode="tel" placeholder="50 123 4567" style="flex:1;min-width:0;margin:0">
+    </div>
+    <div class="phPanel hide" id="f_ccpanel"><input class="inp" id="f_ccsearch" placeholder="Type a country or code…" autocomplete="off" style="margin:0 0 6px;padding:8px 10px;font-size:12px">
+      <div class="phList" id="f_cclist">${COUNTRY_CODES.map(x=>`<div class="phOpt ${x[3]===iso?'on':''}" data-iso="${x[3]}" data-cc="${x[1]}" data-name="${x[0].toLowerCase()} ${x[1]}">${flagImg(x[3],20)}<span class="n">${x[0]}</span><span class="c">${x[1]}</span></div>`).join('')}</div></div>`;
 }
-// full number the rest of the app stores: +971 501234567 → +971501234567
 function phoneVal(){
-  const cc=(document.getElementById('f_cc')||{}).value||'+971';
+  const iso=store.signupISO||'AE'; const c=COUNTRY_CODES.find(x=>x[3]===iso)||COUNTRY_CODES[0]; const cc=c[1];
   let n=((document.getElementById('f_phone')||{}).value||'').replace(/[^0-9+]/g,'');
-  if(n.startsWith('+'))return n;               // typed a full international number anyway
-  n=n.replace(/^0+/,'');                       // drop trunk zero: 050… → 50…
+  if(n.startsWith('+'))return n;
+  n=n.replace(/^0+/,'');
   return n?cc+n:'';
 }
 function wirePhoneField(){
-  const sr=document.getElementById('f_ccsearch'),sel=document.getElementById('f_cc'),show=document.getElementById('f_ccshow');
-  if(!sel)return;
-  sel.onchange=()=>{store.signupCC=sel.value;const o=sel.options[sel.selectedIndex];store.signupISO=o?o.dataset.iso:'AE';if(show)show.textContent=sel.value;};
-  if(sr)sr.oninput=()=>{const q=sr.value.trim().toLowerCase();let first=null;[...sel.options].forEach(o=>{const hit=!q||o.dataset.name.indexOf(q)>-1||o.value.indexOf(q)>-1;o.hidden=!hit;if(hit&&!first)first=o;});if(q&&first){first.selected=true;sel.onchange();}};
+  const btn=document.getElementById('f_ccbtn'),panel=document.getElementById('f_ccpanel'),sr=document.getElementById('f_ccsearch'),list=document.getElementById('f_cclist');
+  if(!btn||!panel)return;
+  const close=()=>{panel.classList.add('hide');};
+  btn.onclick=()=>{panel.classList.toggle('hide');if(!panel.classList.contains('hide')){sr.value='';[...list.children].forEach(o=>o.style.display='');sr.focus();const on=list.querySelector('.on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'center'});}};
+  sr.oninput=()=>{const q=sr.value.trim().toLowerCase();[...list.children].forEach(o=>{o.style.display=(!q||o.dataset.name.indexOf(q)>-1)?'':'none';});};
+  sr.onkeydown=e=>{if(e.key==='Enter'){const first=[...list.children].find(o=>o.style.display!=='none');if(first)first.click();}if(e.key==='Escape')close();};
+  list.onclick=e=>{const o=e.target.closest('.phOpt');if(!o)return;store.signupISO=o.dataset.iso;store.signupCC=o.dataset.cc;const c=COUNTRY_CODES.find(x=>x[3]===o.dataset.iso);btn.innerHTML=`${flagImg(o.dataset.iso,20)} <span>${o.dataset.cc}</span> <span style="color:var(--mut)">▾</span>`;btn.title=c?c[0]:'';[...list.children].forEach(x=>x.classList.toggle('on',x===o));close();document.getElementById('f_phone').focus();};
+  document.addEventListener('click',e=>{if(!panel.contains(e.target)&&e.target!==btn&&!btn.contains(e.target))close();},{capture:true});
 }
 function authHTML(){
   if(store.showResetPassword){
@@ -6064,6 +6071,28 @@ async function deleteCrewMember(id){
   try{ await sb.from('crew_members').delete().eq('id',id); }
   catch(e){ alert('Could not remove: '+(e.message||'error')); }
 }
+function crewMethodBarHTML(){
+  const m=store.crewMethod||'manual';
+  const b=(k,ic,l,sub)=>`<button class="cmBtn ${m===k?'on':''}" data-crewmethod="${k}"><span class="ic">${ic}</span><span class="l">${l}</span><span class="s">${sub}</span></button>`;
+  return `<div class="cmBar">${b('fingerprint','👆','FINGERPRINT',biometricSupported()?((store.bioCreds||[]).length?'this device':'register in Attendance first'):'not on this device')}${b('face','😊','FACE','photo at sign-in')}${b('manual','✍','MANUAL','tap only')}</div>`;
+}
+function crewFacePhoto(name){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div');ov.className='cmFace';
+    ov.innerHTML=`<div class="cmFaceBox"><div class="cmFaceT">😊 ${name} — look at the camera</div><video autoplay playsinline muted style="width:100%;border-radius:6px;background:#000;max-height:60vh"></video><canvas style="display:none"></canvas>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="pbtn" id="cmSnap" style="flex:1;padding:12px">📷 CAPTURE &amp; SIGN IN</button><button class="gbtn" id="cmCancel" style="padding:12px">CANCEL</button></div>
+      <label class="gbtn" style="display:block;text-align:center;margin-top:8px;cursor:pointer;font-size:10px">No camera here? Choose a photo<input type="file" accept="image/*" capture="user" id="cmFile" style="display:none"></label></div>`;
+    document.body.appendChild(ov);
+    const video=ov.querySelector('video'),canvas=ov.querySelector('canvas');let stream=null;
+    const done=async(blob)=>{try{if(stream)stream.getTracks().forEach(t=>t.stop());}catch(e){}ov.remove();
+      if(!blob)return resolve(null);
+      try{const f=new File([blob],'face.jpg',{type:'image/jpeg'});resolve(await uploadSiteVisitPhoto(f));}catch(e){alert('Photo upload failed: '+(e.message||'error'));resolve(null);}};
+    (navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)?navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false}).then(st=>{stream=st;video.srcObject=st;}).catch(()=>{video.style.display='none';}):(video.style.display='none');
+    ov.querySelector('#cmSnap').onclick=()=>{if(!stream){alert('Camera not available — use "Choose a photo".');return;}canvas.width=video.videoWidth||640;canvas.height=video.videoHeight||480;canvas.getContext('2d').drawImage(video,0,0);canvas.toBlob(b=>done(b),'image/jpeg',0.85);};
+    ov.querySelector('#cmCancel').onclick=()=>done(null);
+    ov.querySelector('#cmFile').onchange=e=>{const f=e.target.files[0];if(f)done(f);};
+  });
+}
 async function crewPunch(memberId, direction){
   if(demoGuard(memberId))return;
   const pid=store.crewProject; if(!pid){alert('Pick a project first.');return;}
@@ -6073,6 +6102,9 @@ async function crewPunch(memberId, direction){
   const pos=await getPosition();
   const now=new Date().toISOString();
   const proj=(store.projects||[]).find(x=>String(x.id)===String(pid));
+  const method=store.crewMethod||'manual'; let facePhoto=null;
+  if(method==='fingerprint'){ if(!(store.bioCreds||[]).length){alert('No fingerprint registered on this device yet. Open Attendance → Register fingerprint, or switch to Face or Manual.');return;} const ok=await verifyBiometric(); if(!ok){alert('Fingerprint not recognised — not signed '+direction+'.');return;} }
+  if(method==='face'){ facePhoto=await crewFacePhoto(c.name); if(!facePhoto)return; }
   try{
     if(direction==='in'){
       const openAnywhere=crewOpenAnywhere(memberId);
@@ -6094,17 +6126,19 @@ async function crewPunch(memberId, direction){
         recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
         recorded_at:now, lat:pos?pos.lat:null, lng:pos?pos.lng:null,
         work_location:canRecordFactory()?(store.workLocation||'site'):'site',
-        sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present'};
-      const {data,error}=await sb.from('crew_attendance').insert(row).select().single();
+        sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present', method, photo_in_url:facePhoto};
+      let {data,error}=await sb.from('crew_attendance').insert(row).select().single();
+      if(error&&/method|photo_in_url|column/i.test(error.message||'')){delete row.method;delete row.photo_in_url;({data,error}=await sb.from('crew_attendance').insert(row).select().single());}
       if(error)throw error;
       store.crewAtt=[data,...(store.crewAtt||[])];
     }else{
       const open=crewOpenRecord(memberId);
       if(!open){alert('Sign this worker in first.');return;}
       store.crewBusy=true; render();
-      const patch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null, status:'closed'};
+      const patch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null, status:'closed', method_out:method, photo_out_url:facePhoto};
       Object.assign(open,patch);
-      await sb.from('crew_attendance').update(patch).eq('id',open.id);
+      let {error:e2}=await sb.from('crew_attendance').update(patch).eq('id',open.id);
+      if(e2&&/method_out|photo_out_url|column/i.test(e2.message||'')){delete patch.method_out;delete patch.photo_out_url;await sb.from('crew_attendance').update(patch).eq('id',open.id);}
     }
   }catch(e){alert('Could not save: '+(e.message||'error'));}
   store.crewBusy=false; render();
@@ -6172,6 +6206,7 @@ function crewAttendanceHTML(){
   return `<div class="card" style="border-color:var(--amber)">
     <div class="cardHead" style="color:var(--amber)"><span>👷 ${t('crew_attendance')}</span>
       <button class="zadd" id="crewRefresh" style="font-size:10px;padding:4px 8px">🔄 ${t('refresh')}</button></div>
+    ${crewMethodBarHTML()}
     <div class="hint" style="padding:0 12px 8px">Mark your labour present or absent for the day. Their names come from your company roster, so you only type them once.</div>
     <div style="padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <label class="field"><span class="fl">${t('project')}</span>
@@ -6204,7 +6239,7 @@ function crewAttendanceHTML(){
                   <button class="zadd" data-crewout="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--amber);color:var(--amber);margin-left:4px" ${store.crewBusy?'disabled':''}>■ OUT</button>
                   ${stale?`<button class="zadd" data-fixout="${open.id}" style="font-size:10px;padding:5px 9px;border-color:var(--red);color:var(--red);margin-left:4px">✎ FIX OUT TIME</button>
                     <div style="font-size:9px;color:var(--red);margin-top:3px">⚠ still open past midnight — hours are still counting. Correct the finish time.</div>`:''}${doneNote}`;}
-                return `<button class="zadd" data-crewin="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--green);color:var(--green)" ${store.crewBusy?'disabled':''}>▶ ${done.length?'IN AGAIN':'IN'}</button>${elsewhere?`<span style="font-size:9px;color:var(--amber);margin-left:6px">⚠ on "${elsewhere.project_name||'another project'}"</span>`:''}${doneNote}`;
+                return `${(()=>{const last=(store.crewAtt||[]).filter(r=>String(r.crew_member_id)===String(c.id)&&r.work_date===d).sort((a,b)=>(b.sign_in_at||'').localeCompare(a.sign_in_at||''))[0];return last&&(last.method||last.photo_in_url)?`<span style="font-size:9px;color:var(--mut);margin-right:6px">${last.method==='fingerprint'?'👆':last.method==='face'?'😊':'✍'}${last.photo_in_url?' <a href="'+last.photo_in_url+'" target="_blank"><img src="'+last.photo_in_url+'" style="height:22px;border-radius:3px;vertical-align:middle"></a>':''}</span>`:'';})()}<button class="zadd" data-crewin="${c.id}" style="font-size:10px;padding:5px 9px;border-color:var(--green);color:var(--green)" ${store.crewBusy?'disabled':''}>▶ ${done.length?'IN AGAIN':'IN'}</button>${elsewhere?`<span style="font-size:9px;color:var(--amber);margin-left:6px">⚠ on "${elsewhere.project_name||'another project'}"</span>`:''}${doneNote}`;
               })()}
             </td>
             <td style="font-size:10px;color:var(--mut);white-space:nowrap">${rec?'saved':''}
@@ -8244,6 +8279,7 @@ function wireProduction(){
     const pix=document.getElementById('prodImportXlsx');if(pix)pix.onchange=(e)=>{const f=e.target.files[0];if(f)importProductionItemsExcel(f);e.target.value='';};
 }
 function wire(){
+  document.querySelectorAll('[data-crewmethod]').forEach(b=>b.onclick=()=>{store.crewMethod=b.dataset.crewmethod;render();});
   if(!store.account){
     document.querySelectorAll('[data-authmode]').forEach(b=>b.onclick=()=>{store.authMode=b.dataset.authmode;store.authMsg='';render();});
     document.querySelectorAll('[data-signuptype]').forEach(b=>b.onclick=()=>{store.signupType=b.dataset.signuptype;store.authMsg='';render();});
