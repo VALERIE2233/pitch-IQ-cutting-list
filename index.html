@@ -262,6 +262,17 @@
   .seEod{background:var(--steel);border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:8px}.seEod .t{font-size:10px;letter-spacing:1.5px;color:var(--amber);font-weight:800;margin-bottom:6px}.seEod div{font-size:11px;color:#c9ced5;margin-bottom:3px}
   body:has(.seSheetWrap) .body{padding-bottom:60vh}
   .seActs .rt{border-color:var(--amber);color:var(--amber)}
+  .seBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:12px 0}
+  .sePill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:20px;padding:7px 12px;font-size:11px;background:transparent;color:var(--txt);font-family:var(--mono);cursor:pointer;min-height:36px}.sePill.g{border-color:var(--green);color:var(--green)}.sePill.b{border-color:var(--blue);color:var(--blue)}.sePill.a{border-color:var(--amber);color:var(--amber)}.sePill.r{border-color:var(--red);color:var(--red)}
+  .seRow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--row);cursor:pointer}.seRow:last-of-type{border-bottom:none}.seRow.sel{background:#2a2614}.seRow .nm{font-weight:600;font-size:12.5px}.seRow .meta{font-size:10px;color:var(--mut);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+  .seRow .meta .g{color:var(--green)}.seRow .meta .b{color:var(--blue)}.seRow .meta .a{color:var(--amber)}.seRow .meta .r{color:var(--red)}
+  .seAct{background:transparent;border:1px solid var(--line);color:var(--txt);font-family:var(--mono);font-size:11px;font-weight:700;padding:11px 12px;border-radius:4px;min-width:140px;min-height:44px;white-space:nowrap}.seAct.m{border-color:var(--blue);color:var(--blue)}.seAct.i{border-color:var(--green);color:var(--green)}.seAct.s{border-color:var(--mut);color:var(--mut)}
+  .seZoneFoot{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--head);font-size:10px;color:var(--mut)}
+  .seTabs{display:flex;gap:4px;margin-bottom:10px}.seTabs button{flex:1;padding:9px 6px;border:1px solid var(--line);border-radius:3px;font-size:10px;font-weight:700;color:var(--mut);background:transparent;font-family:var(--mono)}.seTabs button.on{background:var(--amber);color:#000;border-color:var(--amber)}
+  .seSec{background:var(--steel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:10px}.seSec .l{font-size:9px;letter-spacing:1.5px;color:var(--mut);margin-bottom:6px}
+  .seRow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}.seRow3 .fi{width:100%;font-size:15px;padding:9px 8px}
+  .seTwo{display:flex;gap:6px}.seTwo button{flex:1;padding:11px;border:1px solid var(--line);background:transparent;color:var(--mut);font-family:var(--mono);font-size:11px;font-weight:700;border-radius:3px}.seTwo .on{background:var(--green);color:#000;border-color:var(--green)}.seTwo .onx{background:var(--red);color:#000;border-color:var(--red)}
+  .seMore{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.seMore button{flex:1 1 30%;padding:10px 6px;border:1px solid var(--line);background:transparent;color:var(--txt);font-family:var(--mono);font-size:10px;font-weight:700;border-radius:3px;min-height:40px}.seMore .dl{border-color:var(--amber);color:var(--amber)}.seMore .in{border-color:var(--green);color:var(--green)}.seMore .sn{border-color:var(--red);color:var(--red)}.seMore .rt{border-color:var(--amber);color:var(--amber)}
   .seAttWrap{margin-top:14px}.seAttWrap .card{margin-bottom:0}
   .seSt.x{border-color:var(--red);color:var(--red)}
   .seReady{display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap}.seReady .fl{margin-right:4px}.seReady button{background:transparent;border:1px solid var(--line);color:var(--mut);font-family:var(--mono);font-size:10px;padding:6px 9px;border-radius:3px;font-weight:700}.seReady button.on{background:var(--green);color:#000;border-color:var(--green)}.seReady button.onx{background:var(--red);color:#000;border-color:var(--red)}
@@ -2571,9 +2582,7 @@ function demoBannerHTML(){
   if(store.hideDemo)return '';
   const on=['projects','prodItems','purchases','attendance','siteVisits','snags','approvals','crew','crewAtt','procReqs','returns'].some(k=>(store[k]||[]).some(x=>x._demo));
   if(!on)return '';
-  return `<div style="margin-top:14px;background:#2d2410;border:1px dashed var(--amber);border-radius:4px;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-    <div style="flex:1;font-size:11px;line-height:1.5;color:var(--amber)"><strong>Two demo projects shown.</strong> <span style="color:var(--txt)"><em>DEMO · Marina Tower L12</em> is seven weeks in — items in every stage, a snag, a site visit. <em>DEMO · Al Barsha Villa</em> is three weeks in — mostly drawing and sampling, one item on hold. Marina has 2 zones / 10 items; Al Barsha has 3 zones / 12 items. Both have purchases, crew hours, a procurement request and an order waiting for approval — and the same two projects appear on the supervisor, site engineer, procurement and timekeeper screens, so you can follow one item all the way through. Add your own project and copy the pattern — the demo stays alongside so you can compare, until you hide it. Demo rows can't be edited.</span></div>
-    <button class="zadd" id="hideDemoBtn" style="white-space:nowrap">Hide demo</button></div>`;
+  return `<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="gbtn" id="hideDemoBtn" style="font-size:10px;padding:5px 10px">Hide demo</button></div>`;
 }
 function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclick=()=>{if(!confirm('Hide the demo projects? You can bring them back with the DEMO button in the header.'))return;store.hideDemo=true;['projects','prodItems','purchases','attendance','siteVisits','snags','approvals','crew','crewAtt','procReqs','returns'].forEach(k=>{store[k]=(store[k]||[]).filter(x=>!x._demo);});render();};
   const s=document.getElementById('showDemoBtn');if(s)s.onclick=()=>{store.hideDemo=false;render();};}
@@ -5102,51 +5111,100 @@ function seWalkHTML(){
   if(store.projectsLoaded&&!store.prodItemsLoaded)loadProductionItems();
   if(!store.siteVisitsLoaded)loadSiteVisits();
   if(!store.snagsLoaded&&typeof loadSnags==='function')loadSnags();
+  if(!store.returnsLoaded)loadReturns();
+  if(!store.attLoaded)loadAttendance();
+  if(!store.crewAttLoaded)loadCrewAttendance();
   const projs=store.projects||[];
   let pr=projs.find(p=>String(p.id)===String(store.seProj))||projs[0];
-  if(pr&&String(store.seProj)!==String(pr.id))store.seProj=pr.id;
+  if(pr&&String(store.seProj)!==String(pr.id)){store.seProj=pr.id;store.attProject=pr.id;store.crewProject=pr.id;}
   const items=pr?seItemsFor(pr):[], visits=pr?seVisitsFor(pr):[];
-  const snags=pr?(store.snags||[]).filter(x=>String(x.project_id)===String(pr.id)&&x.status!=='resolved'&&x.status!=='closed'):[];
-  const arriving=items.filter(i=>prodStageIndex(i.stage)===7).length;
-  const needMeasure=items.filter(i=>prodStageIndex(i.stage)<=2&&!seMeasured(i,visits)).length;
+  const snagsOpen=pr?openSnagsFor(pr.id):[];
   const drawings=pr?seDrawingsFor(pr,visits):[]; const toMark=drawings.filter(d=>d.pending).length;
-  const notReady=items.filter(i=>i.site_ready===false).length;
+  const needMeasure=items.filter(i=>prodStageIndex(i.stage)<=2&&!seMeasured(i,visits)).length;
+  const reqOpen=pr?(store.siteVisits||[]).filter(v=>String(v.project_id)===String(pr.id)&&seKind(v)==='item_request'&&(v.status==='open'||!v.status)).length:0;
+  const retOpen=pr?returnsFor(pr.id).filter(r=>r.status!=='redelivered').length:0;
   const zones=[];items.forEach(i=>{const z=(i.zone_name||'').trim()||'No zone';if(zones.indexOf(z)<0)zones.push(z);});
   const opts=projs.map(p=>`<option value="${p.id}" ${pr&&String(p.id)===String(pr.id)?'selected':''}>${p.name||'(unnamed)'}</option>`).join('');
-  const busy=store.seBusy;
-  const rows=z=>items.filter(i=>((i.zone_name||'').trim()||'No zone')===z).map(it=>{
-    const idx=prodStageIndex(it.stage), demo=it._demo, meas=seMeasured(it,visits);
-    const canAct=idx<8;
-    const myDraw=drawings.filter(d=>d.item&&(mdashItemName(it).indexOf(d.item)>-1||d.item.indexOf(mdashItemName(it))>-1));
-    return `<div class="seIt"><div class="nm">${mdashItemName(it)}${it.qty>1?' <span style="color:var(--mut)">× '+it.qty+'</span>':''}</div>${seStatusChip(it,visits)} ${seReadyChip(it)}
-      ${idx<8?`<div class="seReady"><span class="fl">SITE FOR THIS ITEM:</span><button class="${it.site_ready===true?'on':''}" data-seready="${it.id}" data-val="1">🟢 READY</button><button class="${it.site_ready===false?'onx':''}" data-seready="${it.id}" data-val="0">🔴 NOT READY</button></div>`:''}
-      ${seDrawingsHTML(myDraw)}
-      ${idx>=7?`<div class="seActs"><button class="seUndo" data-seundo="${it.id}">↶ UNDO ${idx>=8?'INSTALLED':'DELIVERED'}</button>${idx===7?`<button class="in" data-seinstall="${it.id}">✓ INSTALLED</button>`:''}<button class="sn" data-sesnag="${it.id}">⚠ SNAG</button><button class="rt" data-sereturn="${it.id}">↩ RETURN</button></div>`
-      :`<div class="seActs"><button class="m ${meas?'done':''}" data-semeasure="${it.id}">📐 ${meas?'MEASURED '+seFmtWhen(meas.created_at):'MEASURE'}</button><button class="dl" data-sedeliver="${it.id}">🚚 DELIVERED</button><button class="in" data-seinstall="${it.id}">✓ INSTALLED</button><button class="sn" data-sesnag="${it.id}">⚠ SNAG</button><button class="rt" data-sereturn="${it.id}">↩ RETURN</button></div>`}
-    </div>`;}).join('');
-  const zoneCards=zones.map(z=>{const list=items.filter(i=>((i.zone_name||'').trim()||'No zone')===z);const inst=list.filter(i=>prodStageIndex(i.stage)>=8).length;
-    return `<div class="card seZone"><div class="cardHead"><span>${z.toUpperCase()}</span><small style="color:var(--mut);font-weight:400">${inst}/${list.length} installed</small></div>${rows(z)}<button class="add" data-sereqitem="${z}">+ ITEM MISSING FROM THIS ZONE? ASK THE SUPERVISOR</button></div>`;}).join('');
   const shift=myOpenShift(); const onThis=shift&&pr&&String(shift.project_id)===String(pr.id);
-  const shiftTag=shift?(onThis?`<span class="seSt s">✓ SIGNED IN HERE${shift.sign_in_at?' · since '+new Date(shift.sign_in_at).toTimeString().slice(0,5):''} ${shift.sign_in_lat!=null?distanceTag(shift.sign_in_lat,shift.sign_in_lng,pr):''}</span>`:`<span class="seSt x">SIGNED IN ON ${(shift.project_name||'another project').toUpperCase()} — not this one</span>`):`<span class="seSt n">NOT SIGNED IN</span>`;
-  return `<div class="body">
+  const mePill=shift?(onThis?`<button class="sePill g" data-sepanel="att">✓ Signed in · ${shift.sign_in_at?new Date(shift.sign_in_at).toTimeString().slice(0,5):''}${shift.sign_in_lat!=null&&pr&&pr.site_lat!=null?' · '+(()=>{const m=metresBetween(shift.sign_in_lat,shift.sign_in_lng,pr.site_lat,pr.site_lng);return m==null?'':(m<1000?m+' m':(m/1000).toFixed(1)+' km');})():''}</button>`:`<button class="sePill r" data-sepanel="att">Signed in elsewhere ›</button>`):`<button class="sePill a" data-sepanel="att">▶ Sign in at site ›</button>`;
+  const today=new Date();today.setHours(0,0,0,0);
+  const crewIn=(store.crewAtt||[]).filter(r=>pr&&String(r.project_id)===String(pr.id)&&r.sign_in_at&&new Date(r.sign_in_at)>=today&&!r.sign_out_at).length;
+  const crewTotal=(store.crew||[]).length;
+  const sel=store.seSheet&&store.seSheet.type==='item'?String(store.seSheet.itemId):null;
+  const rowMeta=it=>{const idx=prodStageIndex(it.stage), last=seLastHist(it), meas=seMeasured(it,visits);
+    const myDraw=drawings.filter(d=>d.item&&(mdashItemName(it).indexOf(d.item)>-1||d.item.indexOf(mdashItemName(it))>-1)).filter(d=>d.pending).length;
+    const sn=snagsOpen.filter(s=>s.item_name&&mdashItemName(it).indexOf(s.item_name)>-1).length;
+    const rt=pr?returnsFor(pr.id).filter(r=>String(r.item_id)===String(it.id)&&r.status!=='redelivered')[0]:null;
+    const who=last&&last.by?' · '+String(last.by).split(' ')[0]:'';
+    const parts=[];
+    if(rt)parts.push(`<span class="a">↩ returned · ${(RETURN_STEPS[returnStepIdx(rt.status)]||{}).l}</span>`);
+    else if(idx>=8)parts.push(`<span class="g">✓ installed ${seFmtWhen(last?last.at:it.stage_since)}${who}</span>`);
+    else if(idx===7)parts.push(`<span class="a">🚚 delivered ${seFmtWhen(last?last.at:it.stage_since)}${who}</span>`);
+    else if(it.flag==='On Hold')parts.push('<span>on hold</span>');
+    else if(it.flag==='Blocked')parts.push(`<span class="a">waiting · ${READINESS_CHECKS.filter(c=>!it[c.k]).map(c=>c.label.replace(' approved','').toLowerCase()).slice(0,2).join(', ')}</span>`);
+    else if(idx===0)parts.push('<span>not started</span>');
+    else parts.push(`<span class="b">factory · ${String(it.stage).toLowerCase()}</span>`);
+    if(idx<8){if(meas)parts.push(`<span>📐 measured ${seFmtWhen(meas.created_at)}</span>`);if(myDraw)parts.push(`<span class="a">✎ ${myDraw} drawing${myDraw>1?'s':''} to mark up</span>`);
+      if(it.site_ready===true)parts.push('<span class="g">🟢 site ready</span>');if(it.site_ready===false)parts.push(`<span class="r">🔴 site not ready${it.site_ready_note?' — '+it.site_ready_note:''}</span>`);}
+    if(sn)parts.push(`<span class="r">⚠ ${sn} snag${sn>1?'s':''}</span>`);
+    return parts.join('');};
+  const rowBtn=it=>{const idx=prodStageIndex(it.stage);
+    if(idx===7)return `<button class="seAct i" data-seopen="${it.id}" data-setab="progress">✓ INSTALLED ›</button>`;
+    if(idx>=8)return `<button class="seAct s" data-seopen="${it.id}" data-setab="issues">OPEN ›</button>`;
+    return `<button class="seAct m" data-seopen="${it.id}" data-setab="site">📐 SITE &amp; DRAWINGS ›</button>`;};
+  const zoneCards=zones.map(z=>{const list=items.filter(i=>((i.zone_name||'').trim()||'No zone')===z);const inst=list.filter(i=>prodStageIndex(i.stage)>=8).length;
+    return `<div class="card seZone"><div class="cardHead"><span>${z.toUpperCase()}</span><small style="color:var(--mut);font-weight:400">${inst} / ${list.length} installed</small></div>
+      ${list.map(it=>`<div class="seRow ${sel===String(it.id)?'sel':''}" data-seopen="${it.id}"><div><div class="nm">${mdashItemName(it)}${it.qty>1?' <span style="color:var(--mut)">× '+it.qty+'</span>':''}</div><div class="meta">${rowMeta(it)}</div></div>${rowBtn(it)}</div>`).join('')}
+      <div class="seZoneFoot"><span>Item missing from this zone?</span><button class="gbtn" data-sereqitem="${z}" style="padding:5px 9px;font-size:10px">ASK THE SUPERVISOR ›</button></div></div>`;}).join('');
+  return `<div class="body seBody">
     ${demoBannerHTML()}
-    <div class="seAttWrap">${attendanceHTML()}</div>
-    <div class="zoneBar" style="border:1px solid var(--line);border-radius:4px;margin-top:14px"><span class="zlbl">PROJECT</span><select class="sel" id="seProjSel" style="min-width:200px;max-width:100%;padding:8px 10px;font-size:12px">${opts}</select>${shiftTag}<span style="flex:1"></span><button class="gbtn" id="seRefresh" style="padding:7px 10px;font-size:10px">⟳ REFRESH</button></div>
-    ${pr?`<div class="seToday">
-      <div class="b"><div class="n">${arriving}</div><div class="l">On site to fit</div></div>
-      <div class="a"><div class="n">${needMeasure}</div><div class="l">Need site measure</div></div>
-      <div class="a"><div class="n">${toMark}</div><div class="l">Drawings to mark up</div></div>
-      <div class="r"><div class="n">${notReady}</div><div class="l">Sites not ready</div></div>
-      <div class="r"><div class="n">${snags.length}</div><div class="l">Snags open</div></div></div>
-    ${store.seMsg?`<div class="hint" style="padding:6px 0 10px;color:${store.seErr?'var(--red)':'var(--green)'}">${store.seMsg}</div>`:''}
-    <div class="seZones">${zoneCards||'<div class="empty">No items in this project yet. The supervisor adds zones and items from the factory side; once they exist they appear here.</div>'}</div>
-    <button class="pbtn" id="seEodBtn" style="width:100%;padding:13px;margin-top:6px">📋 END OF DAY REPORT</button>
-    ${(()=>{const loose=drawings.filter(d=>!d.item||!items.some(it=>mdashItemName(it).indexOf(d.item)>-1||d.item.indexOf(mdashItemName(it))>-1));return loose.length?`<div class="card"><div class="cardHead"><span>📐 DRAWINGS FROM FACTORY (${loose.length})</span><small style="color:var(--mut);font-weight:400">not tied to one item</small></div><div style="padding:10px 12px">${seDrawingsHTML(loose)}</div></div>`:'';})()}
-    ${itemRequestsHTML(pr.id,{role:'site'})}
-    <div class="seTwo">${snagCardsHTML(pr.id,{canClose:true})}${returnCardsHTML(pr.id,{role:'site'})}</div>`
-    :'<div class="empty">No projects yet.</div>'}
+    <div class="seBar">
+      <span class="zlbl">PROJECT</span><select class="sel" id="seProjSel" style="min-width:180px;max-width:100%;padding:8px 10px;font-size:12px">${opts}</select>
+      ${pr?mePill:''}
+      ${pr?`<button class="sePill b" data-sepanel="crew">👷 Crew ${crewIn} / ${crewTotal} on site ›</button>`:''}
+      <span style="flex:1"></span>
+      ${pr?`<button class="sePill" data-sepanel="lists">📐 ${needMeasure} to measure</button><button class="sePill ${toMark?'a':''}" data-sepanel="lists">✎ ${toMark} drawing${toMark===1?'':'s'}</button><button class="sePill ${snagsOpen.length?'r':''}" data-sepanel="lists">⚠ ${snagsOpen.length} snag${snagsOpen.length===1?'':'s'}</button>${retOpen||reqOpen?`<button class="sePill" data-sepanel="lists">↩ ${retOpen} · ＋ ${reqOpen}</button>`:''}`:''}
+      <button class="gbtn" id="seRefresh" style="padding:7px 10px;font-size:11px" title="Refresh">⟳</button>
+      ${pr?`<button class="pbtn" id="seEodBtn" style="padding:8px 12px">📋 END OF DAY</button>`:''}
+    </div>
+    ${store.seMsg?`<div class="hint" style="padding:0 0 10px;color:${store.seErr?'var(--red)':'var(--green)'}">${store.seMsg}</div>`:''}
+    ${pr?`<div class="seZones">${zoneCards||'<div class="empty">No items in this project yet. The supervisor adds zones and items from the factory side; once they exist they appear here.</div>'}</div>`:'<div class="empty">No projects yet.</div>'}
     ${seSheetHTML(pr,items,visits)}
   </div>`;
+}
+// ---- the item panel (SITE / PROGRESS / ISSUES) + attendance / crew / lists panels ----
+function seItemPanelHTML(pr,it,visits,tab){
+  const idx=prodStageIndex(it.stage), demo=!!it._demo;
+  const dw=+it.width||+it.w||0, dh=+it.height||+it.h||0;
+  const drawings=seDrawingsFor(pr,visits).filter(d=>d.item&&(mdashItemName(it).indexOf(d.item)>-1||d.item.indexOf(mdashItemName(it))>-1));
+  const meas=seMeasured(it,visits); const ph=store.seSheetPhoto;
+  const mySnags=(store.snags||[]).filter(s=>String(s.project_id)===String(pr.id)&&s.item_name&&mdashItemName(it).indexOf(s.item_name)>-1);
+  const rt=returnsFor(pr.id).filter(r=>String(r.item_id)===String(it.id));
+  const busy=store.seBusy?'disabled':'';
+  const tabs=`<div class="seTabs"><button class="${tab==='site'?'on':''}" data-setab="site">📐 SITE</button><button class="${tab==='progress'?'on':''}" data-setab="progress">🚚 PROGRESS</button><button class="${tab==='issues'?'on':''}" data-setab="issues">⚠ ISSUES</button></div>`;
+  let body='';
+  if(tab==='site'){
+    body=`<div class="seSec"><div class="l">DRAWINGS FROM FACTORY</div>${drawings.length?seDrawingsHTML(drawings):'<div style="font-size:10px;color:var(--mut)">None sent for this item yet.</div>'}<div style="font-size:10px;color:var(--mut);margin-top:4px">Tap ✎ to draw or type on a drawing and send it back. Optional.</div></div>
+      <div class="seSec"><div class="l">SITE MEASUREMENT ${dw||dh?`<span style="color:var(--mut)">· drawing ${dw||'?'} × ${dh||'?'} mm</span>`:''}${meas?`<span style="color:var(--green)"> · last ${seFmtWhen(meas.created_at)}: ${meas.site_w||'?'} × ${meas.site_h||'?'}</span>`:''}</div>
+        <div class="seRow3"><input class="fi" type="number" id="seW" inputmode="numeric" placeholder="width"><input class="fi" type="number" id="seH" inputmode="numeric" placeholder="height"><input class="fi" type="number" id="seD" inputmode="numeric" placeholder="depth"></div>
+        <div id="seDiff" class="hint" style="padding:4px 0"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${ph?`<img src="${ph}" style="height:56px;border-radius:4px"><button class="gbtn" data-markup="sephoto|${encodeURIComponent(ph)}" style="font-size:10px">✎ MARK UP</button><button class="gbtn" id="sePhotoClear" style="font-size:10px">✕</button>`:`<label class="gbtn" style="cursor:pointer;font-size:10px">📷 PHOTO OF OPENING<input type="file" accept="image/*" capture="environment" id="sePhotoIn" style="display:none"></label><label class="gbtn" style="cursor:pointer;font-size:10px">🖼 CHOOSE<input type="file" accept="image/*" id="sePhotoIn2" style="display:none"></label>`}${store.seUploading?'<span style="font-size:10px;color:var(--amber)">uploading…</span>':''}</div>
+        <input class="inp" id="seNote" placeholder="note for the factory (optional)" style="margin-top:8px">
+        <button class="cta" id="seMeasureSave" ${busy} style="background:var(--blue)">${store.seBusy?'SAVING…':'SAVE MEASUREMENT — factory notified'}</button></div>
+      ${idx<8?`<div class="seSec"><div class="l">IS THE SITE READY FOR THIS ITEM?</div><div class="seTwo"><button class="${it.site_ready===true?'on':''}" data-seready="${it.id}" data-val="1">🟢 READY</button><button class="${it.site_ready===false?'onx':''}" data-seready="${it.id}" data-val="0">🔴 NOT READY — say why</button></div>${it.site_ready===false&&it.site_ready_note?`<div style="font-size:10px;color:var(--red);margin-top:6px">${it.site_ready_note} · ${it.site_ready_by||''} ${seFmtWhen(it.site_ready_at)}</div>`:''}</div>`:''}`;
+  }else if(tab==='progress'){
+    const hist=(Array.isArray(it.stage_history)?it.stage_history:[]).slice(-5).reverse();
+    body=`<div class="seSec"><div class="l">WHERE IT IS</div><div style="font-size:12px">${seStatusChip(it,visits)}</div>
+        <div class="seMore">${idx<7?`<button data-sedeliver="${it.id}" class="dl">🚚 DELIVERED</button>`:''}${idx<8?`<button data-seinstall="${it.id}" class="in">✓ INSTALLED (photo)</button>`:''}${idx>=7?`<button data-seundo="${it.id}">↶ UNDO ${idx>=8?'INSTALLED':'DELIVERED'}</button>`:''}</div></div>
+      <div class="seSec"><div class="l">HISTORY</div>${hist.length?hist.map(h=>`<div style="font-size:11px;padding:3px 0;border-bottom:1px solid var(--row)">${seFmtWhen(h.at)} · <b>${h.stage}</b>${h.by?' · '+h.by:''}${h.note?' — '+h.note:''}</div>`).join(''):'<div style="font-size:10px;color:var(--mut)">No moves recorded yet.</div>'}</div>`;
+  }else{
+    body=`<div class="seSec"><div class="l">SNAGS ON THIS ITEM (${mySnags.filter(s=>s.status!=='resolved'&&s.status!=='closed').length} open)</div>
+        ${mySnags.map(s=>`<div class="scRow" style="padding:8px 0"><div class="scPics"><div><div class="scL">BEFORE</div>${_thumb(s.before_photo_url,56)}</div><div><div class="scL">AFTER</div>${s.after_photo_url?_thumb(s.after_photo_url,56):(!demo&&s.status!=='resolved'?`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:9px;padding:18px 6px">📷 DONE<input type="file" accept="image/*" capture="environment" data-snagafter="${s.id}" style="display:none"></label>`:'')}</div></div><div class="scTxt"><div>${s.description||''}</div><div class="scM">${s.fix_by?'fix by '+s.fix_by+' · ':''}${seFmtWhen(s.created_at)}${s.after_at?' · <span style="color:var(--green)">closed '+seFmtWhen(s.after_at)+'</span>':''}</div></div></div>`).join('')||'<div style="font-size:10px;color:var(--mut)">None.</div>'}
+        <div class="seMore"><button data-sesnag="${it.id}" class="sn">⚠ NEW SNAG (before photo)</button></div></div>
+      <div class="seSec"><div class="l">RETURN TO FACTORY</div>${rt.map(r=>`<div style="font-size:11px;padding:3px 0"><b>${r.reason}</b>${r.reason_other?' — '+r.reason_other:''} · ${(RETURN_STEPS[returnStepIdx(r.status)]||{}).l} · ${seFmtWhen(r.created_at)}</div>`).join('')}<div class="seMore"><button data-sereturn="${it.id}" class="rt">↩ RETURN THIS ITEM</button></div></div>`;
+  }
+  return `<div class="seSheetWrap"><div class="seSheet"><div class="seSheetHead"><span>${mdashItemName(it)}</span><button class="gbtn" id="seSheetClose" style="padding:4px 8px;font-size:10px">✕</button></div>
+    <div class="hint" style="padding:0 0 8px">${it.zone_name||''}${it.assignee?' · '+it.assignee:''}${demo?' · demo — look only':''}</div>${tabs}${body}</div></div>`;
 }
 function seSheetHTML(pr,items,visits){
   const sh=store.seSheet; if(!sh||!pr)return '';
@@ -5155,6 +5213,12 @@ function seSheetHTML(pr,items,visits){
   const photoBox=(req)=>`<div class="sePhoto">${ph?`<img src="${ph}" style="max-height:120px;border-radius:4px"><br><button class="gbtn" data-markup="sephoto|${encodeURIComponent(ph)}" style="margin-top:6px;font-size:10px;border-color:var(--amber);color:var(--amber)">✎ MARK UP THIS PHOTO</button> <button class="gbtn" id="sePhotoClear" style="margin-top:6px;font-size:10px">✕ remove</button>`:`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:11px">📷 TAKE PHOTO<input type="file" accept="image/*" capture="environment" id="sePhotoIn" style="display:none"></label><label class="gbtn" style="display:inline-block;cursor:pointer;font-size:11px;margin-left:6px">🖼 CHOOSE<input type="file" accept="image/*" id="sePhotoIn2" style="display:none"></label>${req?'<div style="font-size:9px;color:var(--mut);margin-top:4px">required — evidence for the manager and the client report</div>':''}`}${store.seUploading?'<div style="font-size:10px;color:var(--amber);margin-top:4px">uploading…</div>':''}</div>`;
   const head=(title,col)=>`<div class="seSheetHead" style="color:${col}"><span>${title}</span><button class="gbtn" id="seSheetClose" style="padding:4px 8px;font-size:10px">✕</button></div>`;
   const busy=store.seBusy?'disabled':'';
+  if(sh.type==='item'&&it)return seItemPanelHTML(pr,it,visits,sh.tab||'site');
+  if(sh.type==='att')return `<div class="seSheetWrap"><div class="seSheet">${head('ME — SIGN IN AT SITE','var(--green)')}<div class="hint" style="padding:0 0 8px">Your GPS is compared with the project's registered site location. Signing in switches the page to that project.</div>${attendanceHTML()}</div></div>`;
+  if(sh.type==='crew')return `<div class="seSheetWrap"><div class="seSheet">${head('CREW ON SITE — '+pr.name,'var(--blue)')}${crewAttendanceHTML()}</div></div>`;
+  if(sh.type==='lists')return `<div class="seSheetWrap"><div class="seSheet">${head('LISTS — '+pr.name,'var(--amber)')}
+    ${snagCardsHTML(pr.id,{canClose:true})}${returnCardsHTML(pr.id,{role:'site'})}${itemRequestsHTML(pr.id,{role:'site'})}
+    <div class="card"><div class="cardHead"><span>📁 MY VISITS &amp; DRAWINGS</span></div><div class="scroll"><table><thead><tr><th>Date</th><th>Type</th><th>Item</th><th>Size</th><th>Office</th></tr></thead><tbody>${(visits||[]).filter(v=>seKind(v)!=='item_request').slice(0,25).map(v=>`<tr><td style="white-space:nowrap">${seFmtWhen(v.created_at)}</td><td>${seKind(v).toUpperCase()}</td><td>${v.item_name||''}</td><td>${[v.site_w,v.site_h,v.site_d].some(Boolean)?(v.site_w||'?')+'×'+(v.site_h||'?')+(v.site_d?'×'+v.site_d:''):''}</td><td>${(Array.isArray(v.marked_attachments)&&v.marked_attachments.length)?'<span class="seSt s">drawing sent back ✎</span>':v.status==='reviewed'?'<span class="seSt s">reviewed</span>':'<span class="seSt n">'+(v.status||'open')+'</span>'}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No visits yet.</td></tr>'}</tbody></table></div></div></div></div>`;
   if(sh.type==='install'&&it)return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--green)">${head('✓ INSTALLED — '+mdashItemName(it),'var(--green)')}
     <div class="hint" style="padding:0 0 8px">${(it.zone_name||'')}</div>${photoBox(true)}
     <label class="seChk"><input type="checkbox" id="seC1" checked> Level and plumb</label>
@@ -5162,15 +5226,6 @@ function seSheetHTML(pr,items,visits){
     <label class="seChk"><input type="checkbox" id="seC3" checked> Finish undamaged <span style="color:var(--mut);font-size:10px">(untick and a snag opens after saving)</span></label>
     <input class="inp" id="seNote" placeholder="Note for factory / manager (optional)" style="margin-top:8px">
     <button class="cta" id="seInstallSave" ${busy} style="background:var(--green)">${store.seBusy?'SAVING…':'MARK INSTALLED → item moves to SITE'}</button></div></div>`;
-  if(sh.type==='measure'&&it){
-    const dw=+it.width||+it.w||0, dh=+it.height||+it.h||0;
-    return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--blue)">${head('📐 MEASURE — '+mdashItemName(it),'var(--blue)')}
-    <div class="hint" style="padding:0 0 8px">${dw||dh?`Drawing says: ${dw||'?'} × ${dh||'?'} mm`:'Drawing size not recorded on this item — the difference is worked out once the factory adds it.'}</div>
-    <div class="seRow"><label class="field"><span class="fl">SITE WIDTH</span><input class="fi" type="number" id="seW" inputmode="numeric" style="width:100%"></label><label class="field"><span class="fl">SITE HEIGHT</span><input class="fi" type="number" id="seH" inputmode="numeric" style="width:100%"></label><label class="field"><span class="fl">DEPTH</span><input class="fi" type="number" id="seD" inputmode="numeric" style="width:100%"></label></div>
-    <div id="seDiff" class="hint" style="padding:6px 0"></div>
-    ${photoBox(false)}
-    <input class="inp" id="seNote" placeholder="e.g. ceiling out of level 12 mm left to right" style="margin-top:8px">
-    <button class="cta" id="seMeasureSave" ${busy} style="background:var(--blue)">${store.seBusy?'SAVING…':'SAVE MEASUREMENT → factory notified'}</button></div></div>`;}
   if(sh.type==='reqitem')return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--blue)">${head('＋ REQUEST NEW ITEM — '+(sh.zone||''),'var(--blue)')}
     <div class="hint" style="padding:0 0 8px">Goes to the supervisor. It joins production only once they create it — nothing is added to the factory list from here.</div>
     <input class="inp" id="seReqName" placeholder="What is missing? e.g. Vanity unit V-02, 900 wide">
@@ -5180,7 +5235,7 @@ function seSheetHTML(pr,items,visits){
     <button class="cta" id="seReqSave" ${busy} style="background:var(--blue)">${store.seBusy?'SENDING…':'SEND REQUEST TO SUPERVISOR'}</button></div></div>`;
   if(sh.type==='return'&&it)return `<div class="seSheetWrap">${seReturnSheetHTML(it)}</div>`;
   if(sh.type==='snag'&&it)return `<div class="seSheetWrap"><div class="seSheet" style="border-color:var(--red)">${head('⚠ SNAG — '+mdashItemName(it),'var(--red)')}
-    <div class="hint" style="padding:0 0 6px">BEFORE photo now; whoever fixes it adds the AFTER photo from the snag list.</div>${photoBox(true)}
+    <div class="hint" style="padding:0 0 6px">BEFORE photo now; whoever fixes it adds the AFTER photo from the item's Issues tab.</div>${photoBox(true)}
     <label class="field" style="margin-top:6px"><span class="fl">WHO MUST FIX IT</span><select class="fi" id="seFixBy" style="width:100%">${['Factory','Site team','Other trade'].map(o=>`<option ${(store.seFixBy||'Factory')===o?'selected':''}>${o}</option>`).join('')}</select></label>
     <input class="inp" id="seNote" placeholder="What is wrong? e.g. paint scuff on panel 7, corridor side" style="margin-top:8px">
     <button class="cta" id="seSnagSave" ${busy} style="background:var(--red);color:#fff">${store.seBusy?'SAVING…':'LOG SNAG'}</button></div></div>`;
@@ -5273,7 +5328,7 @@ async function seMeasureSave(){
     const pr=(store.projects||[]).find(p=>String(p.id)===String(it.project_id));
     await seVisitInsert({project_id:it.project_id,project_name:pr?pr.name:it.project_name,item_name:mdashItemName(it),location_name:it.zone_name||'',site_w:w,site_h:h,site_d:d,
       notes:(diffs.length?diffs.join(', ')+'. ':'Site: '+(w||'?')+' × '+(h||'?')+(d?' × '+d:'')+' mm. ')+note,photos:store.seSheetPhoto?[store.seSheetPhoto]:[]},'measure');
-    store.seBusy=false;store.seSheet=null;store.seSheetPhoto=null;seSay('Measurement saved'+(diffs.length?' — '+diffs.join(', '):'')+'.');
+    store.seBusy=false;store.seSheetPhoto=null;seSay('Measurement saved'+(diffs.length?' — '+diffs.join(', '):'')+'.');
   }catch(e){store.seBusy=false;seSay('Could not save: '+(e.message||'error'),true);}
 }
 async function seSnagSave(){
@@ -5336,7 +5391,7 @@ async function seEodSave(){
 }
 function seWalkWire(){
   const ps=document.getElementById('seProjSel');if(ps)ps.onchange=()=>{store.seProj=ps.value;store.attProject=ps.value;store.seSheet=null;render();};
-  const rf=document.getElementById('seRefresh');if(rf)rf.onclick=()=>{['prodItemsLoaded','siteVisitsLoaded','snagsLoaded','returnsLoaded','attLoaded'].forEach(k=>store[k]=false);store.seMsg='Refreshing…';render();};
+  const rf=document.getElementById('seRefresh');if(rf)rf.onclick=()=>{['prodItemsLoaded','siteVisitsLoaded','snagsLoaded','returnsLoaded','attLoaded','crewAttLoaded','crewLoaded'].forEach(k=>store[k]=false);store.seMsg='Refreshing…';render();};
   if(store.account.accountType==='site_engineer')wireAttendance();
   document.querySelectorAll('[data-sedeliver]').forEach(b=>b.onclick=()=>seDeliver(b.dataset.sedeliver));
   document.querySelectorAll('[data-seinstall]').forEach(b=>b.onclick=()=>seOpen('install',b.dataset.seinstall));
@@ -5360,110 +5415,19 @@ function seWalkWire(){
   const sh=store.seSheet;if(sh&&sh.type==='measure'){const it=(store.prodItems||[]).find(x=>String(x.id)===String(sh.itemId));const dw=it?(+it.width||+it.w||0):0,dh=it?(+it.height||+it.h||0):0;
     const upd=()=>{const w=+((document.getElementById('seW')||{}).value)||0,h=+((document.getElementById('seH')||{}).value)||0;const out=[];if(dw&&w)out.push('Width <b>'+(w-dw>0?'+':'')+(w-dw)+' mm</b>');if(dh&&h)out.push('Height <b>'+(h-dh>0?'+':'')+(h-dh)+' mm</b>');const el=document.getElementById('seDiff');if(el)el.innerHTML=out.length?'<span style="color:var(--amber)">'+out.join(' · ')+' vs drawing — factory will be told to adjust.</span>':'';};
     ['seW','seH'].forEach(id=>{const el=document.getElementById(id);if(el)el.oninput=upd;});}
-  document.querySelectorAll('[data-seview]').forEach(b=>b.onclick=()=>{store.seView=b.dataset.seview;render();});
+  document.querySelectorAll('[data-seopen]').forEach(el=>el.onclick=(e)=>{if(e.target.closest('button')&&!e.target.closest('button').dataset.seopen)return;const tab=(e.target.closest('[data-setab]')||{}).dataset?(e.target.closest('[data-setab]')||{}).dataset.setab:null;const it0=(store.prodItems||[]).find(x=>String(x.id)===String(el.dataset.seopen));const def=it0?(prodStageIndex(it0.stage)>=8?'issues':prodStageIndex(it0.stage)===7?'progress':'site'):'site';store.seSheet={type:'item',itemId:el.dataset.seopen,tab:tab||(store.seSheet&&store.seSheet.itemId===el.dataset.seopen?store.seSheet.tab:def)};store.seSheetPhoto=null;render();});
+  document.querySelectorAll('.seTabs [data-setab]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();if(store.seSheet){store.seSheet.tab=b.dataset.setab;render();}});
+  document.querySelectorAll('[data-sepanel]').forEach(b=>b.onclick=()=>{store.seSheet={type:b.dataset.sepanel};render();});
+  if(store.seSheet&&store.seSheet.type==='att')wireAttendance();
+  if(store.seSheet&&store.seSheet.type==='crew'){wireCrewAttendance();const cp=document.getElementById('crew_project');if(cp){cp.value=store.seProj;}}
+  const so2=document.getElementById('signout2');if(so2){const so=document.getElementById('signout');so2.onclick=()=>so&&so.click();}
 }
 
-function seViewToggleHTML(){
-  const v=store.seView||'walk';
-  return `<span class="unit" style="margin-right:6px"><button class="${v==='walk'?'on':''}" data-seview="walk">WALK-ROUND</button><button class="${v==='classic'?'on':''}" data-seview="classic">CLASSIC</button></span>`;
-}
 function siteEngineerHTML(){
-  if((store.seView||'walk')==='classic')return seClassicHTML();
-  const classic=seClassicHTML();
-  const a=classic.indexOf('<div class="body">'), b=classic.lastIndexOf('<footer>');
-  if(a<0||b<0)return classic;
-  return classic.slice(0,a)+seWalkHTML()+classic.slice(b);
-}
-function seClassicHTML(){
-  if(!store.siteVisitsLoaded){loadSiteVisits();}
-  if(!store.projectsLoaded){loadProjects();}
-  const visits=store.siteVisits||[];
-  const d=store.svDraft||{};
-  const openProjects=(store.projects||[]); // no gate: every company project is available
-  const itemOptions=store.svItemOptions||[];
   return `<div ${isRTL()?'dir="rtl"':''}><header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · ${t('site_engineer')}</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight">${seViewToggleHTML()}${langSwitcherHTML()}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
-  <div class="body">
-    <div class="hint" style="padding-top:14px">Log a site visit with real measurements and photos, and mark up any drawings the factory sends you for review — it all goes straight back to the office.</div>
-    <div class="card" style="border-color:var(--blue)">
-      <div class="cardHead" style="color:var(--blue)"><span>🏭 PRODUCTION TRACKER</span><button class="zadd" data-setrole="tracker" style="font-size:10px;padding:4px 8px">${store.seShowTracker?'HIDE':'OPEN'}</button></div>
-      ${store.seShowTracker?'':'<div class="hint" style="padding:0 12px 8px">Add items straight into the factory tracker — pick the project, describe the item, set the quantity. No cutting list needed, and your manager sees it immediately.</div>'}
-    </div>
-    ${store.seShowTracker?productionTabHTML():''}
-    ${fullEditorPickerHTML()}
-    ${attendanceHTML()}
-    ${crewAttendanceHTML()}
-    <div class="card" style="border-color:var(--blue)">
-      <div class="cardHead" style="color:var(--blue)"><span>➕ ${t('new_site_visit')}</span></div>
-      <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end">
-        <label class="field" style="grid-column:1/-1"><span class="fl">PROJECT</span>
-          <select class="fi" id="sv_project">
-            <option value="">${t('pick_project')}</option>
-            ${openProjects.map(p=>`<option value="${p.id}" ${d.project_id===p.id?'selected':''}>${p.name}</option>`).join('')}
-          </select>
-          ${!openProjects.length?'<div class="hint" style="padding:4px 0 0;color:var(--amber)">No projects are open for site visits yet — ask your manager to open one.</div>':''}
-        </label>
-        <label class="field"><span class="fl">ZONE</span>
-          <select class="fi" id="sv_zone" ${!d.project_id?'disabled':''}>
-            <option value="">${d.project_id?'— pick a zone —':'pick a project first'}</option>
-            ${(store.svZoneOptions||[]).map(z=>`<option value="${z.replace(/"/g,'&quot;')}" ${d.zone_name===z?'selected':''}>${z}</option>`).join('')}
-            ${d.project_id?`<option value="__new__" ${d.zone_name==='__new__'?'selected':''}>+ Add a new zone…</option>`:''}
-          </select>
-          ${d.zone_name==='__new__'?`<input class="fi" id="sv_zone_new" placeholder="New zone name" style="margin-top:6px" value="${(d.zone_new||'').replace(/"/g,'&quot;')}">`:''}
-        </label>
-        <label class="field" style="grid-column:1/-1"><span class="fl">${t('item_measured')}</span>
-          <select class="fi" id="sv_item" ${!d.project_id?'disabled':''}>
-            <option value="">${!d.project_id?'pick a project first':(!d.zone_name?'pick a zone first':t('pick_item'))}</option>
-            ${(()=>{const zn=d.zone_name;
-              const list=(itemOptions||[]).filter(o=>!zn||zn==='__new__'||!o.zone||o.zone===zn);
-              return list.map(o=>`<option value="${String(o.name).replace(/"/g,'&quot;')}" ${d.item_name===o.name?'selected':''}>${o.name}</option>`).join('');})()}
-            ${d.project_id?`<option value="__new__" ${d.item_name==='__new__'?'selected':''}>+ Add a new item…</option>`:''}
-          </select>
-          ${d.item_name==='__new__'?`<input class="fi" id="sv_item_new" placeholder="New item name, e.g. Guest ensuite vanity" style="margin-top:6px" value="${(d.item_new||'').replace(/"/g,'&quot;')}">`:''}
-        </label>
-        <label class="field"><span class="fl">${t('site_width')} (${u()})</span><input class="fi" type="number" id="sv_w" value="${d.site_w||''}" placeholder="opening width"></label>
-        <label class="field"><span class="fl">${t('site_height')} (${u()})</span><input class="fi" type="number" id="sv_h" value="${d.site_h||''}" placeholder="opening height"></label>
-        <label class="field"><span class="fl">${t('site_depth')} (${u()})</span><input class="fi" type="number" id="sv_d" value="${d.site_d||''}" placeholder="opening depth"></label>
-        <label class="field" style="grid-column:1/-1"><span class="fl">${t('notes')}</span><textarea class="fi" id="sv_notes" rows="2" placeholder="Anything the factory needs to know…">${(d.notes||'').replace(/</g,'&lt;')}</textarea></label>
-        <div style="grid-column:1/-1">
-          <span class="fl" style="display:block;margin-bottom:6px">${t('site_documents')}</span>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            ${(d.photos||[]).map((url,i)=>`<div style="position:relative">${attachCell(url,60,'draft')}<button data-svremovephoto="${i}" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>`).join('')}
-            <label class="zadd" style="cursor:pointer">📄 ${t('choose_document')}<input type="file" id="sv_photo_choose" style="display:none"></label>
-            <label class="zadd" style="cursor:pointer">📷 ${t('take_photo')}<input type="file" id="sv_photo_camera" accept="image/*" capture="environment" style="display:none"></label>
-          </div>
-          ${store.svUploading?'<div style="font-size:11px;color:var(--amber);margin-top:4px">Uploading…</div>':''}
-        </div>
-        <button class="add" id="sv_save" style="grid-column:1/-1" ${store.svBusy?'disabled':''}>${store.svBusy?'…':'✓ '+t('save_site_visit')}</button>
-        ${store.svMsg?`<div style="grid-column:1/-1;font-size:12px;color:${store.svErr?'var(--red)':'var(--green)'}">${store.svMsg}</div>`:''}
-      </div>
-    </div>
-    <div class="card">
-      <div class="cardHead"><span>👷 SITE VISITS (${visits.length})</span><button class="zadd" id="svRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
-      ${visits.length? `<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Documents</th><th style="color:var(--blue)">From Factory</th><th>Notes</th><th>Status</th></tr></thead><tbody>
-        ${visits.map(v=>{const phs=Array.isArray(v.photos)?v.photos:[]; const fAtts=Array.isArray(v.factory_attachments)?v.factory_attachments:[];
-          const pending=fAtts.filter(a=>a.status!=='reviewed');
-          return `<tr>
-          <td style="font-size:11px;white-space:nowrap">${(v.created_at||'').slice(0,10)}</td>
-          <td>${v.project_name||'—'}</td>
-          <td>${v.location_name||'—'}</td>
-          <td class="r">${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'}</td>
-          <td style="white-space:nowrap">${phs.length?phs.map(u=>attachCell(u,32,v.id)).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
-          <td style="white-space:nowrap">${fAtts.length?fAtts.map((a,i)=>{
-            const ext=(a.url.split('.').pop()||'').split('?')[0].toLowerCase();
-            const isPdf=ext==='pdf';
-            const reviewed=a.status==='reviewed';
-            return `<div style="position:relative;display:inline-block;margin:1px">${attachCell(a.url,32)}${!reviewed?`<button data-markup="factory:${v.id}:${i}|${encodeURIComponent(a.url)}" title="Mark up & send back" style="position:absolute;bottom:-6px;right:-6px;background:var(--amber);color:#000;border:none;border-radius:50%;width:20px;height:20px;font-size:10px;cursor:pointer">✏</button>`:`<span style="position:absolute;bottom:-4px;right:-4px;font-size:11px" title="Reviewed">✓</span>`}</div>`;
-          }).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}${pending.length?`<div style="font-size:9px;color:var(--amber);margin-top:2px">${pending.length} to mark up</div>`:''}</td>
-          <td style="font-size:11px;max-width:160px">${v.notes||''}</td>
-          <td><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${v.status==='open'?'var(--amber)':'var(--green)'};color:#000">${(v.status||'open').toUpperCase()}</span></td>
-        </tr>`;}).join('')}
-      </tbody></table></div>`
-      : '<div style="padding:16px;text-align:center;color:var(--mut)">No site visits yet. Create your first one above.</div>'}
-    </div>
-    ${snagListHTML()}
-  </div>
-  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout" style="cursor:pointer;text-decoration:underline">sign out</span>&nbsp;&middot;&nbsp;<span id="myAccountBtn" style="cursor:pointer;text-decoration:underline;color:var(--amber)">my account</span></footer></div>${markupOverlay()}${accountOverlayHTML()}`;
+    <div class="hdrRight">${langSwitcherHTML()}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="gbtn" data-openfulleditor="1" style="font-size:10px">🔧 FULL EDITOR</button><button class="pbtn" id="signout">${t('sign_out')}</button></div></header>
+  ${seWalkHTML()}
+  <footer>Account: ${store.account.email} · ${store.account.company} · <span id="signout2" style="cursor:pointer;text-decoration:underline">sign out</span>&nbsp;&middot;&nbsp;<span id="myAccountBtn" style="cursor:pointer;text-decoration:underline;color:var(--amber)">my account</span></footer></div>${markupOverlay()}${accountOverlayHTML()}`;
 }
 // render an uploaded file as a photo thumbnail (images) or a document icon + link
 // (PDFs, Word docs, anything else) — since Site Visit now accepts any file type.
@@ -6073,6 +6037,7 @@ async function deleteCrewMember(id){
   try{ await sb.from('crew_members').delete().eq('id',id); }
   catch(e){ alert('Could not remove: '+(e.message||'error')); }
 }
+function crewProjectForPunch(){return store.crewProject||store.seProj;}
 function crewMethodBarHTML(){
   const m=store.crewMethod||'manual';
   const b=(k,ic,l,sub)=>`<button class="cmBtn ${m===k?'on':''}" data-crewmethod="${k}"><span class="ic">${ic}</span><span class="l">${l}</span><span class="s">${sub}</span></button>`;
@@ -6097,7 +6062,7 @@ function crewFacePhoto(name){
 }
 async function crewPunch(memberId, direction){
   if(demoGuard(memberId))return;
-  const pid=store.crewProject; if(!pid){alert('Pick a project first.');return;}
+  const pid=store.crewProject||store.seProj; if(!pid){alert('Pick a project first.');return;}
   if(!projectSiteSet(pid)){alert("This project's site location hasn't been set yet. Set it while standing on site, then sign workers in.");return;}
   const c=(store.crew||[]).find(x=>String(x.id)===String(memberId)); if(!c)return;
   const d=store.crewDate||todayStr();
