@@ -482,7 +482,7 @@ const store={
 };
 try{// read the new key, falling back to the old PitchIQ one so the rename doesn't wipe anyone's current job
   const s=localStorage.getItem('fitoutiq')||localStorage.getItem('pitchiq');if(s){const j=JSON.parse(s);delete j.account;delete j.authBusy;delete j.authMsg;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;Object.assign(store,j);}}catch(e){}
-function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j._mdashPies;delete j.connCheck;delete j._seEod;delete j.seSheet;delete j.seSheetPhoto;delete j.returnsError;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
+function persist(){try{const j={...store};delete j.account;delete j.authBusy;delete j.authMsg;delete j.syncState;delete j.markupTarget;delete j.markupImg;delete j.markupStrokes;delete j.markupLoading;delete j.markupSaving;delete j.markupSourceUrl;delete j.catSearch;delete j.crewDate;delete j.attProject;delete j.dashFilter;delete j.drill;delete j.allProjPick;delete j.prodView;delete j.matCache;delete j._mdashChart;delete j._mdashPies;delete j.connCheck;delete j._seEod;delete j.seSheet;delete j.seSheetPhoto;delete j.returnsError;delete j.ownerCos;delete j.ownerProfiles;delete j.ownerJobs;delete j.showOwner;localStorage.setItem('fitoutiq',JSON.stringify(j));}catch(e){}; scheduleCloudSave();}
 
 // ---- Supabase cloud sync: whole workspace saved as one row in `jobs` ----
 let _saveTimer=null, _workspaceId=null, _workspaceOwnerId=null;
@@ -1958,6 +1958,7 @@ function authHTML(){
         ${phoneFieldHTML()}
         <label class="lbl">LOCATION</label><input class="inp" id="f_location" placeholder="City, Country">
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <label style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--mut);margin-top:10px"><input type="checkbox" id="f_marketing" checked> Send me product updates from Fit-Out IQ (you can stop any time)</label>
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignup" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE ACCOUNT — 30 DAY FREE TRIAL'}</button>
         <div class="trial">✓ Free for 30 days · we'll set up billing before any charge</div>`
@@ -1969,6 +1970,7 @@ function authHTML(){
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
         ${phoneFieldHTML()}
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <label style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--mut);margin-top:10px"><input type="checkbox" id="f_marketing" checked> Send me product updates from Fit-Out IQ (you can stop any time)</label>
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupManager" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE MANAGER ACCOUNT'}</button>
         <div class="trial">Enter the exact company name your estimators use, so their work reaches you.</div>`
@@ -1980,6 +1982,7 @@ function authHTML(){
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
         ${phoneFieldHTML()}
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <label style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--mut);margin-top:10px"><input type="checkbox" id="f_marketing" checked> Send me product updates from Fit-Out IQ (you can stop any time)</label>
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupSiteEng" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE SITE ENGINEER ACCOUNT'}</button>
         <div class="trial">Enter the exact company name your factory team uses.</div>`
@@ -1991,6 +1994,7 @@ function authHTML(){
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
         ${phoneFieldHTML()}
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <label style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--mut);margin-top:10px"><input type="checkbox" id="f_marketing" checked> Send me product updates from Fit-Out IQ (you can stop any time)</label>
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupTimekeeper" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE TIMEKEEPER ACCOUNT'}</button>
         <div class="trial">Enter the exact company name your team uses.</div>`
@@ -2002,6 +2006,7 @@ function authHTML(){
         <label class="lbl">EMAIL</label><input class="inp" id="f_email" type="email" placeholder="you@company.com">
         ${phoneFieldHTML()}
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <label style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--mut);margin-top:10px"><input type="checkbox" id="f_marketing" checked> Send me product updates from Fit-Out IQ (you can stop any time)</label>
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupProcurement" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE PROCUREMENT ACCOUNT'}</button>
         <div class="trial">Enter the exact company name your factory team uses.</div>`
@@ -2014,6 +2019,7 @@ function authHTML(){
         <label class="lbl">REGION SERVED</label><input class="inp" id="f_location" placeholder="UAE / Gulf">
         <label class="lbl">WEBSITE (optional)</label><input class="inp" id="f_website" placeholder="https://...">
         <label class="lbl">PASSWORD</label><input class="inp" id="f_pass" type="password" placeholder="At least 6 characters">
+        <label style="display:flex;gap:8px;align-items:center;font-size:11px;color:var(--mut);margin-top:10px"><input type="checkbox" id="f_marketing" checked> Send me product updates from Fit-Out IQ (you can stop any time)</label>
         <div class="err" id="authErr">${store.authMsg}</div>
         <button class="cta" id="doSignupSupplier" ${store.authBusy?'disabled':''}>${store.authBusy?'CREATING…':'CREATE SUPPLIER ACCOUNT'}</button>
         <div class="trial">Free to list during beta</div>`}`
@@ -2400,7 +2406,7 @@ function managerHTML(){
         ${threadPanel(o)}
       </div></div>`;};
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
-    <div class="hdrRight">${store.hideDemo?'<button class="gbtn" id="showDemoBtn" title="Bring the demo project back">DEMO</button>':''}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
+    <div class="hdrRight">${isOwner()?'<button class="gbtn" id="ownerBtn" style="border-color:var(--amber)">🛠 OWNER</button>':''}${store.hideDemo?'<button class="gbtn" id="showDemoBtn" title="Bring the demo project back">DEMO</button>':''}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
     <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="color:var(--amber)">PROJECT STATUS</button>
     <button class="tab ${store.managerTab==='review'?'on':''}" data-mgrtab="review" style="color:var(--amber)">COMPANY REVIEW</button>
@@ -6605,8 +6611,157 @@ function themePickerHTML(){
   return `<div class="card" style="margin-bottom:14px"><div class="cardHead"><span>APPEARANCE</span></div>
     <div style="padding:12px;display:flex;gap:8px;flex-wrap:wrap">${Object.keys(THEMES).map(k=>`<button class="chip ${(store.theme||'dark')===k?'on':''}" data-theme="${k}" style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border-radius:3px;background:${THEMES[k].bg};border:1px solid ${THEMES[k].line}"></span>${THEMES[k].label}</button>`).join('')}</div></div>`;
 }
+
+// ============================================================================
+//  OWNER CONSOLE — visible only to accounts flagged is_platform_owner.
+//  Subscribers (every company on the platform), Prospects (added by hand, with
+//  a story/timeline), Templates with merge fields, Compose → opens in your mail
+//  app. Tables: prospects, email_templates (SQL supplied with this build).
+// ============================================================================
+const OWNER_STATUSES=['contacted','demo','trial','subscribed','lost'];
+const OWNER_DEFAULT_TEMPLATES=[
+  {name:'Intro after meeting',subject:'Fit-Out IQ — following our conversation',body:`Hi {name},\n\nGood to meet you at {source}. As promised, a quick note on Fit-Out IQ: it follows every joinery item from cutting list to installed and snag-free — supervisor, site engineer, procurement and manager on one record.\n\nTwo demo projects are ready on the platform so you can see a finished job before adding your own. If you have 20 minutes this week I can walk {company} through it.\n\nBest regards,\n{me}`},
+  {name:'After demo',subject:'Next step for {company}',body:`Hi {name},\n\nThanks for the time today. To recap what we covered:\n{notes}\n\nA 30-day trial is open for {company} — sign up at fit-out-iq.com, and I will set up your first project with you.\n\nBest regards,\n{me}`},
+  {name:'Trial ending',subject:'{company} — your Fit-Out IQ trial ends soon',body:`Hi {name},\n\nYour trial ends in a few days. If it has been useful, the Production plan keeps everything as it is for {company}. If something is missing, tell me — that is how the platform gets built.\n\nBest regards,\n{me}`},
+  {name:'New feature',subject:'New on Fit-Out IQ: {feature}',body:`Hi {name},\n\nA short update. This week we added {feature}.\n\nIt is live now for {company} — no action needed. Reply if you want a two-minute walkthrough.\n\nBest regards,\n{me}`},
+  {name:'Win-back',subject:'Still here if {company} needs it',body:`Hi {name},\n\nWe spoke a while ago about Fit-Out IQ. A lot has changed since — site engineers now work from a tablet on site, and managers print a client report in one tap.\n\nIf timing is better now, I am happy to show you in 20 minutes.\n\nBest regards,\n{me}`},
+];
+function isOwner(){return !!(store.account&&store.account.isOwner);}
+async function ownerLoad(){
+  if(!sb||!isOwner())return;
+  store.ownerLoaded=true;
+  try{
+    const [{data:cos},{data:ps},{data:js},{data:pr},{data:tp}]=await Promise.all([
+      sb.from('companies').select('id,name,created_at'),
+      sb.from('profiles').select('id,full_name,email,phone,account_type,company_id,plan,trial_ends,marketing_ok,created_at,last_seen_at'),
+      sb.from('jobs').select('id,company_id,updated_at'),
+      sb.from('prospects').select('*').order('updated_at',{ascending:false}),
+      sb.from('email_templates').select('*').order('name'),
+    ]);
+    store.ownerCos=cos||[];store.ownerProfiles=ps||[];store.ownerJobs=js||[];store.prospects=pr||[];
+    store.ownerTemplates=(tp&&tp.length)?tp:OWNER_DEFAULT_TEMPLATES.map((t,i)=>Object.assign({id:'default-'+i},t));
+  }catch(e){store.ownerErr=(e&&e.message)||'load failed';}
+  render();
+}
+function ownerCompanies(){
+  const cos=store.ownerCos||[], ps=store.ownerProfiles||[], js=store.ownerJobs||[];
+  return cos.map(c=>{const people=ps.filter(p=>p.company_id===c.id);const mgr=people.find(p=>p.account_type==='manager')||people[0];const jobs=js.filter(j=>j.company_id===c.id);
+    const last=[...people.map(p=>p.last_seen_at),...jobs.map(j=>j.updated_at)].filter(Boolean).sort().pop();
+    const plan=mgr&&mgr.plan||'trial'; const trialEnds=mgr&&mgr.trial_ends;
+    return {id:c.id,name:c.name,created_at:c.created_at,people,mgr,jobs:jobs.length,last,plan,trialEnds,status:plan==='trial'?(trialEnds&&new Date(trialEnds)<new Date()?'lapsed':'trial'):'subscribed',email:mgr&&mgr.email,phone:mgr&&mgr.phone,contact:mgr&&mgr.full_name,marketing_ok:!!(mgr&&mgr.marketing_ok)};});
+}
+function ownerFill(t,ctx){return String(t||'').replace(/\{(\w+)\}/g,(m,k)=>ctx[k]!=null?ctx[k]:m);}
+function ownerCSV(rows,cols){const esc=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const csv=[cols.join(',')].concat(rows.map(r=>cols.map(c=>esc(r[c])).join(','))).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fit-out-iq-'+(store.ownerTab||'list')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+function ownerOverlayHTML(){
+  if(!store.showOwner||!isOwner())return '';
+  if(!store.ownerLoaded)ownerLoad();
+  const tab=store.ownerTab||'subs'; const d=store.prospectDraft||{};
+  const when=x=>x?new Date(x).toLocaleDateString():'';
+  const tabs=`<div class="tabs" style="margin-bottom:12px">${[['subs','SUBSCRIBERS'],['prospects','PROSPECTS'],['templates','TEMPLATES'],['compose','COMPOSE']].map(([k,l])=>`<button class="tab ${tab===k?'on':''}" data-ownertab="${k}">${l}</button>`).join('')}</div>`;
+  let body='';
+  if(tab==='subs'){
+    const cos=ownerCompanies().filter(c=>!store.ownerFilter||c.status===store.ownerFilter);
+    body=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip ${!store.ownerFilter?'on':''}" data-ownerfilter="">All ${ownerCompanies().length}</span>${['trial','subscribed','lapsed'].map(s=>`<span class="chip ${store.ownerFilter===s?'on':''}" data-ownerfilter="${s}" style="cursor:pointer">${s} ${ownerCompanies().filter(c=>c.status===s).length}</span>`).join('')}<span style="flex:1"></span><button class="gbtn" id="ownerExportSubs" style="font-size:10px">⬇ EXPORT CSV (consented only)</button></div>
+      <div class="scroll"><table><thead><tr><th>Company</th><th>Status</th><th>Contact</th><th>Email</th><th>Phone</th><th class="r">People</th><th class="r">Projects</th><th>Last active</th><th>Joined</th><th></th></tr></thead><tbody>
+      ${cos.map(c=>`<tr><td><b>${c.name||''}</b></td><td><span class="mdTag ${c.status==='subscribed'?'amber':c.status==='lapsed'?'red':''}">${c.status}${c.status==='trial'&&c.trialEnds?' · ends '+when(c.trialEnds):''}</span></td><td>${c.contact||''}</td><td>${c.email||''}${c.marketing_ok?'':' <span style="color:var(--mut)" title="no marketing consent">🚫</span>'}</td><td>${c.phone||''}</td><td class="r">${c.people.length}</td><td class="r">${c.jobs}</td><td>${when(c.last)}</td><td>${when(c.created_at)}</td><td><button class="gbtn" data-ownermail="co:${c.id}" style="font-size:10px;padding:4px 8px">✉</button></td></tr>`).join('')||'<tr><td colspan="10" class="empty">No companies yet.</td></tr>'}</tbody></table></div>`;
+  }else if(tab==='prospects'){
+    const list=(store.prospects||[]).filter(p=>!store.ownerFilter||p.status===store.ownerFilter);
+    const sel=(store.prospects||[]).find(p=>String(p.id)===String(store.prospectSel));
+    body=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="chip ${!store.ownerFilter?'on':''}" data-ownerfilter="">All ${(store.prospects||[]).length}</span>${OWNER_STATUSES.map(s=>`<span class="chip ${store.ownerFilter===s?'on':''}" data-ownerfilter="${s}" style="cursor:pointer">${s} ${(store.prospects||[]).filter(p=>p.status===s).length}</span>`).join('')}<span style="flex:1"></span><button class="gbtn" id="ownerExportPros" style="font-size:10px">⬇ EXPORT CSV</button><button class="pbtn" id="ownerNewPros" style="font-size:10px">+ ADD PROSPECT</button></div>
+      ${(store.prospectEditing)?`<div class="card" style="border-color:var(--amber)"><div class="cardHead"><span>${d.id?'EDIT':'NEW'} PROSPECT</span><button class="gbtn" id="ownerCancelPros" style="font-size:10px;padding:4px 8px">✕</button></div><div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+        <label class="field"><span class="fl">COMPANY</span><input class="fi" id="pr_company" style="width:100%;font-size:13px" value="${(d.company||'').replace(/"/g,'&quot;')}"></label>
+        <label class="field"><span class="fl">CONTACT NAME</span><input class="fi" id="pr_name" style="width:100%;font-size:13px" value="${(d.contact_name||'').replace(/"/g,'&quot;')}"></label>
+        <label class="field"><span class="fl">EMAIL</span><input class="fi" id="pr_email" style="width:100%;font-size:13px" value="${d.email||''}"></label>
+        <label class="field"><span class="fl">PHONE</span><input class="fi" id="pr_phone" style="width:100%;font-size:13px" value="${d.phone||''}"></label>
+        <label class="field"><span class="fl">WHERE / HOW WE MET</span><input class="fi" id="pr_source" style="width:100%;font-size:13px" value="${(d.source||'').replace(/"/g,'&quot;')}" placeholder="e.g. Big 5 show, referred by Tekton"></label>
+        <label class="field"><span class="fl">STATUS</span><select class="fi" id="pr_status" style="width:100%">${OWNER_STATUSES.map(s=>`<option ${(d.status||'contacted')===s?'selected':''}>${s}</option>`).join('')}</select></label>
+        <label class="field"><span class="fl">NEXT ACTION DATE</span><input class="fi" id="pr_next" type="date" style="width:100%" value="${(d.next_action||'').slice(0,10)}"></label>
+        <label class="field" style="grid-column:1/-1"><span class="fl">THE STORY — who they are, what they need, what was said</span><textarea class="inp" id="pr_notes" rows="4">${d.notes||''}</textarea></label>
+        <label class="field" style="grid-column:1/-1"><span class="fl">ADD TO TIMELINE (what happened today)</span><input class="inp" id="pr_event" placeholder="e.g. Demo done, asked about supplier access"></label>
+        <button class="pbtn" id="ownerSavePros" style="grid-column:1/-1;padding:11px">${store.ownerBusy?'SAVING…':'SAVE'}</button>${store.ownerMsg?`<div class="hint" style="grid-column:1/-1;color:${store.ownerErr?'var(--red)':'var(--green)'}">${store.ownerMsg}</div>`:''}</div></div>`:''}
+      <div class="scroll"><table><thead><tr><th>Company</th><th>Contact</th><th>Status</th><th>Next action</th><th>Source</th><th>Last note</th><th></th></tr></thead><tbody>
+      ${list.map(p=>{const tl=Array.isArray(p.timeline)?p.timeline:[];const last=tl[tl.length-1];const overdue=p.next_action&&new Date(p.next_action)<new Date();return `<tr class="${String(p.id)===String(store.prospectSel)?'mdNow':''}"><td><b>${p.company||''}</b></td><td>${p.contact_name||''}<br><span style="color:var(--mut);font-size:10px">${p.email||''}</span></td><td><span class="mdTag ${p.status==='subscribed'?'amber':p.status==='lost'?'red':''}">${p.status||''}</span></td><td style="color:${overdue?'var(--red)':'inherit'}">${when(p.next_action)}${overdue?' ⚠':''}</td><td>${p.source||''}</td><td style="max-width:260px;font-size:10.5px;color:var(--mut)">${last?when(last.at)+' — '+last.text:''}</td><td style="white-space:nowrap"><button class="gbtn" data-ownereditpros="${p.id}" style="font-size:10px;padding:4px 8px">✎</button> <button class="gbtn" data-ownermail="pr:${p.id}" style="font-size:10px;padding:4px 8px">✉</button></td></tr>`;}).join('')||'<tr><td colspan="7" class="empty">No prospects yet — add the people you have spoken to.</td></tr>'}</tbody></table></div>
+      ${sel?`<div class="card" style="margin-top:12px"><div class="cardHead"><span>TIMELINE — ${sel.company}</span></div><div style="padding:10px 14px;font-size:11px">${(Array.isArray(sel.timeline)?sel.timeline:[]).slice().reverse().map(e=>`<div style="padding:4px 0;border-bottom:1px solid var(--row)"><span style="color:var(--mut)">${when(e.at)}</span> · ${e.text}</div>`).join('')||'<span class="empty">Nothing yet.</span>'}</div></div>`:''}`;
+  }else if(tab==='templates'){
+    const tps=store.ownerTemplates||[]; const e=store.templateDraft;
+    body=`<div class="hint" style="padding:0 0 10px">Merge fields: <code>{name} {company} {source} {notes} {feature} {me}</code>. Saved templates replace the built-in ones.</div>
+      ${tps.map(t=>`<div class="card"><div class="cardHead"><span>${t.name}</span><button class="gbtn" data-ownereditt="${t.id}" style="font-size:10px;padding:4px 8px">✎ EDIT</button></div><div style="padding:10px 14px;font-size:11px"><b>${t.subject}</b><pre style="white-space:pre-wrap;font-family:var(--mono);color:var(--mut);margin-top:6px">${t.body}</pre></div></div>`).join('')}
+      <button class="pbtn" id="ownerNewT" style="font-size:10px">+ NEW TEMPLATE</button>
+      ${e?`<div class="card" style="border-color:var(--amber);margin-top:12px"><div class="cardHead"><span>${e.id&&!String(e.id).startsWith('default-')?'EDIT':'NEW'} TEMPLATE</span></div><div style="padding:12px;display:grid;gap:8px"><input class="inp" id="tp_name" placeholder="Name" value="${(e.name||'').replace(/"/g,'&quot;')}"><input class="inp" id="tp_subject" placeholder="Subject" value="${(e.subject||'').replace(/"/g,'&quot;')}"><textarea class="inp" id="tp_body" rows="10">${e.body||''}</textarea><div style="display:flex;gap:6px"><button class="pbtn" id="ownerSaveT" style="flex:1;padding:10px">SAVE TEMPLATE</button><button class="gbtn" id="ownerCancelT">✕</button></div></div></div>`:''}`;
+  }else{
+    const cmp=store.composeDraft||{};
+    const targets=[...ownerCompanies().map(c=>({k:'co:'+c.id,label:c.name+' (subscriber · '+c.status+')',name:c.contact||'',company:c.name,email:c.email||'',source:'',notes:'',ok:c.marketing_ok})),...(store.prospects||[]).map(p=>({k:'pr:'+p.id,label:p.company+' (prospect · '+p.status+')',name:p.contact_name||'',company:p.company||'',email:p.email||'',source:p.source||'',notes:p.notes||'',ok:true}))];
+    const tg=targets.find(t=>t.k===cmp.target)||targets[0]; const tp=(store.ownerTemplates||[]).find(t=>String(t.id)===String(cmp.template))||(store.ownerTemplates||[])[0];
+    const ctx=tg?{name:(tg.name||'').split(' ')[0],company:tg.company,source:tg.source||'our conversation',notes:tg.notes,feature:cmp.feature||'',me:store.account.name||''}:{};
+    const subject=cmp.subject!=null?cmp.subject:ownerFill(tp&&tp.subject,ctx), bodyTxt=cmp.body!=null?cmp.body:ownerFill(tp&&tp.body,ctx);
+    body=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-bottom:10px">
+      <label class="field"><span class="fl">TO</span><select class="fi" id="cm_target" style="width:100%">${targets.map(t=>`<option value="${t.k}" ${tg&&t.k===tg.k?'selected':''}>${t.label}</option>`).join('')}</select></label>
+      <label class="field"><span class="fl">TEMPLATE</span><select class="fi" id="cm_template" style="width:100%">${(store.ownerTemplates||[]).map(t=>`<option value="${t.id}" ${tp&&String(t.id)===String(tp.id)?'selected':''}>${t.name}</option>`).join('')}</select></label>
+      <label class="field"><span class="fl">{feature} (if the template uses it)</span><input class="fi" id="cm_feature" style="width:100%;font-size:12px" value="${(cmp.feature||'').replace(/"/g,'&quot;')}"></label></div>
+      ${tg&&!tg.ok?'<div class="hint" style="color:var(--amber);padding:0 0 8px">This contact did not tick "product updates" at sign-up — one-to-one replies are fine, bulk marketing is not.</div>':''}
+      <input class="inp" id="cm_subject" value="${(subject||'').replace(/"/g,'&quot;')}" style="margin-bottom:6px"><textarea class="inp" id="cm_body" rows="12">${bodyTxt||''}</textarea>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><a class="pbtn" id="cm_open" href="#" style="text-decoration:none;padding:11px 14px">✉ OPEN IN MAIL APP</a><button class="gbtn" id="cm_copy">COPY TEXT</button><button class="gbtn" id="cm_log">LOG "SENT" ON TIMELINE</button><button class="gbtn" id="cm_reset">↺ RESET TO TEMPLATE</button></div>
+      <div class="hint" style="padding:8px 0 0">Sending from inside the platform (bulk release notes, automatic trial reminders) is the next step — it needs a small server function. Everything written here is kept.</div>`;
+  }
+  return `<div class="cmFace" style="align-items:flex-start;overflow:auto;padding:24px 12px"><div class="cmFaceBox" style="width:min(1100px,100%)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><div class="cmFaceT" style="margin:0">🛠 OWNER CONSOLE</div><div class="hint" style="padding:0">Only you see this. ${store.ownerErr?'<span style="color:var(--red)">'+store.ownerErr+'</span>':''}</div></div><button class="gbtn" id="ownerClose">✕ CLOSE</button></div>
+    ${tabs}${body}</div></div>`;
+}
+async function ownerSaveProspect(){
+  const g=id=>{const el=document.getElementById(id);return el?el.value.trim():'';};
+  const d=store.prospectDraft||{};
+  const row={company:g('pr_company'),contact_name:g('pr_name'),email:g('pr_email'),phone:g('pr_phone'),source:g('pr_source'),status:g('pr_status')||'contacted',next_action:g('pr_next')||null,notes:g('pr_notes'),owner_id:store.account.uid,updated_at:new Date().toISOString()};
+  if(!row.company){store.ownerMsg='Company is required.';store.ownerErr=true;render();return;}
+  const ev=g('pr_event'); const tl=Array.isArray(d.timeline)?d.timeline.slice():[]; if(ev)tl.push({at:new Date().toISOString(),text:ev}); row.timeline=tl;
+  store.ownerBusy=true;render();
+  try{
+    let res; if(d.id)res=await sb.from('prospects').update(row).eq('id',d.id).select().single(); else res=await sb.from('prospects').insert(row).select().single();
+    if(res.error)throw res.error;
+    store.prospects=[res.data,...(store.prospects||[]).filter(p=>p.id!==res.data.id)];
+    store.prospectEditing=false;store.prospectDraft=null;store.prospectSel=res.data.id;store.ownerMsg='';
+  }catch(e){store.ownerMsg='Could not save: '+(e.message||'error');store.ownerErr=true;}
+  store.ownerBusy=false;render();
+}
+async function ownerSaveTemplate(){
+  const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  const e=store.templateDraft||{}; const row={name:g('tp_name').trim(),subject:g('tp_subject'),body:g('tp_body'),owner_id:store.account.uid};
+  if(!row.name)return;
+  try{let res; if(e.id&&!String(e.id).startsWith('default-'))res=await sb.from('email_templates').update(row).eq('id',e.id).select().single(); else res=await sb.from('email_templates').insert(row).select().single();
+    if(res.error)throw res.error;
+    const tps=(store.ownerTemplates||[]).filter(t=>!String(t.id).startsWith('default-')&&t.id!==res.data.id);
+    store.ownerTemplates=[...tps,res.data].sort((a,b)=>a.name.localeCompare(b.name));store.templateDraft=null;render();
+  }catch(ex){alert('Could not save: '+(ex.message||'error'));}
+}
+function ownerWire(){
+  const ob=document.getElementById('ownerBtn');if(ob)ob.onclick=()=>{store.showOwner=true;render();};
+  if(!store.showOwner)return;
+  const oc=document.getElementById('ownerClose');if(oc)oc.onclick=()=>{store.showOwner=false;render();};
+  document.querySelectorAll('[data-ownertab]').forEach(b=>b.onclick=()=>{store.ownerTab=b.dataset.ownertab;store.ownerFilter='';render();});
+  document.querySelectorAll('[data-ownerfilter]').forEach(b=>b.onclick=()=>{store.ownerFilter=b.dataset.ownerfilter;render();});
+  const np=document.getElementById('ownerNewPros');if(np)np.onclick=()=>{store.prospectEditing=true;store.prospectDraft={};store.ownerMsg='';render();};
+  const cp=document.getElementById('ownerCancelPros');if(cp)cp.onclick=()=>{store.prospectEditing=false;store.prospectDraft=null;render();};
+  document.querySelectorAll('[data-ownereditpros]').forEach(b=>b.onclick=()=>{const p=(store.prospects||[]).find(x=>String(x.id)===b.dataset.ownereditpros);store.prospectEditing=true;store.prospectDraft=Object.assign({},p);store.prospectSel=p.id;render();});
+  const sp=document.getElementById('ownerSavePros');if(sp)sp.onclick=ownerSaveProspect;
+  const es=document.getElementById('ownerExportSubs');if(es)es.onclick=()=>ownerCSV(ownerCompanies().filter(c=>c.marketing_ok&&c.email).map(c=>({company:c.name,status:c.status,contact:c.contact,email:c.email,phone:c.phone,people:c.people.length,projects:c.jobs,last_active:c.last,joined:c.created_at})),['company','status','contact','email','phone','people','projects','last_active','joined']);
+  const ep=document.getElementById('ownerExportPros');if(ep)ep.onclick=()=>ownerCSV((store.prospects||[]).map(p=>({company:p.company,contact:p.contact_name,email:p.email,phone:p.phone,status:p.status,source:p.source,next_action:p.next_action,notes:p.notes})),['company','contact','email','phone','status','source','next_action','notes']);
+  const nt=document.getElementById('ownerNewT');if(nt)nt.onclick=()=>{store.templateDraft={};render();};
+  document.querySelectorAll('[data-ownereditt]').forEach(b=>b.onclick=()=>{const t=(store.ownerTemplates||[]).find(x=>String(x.id)===b.dataset.ownereditt);store.templateDraft=Object.assign({},t);render();});
+  const st=document.getElementById('ownerSaveT');if(st)st.onclick=ownerSaveTemplate;
+  const ct=document.getElementById('ownerCancelT');if(ct)ct.onclick=()=>{store.templateDraft=null;render();};
+  document.querySelectorAll('[data-ownermail]').forEach(b=>b.onclick=()=>{store.ownerTab='compose';store.composeDraft={target:b.dataset.ownermail};render();});
+  const tgt=document.getElementById('cm_target');if(tgt)tgt.onchange=()=>{store.composeDraft={target:tgt.value,template:(document.getElementById('cm_template')||{}).value,feature:(document.getElementById('cm_feature')||{}).value};render();};
+  const tpl=document.getElementById('cm_template');if(tpl)tpl.onchange=()=>{store.composeDraft={target:(document.getElementById('cm_target')||{}).value,template:tpl.value,feature:(document.getElementById('cm_feature')||{}).value};render();};
+  const ft=document.getElementById('cm_feature');if(ft)ft.onchange=()=>{store.composeDraft={target:(document.getElementById('cm_target')||{}).value,template:(document.getElementById('cm_template')||{}).value,feature:ft.value};render();};
+  const subj=document.getElementById('cm_subject'),bd=document.getElementById('cm_body');
+  const keep=()=>{store.composeDraft=Object.assign({},store.composeDraft,{subject:subj.value,body:bd.value});};
+  if(subj)subj.oninput=keep; if(bd)bd.oninput=keep;
+  const op=document.getElementById('cm_open');if(op)op.onclick=(e)=>{e.preventDefault();const t=(store.composeDraft||{}).target||(tgt&&tgt.value)||'';let email='';if(t.startsWith('co:')){const c=ownerCompanies().find(x=>'co:'+x.id===t);email=c&&c.email||'';}else{const p=(store.prospects||[]).find(x=>'pr:'+x.id===t);email=p&&p.email||'';}window.location.href='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subj.value)+'&body='+encodeURIComponent(bd.value);};
+  const cc=document.getElementById('cm_copy');if(cc)cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(subj.value+'\n\n'+bd.value);cc.textContent='COPIED';};
+  const lg=document.getElementById('cm_log');if(lg)lg.onclick=async()=>{const t=(store.composeDraft||{}).target||(tgt&&tgt.value)||'';if(!t.startsWith('pr:')){alert('Timeline logging is for prospects; subscriber activity is tracked by the platform.');return;}const p=(store.prospects||[]).find(x=>'pr:'+x.id===t);if(!p)return;const tl=(Array.isArray(p.timeline)?p.timeline:[]).concat([{at:new Date().toISOString(),text:'Sent: '+subj.value}]);try{await sb.from('prospects').update({timeline:tl,updated_at:new Date().toISOString()}).eq('id',p.id);p.timeline=tl;lg.textContent='LOGGED';}catch(e){alert('Could not log: '+(e.message||''));}};
+  const rs=document.getElementById('cm_reset');if(rs)rs.onclick=()=>{store.composeDraft={target:(tgt||{}).value,template:(tpl||{}).value,feature:(ft||{}).value};render();};
+}
 function accountOverlayHTML(){
-  if(!store.showAccountPanel)return '';
+  if(!store.showAccountPanel)return ownerOverlayHTML();
   const a=store.account;
   if(!store.companyList){store.companyList=[];loadCompanyList();}
   const d=store.acctDraft||{name:a.name||'', phone:a.phone||'', company:a.company||''};
@@ -6615,6 +6770,7 @@ function accountOverlayHTML(){
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;max-width:440px;width:100%;max-height:90vh;overflow:auto;padding:20px">
       <div style="display:flex;align-items:center;margin-bottom:14px"><strong style="font-size:14px">⚙ MY ACCOUNT</strong>
         <button class="zadd" id="acctClose" style="margin-left:auto;padding:4px 10px">✕ CLOSE</button></div>
+      ${isOwner()?`<div class="card" style="margin-bottom:14px;border-color:var(--amber)"><div class="cardHead"><span>PLATFORM OWNER</span></div><div style="padding:12px"><button class="pbtn" id="ownerBtn" style="width:100%;padding:11px">🛠 OPEN OWNER CONSOLE</button><div class="hint" style="padding:6px 0 0">Subscribers, prospects, templates, compose.</div></div></div>`:''}
       ${themePickerHTML()}
       <div class="card" style="border-color:var(--blue);margin-bottom:14px">
         <div class="cardHead" style="color:var(--blue)"><span>EDIT DETAILS</span></div>
@@ -8246,6 +8402,7 @@ function wireProduction(){
     const pix=document.getElementById('prodImportXlsx');if(pix)pix.onchange=(e)=>{const f=e.target.files[0];if(f)importProductionItemsExcel(f);e.target.value='';};
 }
 function wire(){
+  if(typeof ownerWire==='function')ownerWire();
   document.querySelectorAll('[data-crewmethod]').forEach(b=>b.onclick=()=>{store.crewMethod=b.dataset.crewmethod;render();});
   if(!store.account){
     document.querySelectorAll('[data-authmode]').forEach(b=>b.onclick=()=>{store.authMode=b.dataset.authmode;store.authMsg='';render();});
@@ -8264,7 +8421,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'contractor',full_name:n,phone:p,company:c,location:l}}});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'contractor',full_name:n,phone:p,marketing_ok:!!(document.getElementById('f_marketing')||{checked:true}).checked,company:c,location:l}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -8288,7 +8445,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'manager',full_name:n,phone:p,company:co}}});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'manager',full_name:n,phone:p,marketing_ok:!!(document.getElementById('f_marketing')||{checked:true}).checked,company:co}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -8316,7 +8473,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'site_engineer',full_name:n,phone:p,company:co}}});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'site_engineer',full_name:n,phone:p,marketing_ok:!!(document.getElementById('f_marketing')||{checked:true}).checked,company:co}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -8343,7 +8500,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'timekeeper',full_name:n,phone:p,company:co}}});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'timekeeper',full_name:n,phone:p,marketing_ok:!!(document.getElementById('f_marketing')||{checked:true}).checked,company:co}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -8370,7 +8527,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'procurement',full_name:n,phone:p,company:co}}});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'procurement',full_name:n,phone:p,marketing_ok:!!(document.getElementById('f_marketing')||{checked:true}).checked,company:co}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -8397,7 +8554,7 @@ function wire(){
       store.authBusy=true;store.authMsg='';render();
       try{
         await sb.auth.signOut();
-        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'supplier',full_name:n,phone:p,company:biz}}});
+        const {data,error}=await sb.auth.signUp({email:e,password:pw,options:{data:{account_type:'supplier',full_name:n,phone:p,marketing_ok:!!(document.getElementById('f_marketing')||{checked:true}).checked,company:biz}}});
         if(error)return sErr(error.message);
         if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
           return sErr('That email is already registered. Please sign in instead, or use a different email.');
@@ -9248,7 +9405,7 @@ async function loadSession(){
         try{const {data:found}=await sb.from('companies').select('id').ilike('name',co).limit(1).maybeSingle();if(found)companyId=found.id;}catch(e){}
         if(!companyId){try{const {data:co2}=await sb.from('companies').insert({name:co}).select().single();if(co2)companyId=co2.id;}catch(e){}}
       }
-      const row={id:uid,full_name:md.full_name||(prof&&prof.full_name)||'',phone:md.phone||(prof&&prof.phone)||'',account_type:md.account_type,role:md.account_type==='manager'?'manager':'member',company_id:companyId};
+      const row={id:uid,full_name:md.full_name||(prof&&prof.full_name)||'',phone:md.phone||(prof&&prof.phone)||'',account_type:md.account_type,role:md.account_type==='manager'?'manager':'member',company_id:companyId,marketing_ok:md.marketing_ok!==false};
       if(md.location)row.location=md.location;
       await sb.from('profiles').upsert(row,{onConflict:'id'});
       const {data:again}=await sb.from('profiles').select('*').eq('id',uid).maybeSingle();
@@ -9269,7 +9426,7 @@ async function loadSession(){
     uid, email:session.user.email, accountType:acctType,
     company:acctType==='supplier'?(supplierName||'(supplier)'):(companyName||'(no company)'), companyId:prof?prof.company_id:null,
     name:prof?prof.full_name:'', phone:prof?prof.phone:'', location:prof?prof.location:'',
-    role:prof?prof.role:'member', plan:prof?prof.plan:'trial',
+    role:prof?prof.role:'member', plan:prof?prof.plan:'trial', isOwner:!!(prof&&prof.is_platform_owner),
     trialEnds:prof?prof.trial_ends:new Date(Date.now()+30*864e5).toISOString(),
   };
   store.authBusy=false;store.authMsg='';
