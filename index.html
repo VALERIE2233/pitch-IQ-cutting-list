@@ -553,7 +553,7 @@ async function cloudSave(){
         owner_id:store.account.uid, company_id:store.account.companyId,
         name:store.projectName||'Untitled project', visibility:'private', data:payload
       }).select().single();
-      if(!error&&data)_workspaceId=data.id;
+      if(!error&&data){_workspaceId=data.id;raiseNeed({project_id:data.id,project_name:data.name||'',item_name:'',need:'New project created — review the cutting list and price the materials',source:'new_project'});}
     }
     store.syncState='saved';
   }catch(e){ store.syncState='error'; }
@@ -2180,6 +2180,7 @@ async function addProductionItem(){
 async function updateProductionItem(id,patch){
   if(demoGuard(id))return;
   const it=(store.prodItems||[]).find(x=>x.id===id); if(!it)return;
+  if(patch.ready_material===false&&it.ready_material!==false)raiseNeed({project_id:it.project_id,project_name:it.project_name||'',item_name:mdashItemName(it),zone_name:it.zone_name||'',need:'Material marked not available on the readiness check',source:'material_flag'});
   // a stage move is worth remembering: when it happened and who moved it
   if(patch.stage && patch.stage!==it.stage){
     const hist=Array.isArray(it.stage_history)?it.stage_history.slice():[];
@@ -2623,6 +2624,7 @@ function demoWire(){const b=document.getElementById('hideDemoBtn');if(b)b.onclic
 function mdashLoadAll(){
   if(!store.projectsLoaded)loadProjects();
   if(!store.returnsLoaded)loadReturns();
+  if(!store.needsLoaded)loadMaterialNeeds();
   if(store.projectsLoaded&&!store.prodItemsLoaded)loadProductionItems();
   if(!store.purchasesLoaded)loadActuals();
   if(!store.attLoaded)loadAttendance();
@@ -2887,7 +2889,7 @@ function mgrDashboardHTML(){
   const att=(store.attendance||[]).filter(r=>r.sign_in_at&&new Date(r.sign_in_at)>=today&&(dsel==='all'||inSel(r.project_id)));
   const onProj=att.filter(r=>r.project_id).length;
   const crewRows=(store.crewAtt||[]).filter(r=>r.sign_in_at&&new Date(r.sign_in_at)>=today&&(dsel==='all'||inSel(r.project_id)));
-  const crewHTML=`<div class="mdCrew"><div><div class="n" style="color:var(--green)">${att.length+crewRows.length}</div><div class="l">Signed in today</div></div><div><div class="n" style="color:var(--blue)">${onProj+crewRows.filter(r=>r.project_id).length}</div><div class="l">On a project / site</div></div><div><div class="n">${att.length-onProj+crewRows.filter(r=>!r.project_id).length}</div><div class="l">In factory (no project)</div></div><div><div class="n" style="color:var(--amber)">${(att.length?att.reduce((a,r)=>a+crewHours(r),0):0).toFixed(0)} h</div><div class="l">Hours so far today</div></div></div>`;
+  const crewHTML=`<div class="mdCrew"><div><div class="n" style="color:var(--green)">${att.length+crewRows.length}</div><div class="l">Signed in today</div></div><div><div class="n" style="color:var(--blue)">${onProj+crewRows.filter(r=>r.project_id).length}</div><div class="l">On a project / site</div></div><div><div class="n">${att.length-onProj+crewRows.filter(r=>!r.project_id).length}</div><div class="l">In factory (no project)</div></div><div><div class="n" style="color:var(--amber)">${(att.length?att.reduce((a,r)=>a+crewHours(r),0):0).toFixed(0)} h</div><div class="l">Hours so far today</div></div><div><div class="n" style="color:${awayCountToday()?'var(--red)':'var(--txt)'}">${awayCountToday()}</div><div class="l">Signed in over 200 m from site</div></div></div>`;
 
   // --- site installation ---
   const zoneRow=(zname,list,openSnags)=>{
@@ -2910,7 +2912,7 @@ function mgrDashboardHTML(){
       <div class="meta"><span><b>${mine.length-deliveredN}</b> still in factory</span><span>&rarr;</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span>&rarr;</span><span><b style="color:var(--green)">${installed}</b> at site</span><span>·</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>·</span><span><b style="color:${mine.some(i=>i.site_ready===false)?'var(--red)':'inherit'}">${mine.filter(i=>i.site_ready===false).length}</b> sites not ready</span><span>·</span><span>${zones.length} zone${zones.length===1?'':'s'} · ${pct}% installed</span></div>
       ${mine.some(i=>i.site_ready===false)?`<div class="snag" style="color:var(--red)">Not ready: ${mine.filter(i=>i.site_ready===false).map(i=>mdashItemName(i)+(i.site_ready_note?' — '+i.site_ready_note:'')).join('; ')}</div>`:''}
       ${zones.map(z=>zoneRow(z,mine.filter(i=>(i.zone_name||'').trim()===z),openSnags)).join('')}
-      ${openSnags.length?`<div class="snag">Open snags: ${openSnags.slice(0,4).map(sn=>(sn.item_name||'item')+(sn.description?' — '+String(sn.description).slice(0,50):'')+(sn.fix_by?' ('+sn.fix_by+')':'')).join('; ')}${openSnags.length>4?' +'+(openSnags.length-4)+' more':''}</div>`:''}
+      ${openSnags.length?`<div class="snag">Open: ${openSnags.slice(0,5).map(sn=>(sn.item_name||'item')+' — '+((sn.kind==='check'||sn.description==='Post-installation check')?'awaiting completion check':String(sn.description||'').slice(0,50))+(sn.fix_by&&sn.kind!=='check'?' ('+sn.fix_by+')':'')).join('; ')}${openSnags.length>5?' +'+(openSnags.length-5)+' more':''}</div>`:''}
       ${(()=>{const rt=returnsFor(pr.id).filter(r=>r.status!=='redelivered');return rt.length?`<div class="snag" style="color:var(--blue)"><b>Returned to factory (${rt.length}):</b>${rt.map(r=>`<div style="margin-top:3px">↩ ${r.item_name||'item'} <span style="color:var(--mut)">· ${r.zone_name||''}</span> — ${r.reason||''}${r.reason_other?' ('+r.reason_other+')':''} → <b>${(RETURN_STEPS[returnStepIdx(r.status)]||{}).l}</b> <span style="color:var(--mut)">${_when(r.created_at)}</span></div>`).join('')}</div>`:'';})()}
       ${note?`<div class="snag">${note}</div>`:''}</div>`;}).join('')||'<div class="empty">No production items yet.</div>':'<div class="empty">No projects yet.</div>';
 
@@ -2928,6 +2930,7 @@ function mgrDashboardHTML(){
     ${attn(pending.length,`Orders awaiting your approval${pendingTotal?' · '+mdashFmtMoney(pendingTotal):''}`,'amber','')}
     ${attn(recentVisits.length,'Site visits logged this week','blue','sitevisits')}
     ${attn(delivered.length,'Items delivered this week','green','')}
+    ${attn(openNeeds(dsel==='all'?null:dsel).length,'Material needs open for procurement','amber','')}
   </div>
   <div class="card"><div class="cardHead"><span>PRODUCTION PIPELINE — ${items.length} ITEMS · ${(()=>{const z={};items.forEach(i=>{z[(i.project_name||'')+'|'+(i.zone_name||'')]=1;});return Object.keys(z).length;})()} ZONES · ${projs.length} PROJECT${projs.length===1?'':'S'}</span></div>
     <div class="mdPipe">${pipeHTML}</div>
@@ -2944,6 +2947,7 @@ function mgrDashboardHTML(){
       ${(dsel!=='all'&&store.mgrPlanOpen&&projs[0]&&!projs[0]._demo)?`<div style="padding:10px 16px;border-bottom:1px solid var(--row);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end">
         <label class="field"><span class="fl">BUDGET / CONTRACT VALUE (${store.currency||'$'})</span><input class="fi" id="mgr_bud_cost" type="number" min="0" value="${+projs[0].estimated_cost||''}"></label>
         <label class="field"><span class="fl">PLANNED HOURS</span><input class="fi" id="mgr_bud_hours" type="number" min="0" value="${+projs[0].planned_hours||''}"></label>
+        <label class="field"><span class="fl">PLANNED MANPOWER (PEOPLE)</span><input class="fi" id="mgr_bud_men" type="number" min="0" value="${+projs[0].planned_manpower||''}"></label>
         <label class="field"><span class="fl">START DATE</span><input class="fi" id="mgr_bud_start" type="date" value="${(projs[0].start_date||'').slice(0,10)}"></label>
         <label class="field"><span class="fl">TARGET END DATE</span><input class="fi" id="mgr_bud_end" type="date" value="${(projs[0].end_date||'').slice(0,10)}"></label>
         <button class="pbtn" id="mgr_bud_save" ${store.budgetBusy?'disabled':''}>${store.budgetBusy?'SAVING…':'✓ SAVE PLAN'}</button>
@@ -4009,12 +4013,12 @@ async function saveManagerPlan(pid){
   const pr=(store.projects||[]).find(x=>String(x.id)===String(pid)); if(!pr)return;
   if(demoGuard(pid))return;
   const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
-  const patch={estimated_cost:+g('mgr_bud_cost')||0, planned_hours:+g('mgr_bud_hours')||0};
+  const patch={estimated_cost:+g('mgr_bud_cost')||0, planned_hours:+g('mgr_bud_hours')||0, planned_manpower:+g('mgr_bud_men')||0};
   const sd=g('mgr_bud_start'), ed=g('mgr_bud_end');
   store.budgetBusy=true; store.budgetMsg=''; render();
   try{
     let {error}=await sb.from('jobs').update(Object.assign({},patch,{start_date:sd||null,end_date:ed||null})).eq('id',pid);
-    if(error&&/start_date|end_date|column/i.test(error.message||'')){({error}=await sb.from('jobs').update(patch).eq('id',pid));if(!error)store.budgetMsg='Saved budget and hours. (Dates not saved — add start_date and end_date columns to the jobs table to keep them.)';}
+    if(error&&/start_date|end_date|planned_manpower|column/i.test(error.message||'')){const p2=Object.assign({},patch);delete p2.planned_manpower;({error}=await sb.from('jobs').update(p2).eq('id',pid));if(!error)store.budgetMsg='Saved budget and hours. (Dates not saved — add start_date and end_date columns to the jobs table to keep them.)';}
     if(error)throw error;
     Object.assign(pr,patch,{start_date:sd||null,end_date:ed||null});
     if(!store.budgetMsg)store.budgetMsg='Plan saved for '+pr.name+'.'; store.budgetErr=false;
@@ -4955,6 +4959,40 @@ async function catDelete(id){
 
 
 // ============================================================================
+//  MATERIAL NEEDS — procurement's "to buy" inbox, fed automatically by events.
+// ============================================================================
+async function loadMaterialNeeds(){
+  store.needsLoaded=true;
+  if(!sb||!store.account){store.needs=[];render();return;}
+  try{const {data,error}=await sb.from('material_needs').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false});if(error)throw error;store.needs=data||[];}
+  catch(e){store.needs=[];}
+  render();
+}
+async function raiseNeed(n){
+  if(!sb||!store.account||isDemoId(n.project_id))return;
+  const row=Object.assign({company_id:store.account.companyId,status:'open',raised_by:store.account.name||store.account.email},n);
+  try{const {data,error}=await sb.from('material_needs').insert(row).select().single();if(!error&&data)store.needs=[data,...(store.needs||[])];}catch(e){}
+}
+async function setNeedStatus(id,status){
+  const n=(store.needs||[]).find(x=>String(x.id)===String(id));if(!n)return;
+  n.status=status;n.handled_by=store.account.name||store.account.email;n.handled_at=new Date().toISOString();render();
+  try{await sb.from('material_needs').update({status,handled_by:n.handled_by,handled_at:n.handled_at}).eq('id',id);}catch(e){}
+}
+function openNeeds(pid){return (store.needs||[]).filter(n=>n.status==='open'&&(!pid||String(n.project_id)===String(pid)));}
+function needsInboxHTML(opts){
+  opts=opts||{};if(!store.needsLoaded)loadMaterialNeeds();
+  const list=(store.needs||[]).filter(n=>opts.showHandled||n.status==='open');
+  const src={new_project:'New project',material_flag:'Material not available',return:'Return — replacement',site_request:'Item requested from site',request:'Supervisor request'};
+  return `<div class="card" style="border-color:var(--amber)"><div class="cardHead"><span>🛒 TO BUY — ${openNeeds().length} OPEN</span><label style="font-size:10px;color:var(--mut);cursor:pointer"><input type="checkbox" id="needsShowHandled" ${opts.showHandled?'checked':''}> show handled</label></div>
+    ${list.length?`<div class="scroll"><table><thead><tr><th>When</th><th>Project</th><th>Item / need</th><th>Why</th><th>By</th><th>Needed by</th><th></th></tr></thead><tbody>${list.map(n=>`<tr class="${n.status!=='open'?'mdFuture':''}"><td style="white-space:nowrap">${seFmtWhen(n.created_at)}</td><td>${n.project_name||''}</td><td><b>${n.item_name||''}</b>${n.need?'<br><span style="font-size:10.5px">'+n.need+'</span>':''}</td><td><span class="mdTag ${n.source==='return'?'red':n.source==='material_flag'?'amber':''}">${src[n.source]||n.source||''}</span></td><td>${n.raised_by||''}</td><td>${n.needed_by?seFmtWhen(n.needed_by):'—'}</td><td style="white-space:nowrap">${n.status==='open'?`<button class="zadd" data-needdone="${n.id}" style="font-size:10px">✓ HANDLED</button> <button class="zadd" data-needskip="${n.id}" style="font-size:10px;border-color:var(--mut);color:var(--mut)">NOT NEEDED</button>`:`<span style="color:var(--mut);font-size:10px">${n.status} · ${n.handled_by||''}</span>`}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Nothing waiting to be bought.</div>'}
+    <div class="hint" style="padding:6px 16px 10px">Filled automatically: new projects, items whose material is marked not available, returns needing replacement, items requested from site, and supervisor material requests.</div></div>`;
+}
+function needsWire(){
+  document.querySelectorAll('[data-needdone]').forEach(b=>b.onclick=()=>setNeedStatus(b.dataset.needdone,'handled'));
+  document.querySelectorAll('[data-needskip]').forEach(b=>b.onclick=()=>setNeedStatus(b.dataset.needskip,'not_needed'));
+  const sh=document.getElementById('needsShowHandled');if(sh)sh.onchange=()=>{store.needsShowHandled=sh.checked;render();};
+}
+// ============================================================================
 //  SITE COORDINATION — snags (before / after) and returns to factory.
 //  Photos are for the supervisor and site engineer; the manager gets counts
 //  and text only. New table: site_returns (SQL supplied with this build).
@@ -5044,6 +5082,7 @@ async function seReturnSave(){
   try{
     const {data,error}=await sb.from('site_returns').insert(row).select().single();if(error)throw error;
     store.returns=[data,...(store.returns||[])];
+    if(/Wrong size|Damaged|Rework/.test(reason))raiseNeed({project_id:it.project_id,project_name:row.project_name,item_name:mdashItemName(it),zone_name:it.zone_name||'',need:'Replacement / rework material — '+reason+(other?' ('+other+')':''),source:'return'});
     // move the item back so the pipeline reflects it; keep the reason in its history
     const hist=(Array.isArray(it.stage_history)?it.stage_history.slice():[]);hist.push({stage,at:new Date().toISOString(),by:me,note:'returned: '+reason+(other?' — '+other:'')});
     const patch={stage,stage_history:hist.slice(-40),stage_since:new Date().toISOString()};Object.assign(it,patch);
@@ -5175,7 +5214,9 @@ function seWalkHTML(){
     else parts.push(`<span class="b">factory · ${String(it.stage).toLowerCase()}</span>`);
     if(idx<8){if(meas)parts.push(`<span>📐 measured ${seFmtWhen(meas.created_at)}</span>`);if(myDraw)parts.push(`<span class="a">✎ ${myDraw} drawing${myDraw>1?'s':''} to mark up</span>`);
       if(it.site_ready===true)parts.push('<span class="g">🟢 site ready</span>');if(it.site_ready===false)parts.push(`<span class="r">🔴 site not ready${it.site_ready_note?' — '+it.site_ready_note:''}</span>`);}
-    if(sn)parts.push(`<span class="r">⚠ ${sn} snag${sn>1?'s':''}</span>`);
+    const chk=snagsOpen.filter(s=>(s.kind==='check'||s.description==='Post-installation check')&&s.item_name&&mdashItemName(it).indexOf(s.item_name)>-1).length;
+    if(chk)parts.push('<span class="a">☐ check open — confirm complete</span>');
+    if(sn-chk>0)parts.push(`<span class="r">⚠ ${sn-chk} snag${sn-chk>1?'s':''}</span>`);
     return parts.join('');};
   const rowBtn=it=>{const idx=prodStageIndex(it.stage);
     if(idx===7)return `<button class="seAct i" data-seopen="${it.id}" data-setab="progress">✓ INSTALLED ›</button>`;
@@ -5228,7 +5269,7 @@ function seItemPanelHTML(pr,it,visits,tab){
       <div class="seSec"><div class="l">HISTORY</div>${hist.length?hist.map(h=>`<div style="font-size:11px;padding:3px 0;border-bottom:1px solid var(--row)">${seFmtWhen(h.at)} · <b>${h.stage}</b>${h.by?' · '+h.by:''}${h.note?' — '+h.note:''}</div>`).join(''):'<div style="font-size:10px;color:var(--mut)">No moves recorded yet.</div>'}</div>`;
   }else{
     body=`<div class="seSec"><div class="l">SNAGS ON THIS ITEM (${mySnags.filter(s=>s.status!=='resolved'&&s.status!=='closed').length} open)</div>
-        ${mySnags.map(s=>`<div class="scRow" style="padding:8px 0"><div class="scPics"><div><div class="scL">BEFORE</div>${_thumb(s.before_photo_url,56)}</div><div><div class="scL">AFTER</div>${s.after_photo_url?_thumb(s.after_photo_url,56):(!demo&&s.status!=='resolved'?`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:9px;padding:18px 6px">📷 DONE<input type="file" accept="image/*" capture="environment" data-snagafter="${s.id}" style="display:none"></label>`:'')}</div></div><div class="scTxt"><div>${s.description||''}</div><div class="scM">${s.fix_by?'fix by '+s.fix_by+' · ':''}${seFmtWhen(s.created_at)}${s.after_at?' · <span style="color:var(--green)">closed '+seFmtWhen(s.after_at)+'</span>':''}</div></div></div>`).join('')||'<div style="font-size:10px;color:var(--mut)">None.</div>'}
+        ${mySnags.map(s=>`<div class="scRow" style="padding:8px 0"><div class="scPics"><div><div class="scL">BEFORE</div>${_thumb(s.before_photo_url,56)}</div><div><div class="scL">AFTER</div>${s.after_photo_url?_thumb(s.after_photo_url,56):(!demo&&s.status!=='resolved'?`<label class="gbtn" style="display:inline-block;cursor:pointer;font-size:9px;padding:18px 6px">📷 DONE<input type="file" accept="image/*" capture="environment" data-snagafter="${s.id}" style="display:none"></label>`:'')}</div></div><div class="scTxt"><div>${s.description||''}</div><div class="scM">${s.fix_by?'fix by '+s.fix_by+' · ':''}${seFmtWhen(s.created_at)}${s.after_at?' · <span style="color:var(--green)">closed '+seFmtWhen(s.after_at)+'</span>':''}</div>${(s.kind==='check'||s.description==='Post-installation check')&&s.status!=='resolved'&&!demo?`<button class="zadd" data-secheckclose="${s.id}" style="margin-top:6px;font-size:10px;border-color:var(--green);color:var(--green)">✓ NO DEFECTS — CONFIRM COMPLETE</button>`:''}</div></div>`).join('')||'<div style="font-size:10px;color:var(--mut)">None.</div>'}
         <div class="seMore"><button data-sesnag="${it.id}" class="sn">⚠ NEW SNAG (before photo)</button></div></div>
       <div class="seSec"><div class="l">RETURN TO FACTORY</div>${rt.map(r=>`<div style="font-size:11px;padding:3px 0"><b>${r.reason}</b>${r.reason_other?' — '+r.reason_other:''} · ${(RETURN_STEPS[returnStepIdx(r.status)]||{}).l} · ${seFmtWhen(r.created_at)}</div>`).join('')}<div class="seMore"><button data-sereturn="${it.id}" class="rt">↩ RETURN THIS ITEM</button></div></div>`;
   }
@@ -5339,6 +5380,9 @@ async function seInstallSave(){
     const pr=(store.projects||[]).find(p=>String(p.id)===String(it.project_id));
     await seVisitInsert({project_id:it.project_id,project_name:pr?pr.name:it.project_name,item_name:mdashItemName(it),location_name:it.zone_name||'',
       notes:'Installed. '+(c1?'':'NOT level/plumb. ')+(c2?'':'Moving parts NOT operating. ')+(c3?'':'Finish damaged. ')+note,photos:[store.seSheetPhoto]},'installed');
+    try{const chk={company_id:store.account.companyId,project_id:it.project_id,project_name:pr?pr.name:it.project_name,zone_name:it.zone_name||'',item_name:mdashItemName(it),description:'Post-installation check',fix_by:'Site team',kind:'check',before_photo_url:store.seSheetPhoto,before_by:store.account.name||store.account.email,status:'open'};
+      let r=await sb.from('snags').insert(chk).select().single();if(r.error&&/kind|column/i.test(r.error.message||'')){delete chk.kind;r=await sb.from('snags').insert(chk).select().single();}
+      if(!r.error)store.snags=[r.data,...(store.snags||[])];}catch(e){}
     store.seBusy=false;
     if(!c3){store.seSheet={type:'snag',itemId:it.id};store.seSheetPhoto=null;store.seMsg='Installed. Now describe the finish damage as a snag.';store.seErr=false;render();return;}
     store.seSheet=null;store.seSheetPhoto=null;seSay('Installed — the manager\'s board is green for this item.');
@@ -5389,7 +5433,8 @@ async function supCreateRequestedItem(visitId){
   const row={company_id:store.account.companyId,created_by:store.account.uid,created_by_name:store.account.name||store.account.email,created_by_role:store.account.accountType,origin:'site_request',
     project_id:v.project_id,project_name:v.project_name||'',zone_name:v.location_name||'',description:v.item_name||'(requested item)',qty,assignee:'Unassigned',flag:'—',stage:'Not Started',status_note:'Requested from site by '+(v.site_engineer_name||'')};
   try{const {data,error}=await sb.from('production_items').insert(row).select().single();if(error)throw error;store.prodItems=[data,...(store.prodItems||[])];
-    await sb.from('site_visits').update({status:'reviewed'}).eq('id',visitId);v.status='reviewed';render();}
+    await sb.from('site_visits').update({status:'reviewed'}).eq('id',visitId);v.status='reviewed';
+    raiseNeed({project_id:v.project_id,project_name:v.project_name||'',item_name:v.item_name||'',zone_name:v.location_name||'',need:'New item from site — qty '+qty+'; material to be confirmed',source:'site_request'});render();}
   catch(e){alert('Could not create the item: '+(e.message||'error'));}
 }
 async function supDeclineRequestedItem(visitId){
@@ -5430,6 +5475,7 @@ function seWalkWire(){
   document.querySelectorAll('[data-sereqitem]').forEach(b=>b.onclick=()=>{store.seSheet={type:'reqitem',itemId:null,zone:b.dataset.sereqitem};store.seSheetPhoto=null;render();});
   const rq=document.getElementById('seReqSave');if(rq)rq.onclick=seReqSave;
   document.querySelectorAll('[data-seready]').forEach(b=>b.onclick=()=>seSetReady(b.dataset.seready,b.dataset.val==='1'));
+  document.querySelectorAll('[data-secheckclose]').forEach(b=>b.onclick=async()=>{const s=(store.snags||[]).find(x=>String(x.id)===b.dataset.secheckclose);if(!s)return;if(!confirm('Confirm '+(s.item_name||'this item')+' is complete with no defects?'))return;await resolveSnag(s.id,s.before_photo_url||'');});
   siteCoordWire();
   document.querySelectorAll('[data-seundo]').forEach(b=>b.onclick=()=>seUndo(b.dataset.seundo));
   const eod=document.getElementById('seEodBtn');if(eod)eod.onclick=()=>seOpen('eod',null);
@@ -5959,9 +6005,11 @@ async function addCrewMember(){
   if(!nm.trim()){alert('Enter the worker\'s name.');return;}
   const dupe=(store.crew||[]).find(c=>(c.name||'').trim().toLowerCase()===nm.trim().toLowerCase());
   if(dupe){alert(`"${dupe.name}" is already on the roster${dupe.trade?' ('+dupe.trade+')':''}. The roster is shared across every project — you only need to add someone once.`);return;}
-  const row={company_id:store.account.companyId, name:nm.trim(), trade:tr.trim(), active:true};
+  const rate=+((document.getElementById('crew_rate')||{}).value)||null, basis=(document.getElementById('crew_basis')||{}).value||'hour', joined=(document.getElementById('crew_joined')||{}).value||null;
+  const row={company_id:store.account.companyId, name:nm.trim(), trade:tr.trim(), active:true, rate, rate_basis:basis, joined_at:joined};
   try{
-    const {data,error}=await sb.from('crew_members').insert(row).select().single();
+    let {data,error}=await sb.from('crew_members').insert(row).select().single();
+    if(error&&/rate|joined_at|column/i.test(error.message||'')){delete row.rate;delete row.rate_basis;delete row.joined_at;({data,error}=await sb.from('crew_members').insert(row).select().single());}
     if(error)throw error;
     store.crew=[...(store.crew||[]),data].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
     render();
@@ -6067,6 +6115,7 @@ async function deleteCrewMember(id){
   catch(e){ alert('Could not remove: '+(e.message||'error')); }
 }
 function crewProjectForPunch(){return store.crewProject||store.seProj;}
+function awayCountToday(){const t=todayStr();return (store.crewAtt||[]).filter(r=>(r.work_date||'')===t&&r.work_location!=='factory'&&r.sign_in_dist!=null&&r.sign_in_dist>200).length+(store.attendance||[]).filter(r=>(r.work_date||'')===t&&r.sign_in_lat!=null&&(()=>{const p=(store.projects||[]).find(x=>String(x.id)===String(r.project_id));const m=p&&p.site_lat!=null?metresBetween(r.sign_in_lat,r.sign_in_lng,p.site_lat,p.site_lng):null;return m!=null&&m>200;})()).length;}
 function crewMethodBarHTML(){
   const m=store.crewMethod||'manual';
   const b=(k,ic,l,sub)=>`<button class="cmBtn ${m===k?'on':''}" data-crewmethod="${k}"><span class="ic">${ic}</span><span class="l">${l}</span><span class="s">${sub}</span></button>`;
@@ -6092,10 +6141,11 @@ function crewFacePhoto(name){
 async function crewPunch(memberId, direction){
   if(demoGuard(memberId))return;
   const pid=store.crewProject||store.seProj; if(!pid){alert('Pick a project first.');return;}
-  if(!projectSiteSet(pid)){alert("This project's site location hasn't been set yet. Set it while standing on site, then sign workers in.");return;}
+  const side=canRecordFactory()?(store.workLocation||'site'):'site';   // site engineer: site only
+  if(side==='site'&&!projectSiteSet(pid)){alert("This project's site location hasn't been set yet. Set it while standing on site, then sign workers in.");return;}
   const c=(store.crew||[]).find(x=>String(x.id)===String(memberId)); if(!c)return;
   const d=store.crewDate||todayStr();
-  const pos=await getPosition();
+  const pos=side==='site'?await getPosition():null;   // factory: no location needed
   const now=new Date().toISOString();
   const proj=(store.projects||[]).find(x=>String(x.id)===String(pid));
   const method=store.crewMethod||'manual'; let facePhoto=null;
@@ -6122,19 +6172,21 @@ async function crewPunch(memberId, direction){
         recorded_by:store.account.uid, recorded_by_name:store.account.name||store.account.email,
         recorded_at:now, lat:pos?pos.lat:null, lng:pos?pos.lng:null,
         work_location:canRecordFactory()?(store.workLocation||'site'):'site',
-        sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present', method, photo_in_url:facePhoto};
+        sign_in_at:now, sign_in_lat:pos?pos.lat:null, sign_in_lng:pos?pos.lng:null, status:'present', method, photo_in_url:facePhoto,
+        sign_in_dist:(pos&&proj&&proj.site_lat!=null)?metresBetween(pos.lat,pos.lng,proj.site_lat,proj.site_lng):null};
       let {data,error}=await sb.from('crew_attendance').insert(row).select().single();
-      if(error&&/method|photo_in_url|column/i.test(error.message||'')){delete row.method;delete row.photo_in_url;({data,error}=await sb.from('crew_attendance').insert(row).select().single());}
+      if(error&&/method|photo_in_url|sign_in_dist|column/i.test(error.message||'')){delete row.method;delete row.photo_in_url;delete row.sign_in_dist;({data,error}=await sb.from('crew_attendance').insert(row).select().single());}
       if(error)throw error;
       store.crewAtt=[data,...(store.crewAtt||[])];
     }else{
       const open=crewOpenRecord(memberId);
       if(!open){alert('Sign this worker in first.');return;}
       store.crewBusy=true; render();
-      const patch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null, status:'closed', method_out:method, photo_out_url:facePhoto};
+      const patch={sign_out_at:now, sign_out_lat:pos?pos.lat:null, sign_out_lng:pos?pos.lng:null, status:'closed', method_out:method, photo_out_url:facePhoto,
+        sign_out_dist:(pos&&proj&&proj.site_lat!=null)?metresBetween(pos.lat,pos.lng,proj.site_lat,proj.site_lng):null};
       Object.assign(open,patch);
       let {error:e2}=await sb.from('crew_attendance').update(patch).eq('id',open.id);
-      if(e2&&/method_out|photo_out_url|column/i.test(e2.message||'')){delete patch.method_out;delete patch.photo_out_url;await sb.from('crew_attendance').update(patch).eq('id',open.id);}
+      if(e2&&/method_out|photo_out_url|sign_out_dist|column/i.test(e2.message||'')){delete patch.method_out;delete patch.photo_out_url;delete patch.sign_out_dist;await sb.from('crew_attendance').update(patch).eq('id',open.id);}
     }
   }catch(e){alert('Could not save: '+(e.message||'error'));}
   store.crewBusy=false; render();
@@ -6251,6 +6303,7 @@ function crewAttendanceHTML(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <input class="fi" id="crew_name" placeholder="${t('worker_name')}" list="crewNameList" style="flex:2;min-width:130px">
         <input class="fi" id="crew_trade" placeholder="${t('trade')}" list="crewTradeList" style="flex:2;min-width:130px">
+        <input class="fi" id="crew_rate" type="number" min="0" step="0.5" placeholder="rate" style="flex:1;min-width:80px"><select class="fi" id="crew_basis" style="flex:1;min-width:90px"><option value="hour">per hour</option><option value="day">per day</option><option value="month">per month</option></select><input class="fi" id="crew_joined" type="date" title="joined" style="flex:1;min-width:130px">
         <button class="zadd" id="crewAdd" style="padding:8px 14px">${t('add')}</button>
       </div>
     </div>
@@ -6784,7 +6837,7 @@ function ownerWire(){
   const rs=document.getElementById('cm_reset');if(rs)rs.onclick=()=>{store.composeDraft={target:(tgt||{}).value,template:(tpl||{}).value,feature:(ft||{}).value};render();};
 }
 function accountOverlayHTML(){
-  if(!store.showAccountPanel)return ownerOverlayHTML();
+  if(!store.showAccountPanel)return ownerOverlayHTML()+workerRecordHTML();
   const a=store.account;
   if(!store.companyList){store.companyList=[];loadCompanyList();}
   const d=store.acctDraft||{name:a.name||'', phone:a.phone||'', company:a.company||''};
@@ -6910,11 +6963,12 @@ function ralMixerHTML(){
 }
 // ---- PROCUREMENT dashboard: pick an existing project, then Price Book / Catalogue / Order ----
 function procurementHTML(){
+  if(!store.needsLoaded)loadMaterialNeeds();
   if(!store.projectsLoaded){loadProjects();}
   const projects=store.projects||[];
   if(!_workspaceId){
     return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · PROCUREMENT</div><div class="bs">${store.account.company}</div></div></div>
-      <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
+      <div class="hdrRight"><span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header><div class="body" style="padding-bottom:0">${needsInboxHTML({showHandled:store.needsShowHandled})}</div>
     <div class="tabs" style="padding:10px 16px 0">
       <button class="tab ${store.tab!=='ralmixer'?'on':''}" data-noprojtab="projects">📁 PROJECTS</button>
       <button class="tab ${store.tab==='ralmixer'?'on':''}" data-noprojtab="ralmixer" style="color:var(--green)">🎨 RAL MIXER</button>
@@ -6971,10 +7025,11 @@ function distanceTag(lat,lng,proj){
   const m=metresBetween(lat,lng,proj.site_lat,proj.site_lng);
   if(m===null)return '<span style="color:var(--mut);font-size:10px">no GPS</span>';
   const txt=m<1000?`${m}m`:`${(m/1000).toFixed(1)}km`;
-  if(m<=200)return `<span style="color:var(--green);font-size:10px">✓ ${txt} from site</span>`;
-  if(m<=1000)return `<span style="color:var(--amber);font-size:10px">⚠ ${txt} from site</span>`;
-  return `<span style="color:var(--red);font-size:10px;font-weight:700">⚠ ${txt} from site</span>`;
+  if(m<=50)return `<span style="color:var(--green);font-size:10px">✓ on site · ${txt}</span>`;
+  if(m<=200)return `<span style="color:var(--amber);font-size:10px">⚠ near site · ${txt}</span>`;
+  return `<span style="color:var(--red);font-size:10px;font-weight:700">✗ away · ${txt}</span>`;
 }
+function distBand(m){return m==null?'':m<=50?'green':m<=200?'amber':'red';}
 // A project must have its site location registered before anyone can sign in
 // on it. Without it every GPS reading is just a pair of numbers with nothing
 // to compare against — the whole point of capturing location is knowing
@@ -7004,6 +7059,12 @@ async function startNewProjectAsRole(){
   store.fullEditorMode=true; store.showProjects=false;
   render();
   cloudSave(); // creates the row immediately so colleagues see it
+}
+async function setPlannedManpower(pid){
+  const pr=(store.projects||[]).find(p=>String(p.id)===String(pid)); if(!pr||demoGuard(pid))return;
+  const v=prompt('Planned manpower for '+pr.name+' — how many people does this project need?',pr.planned_manpower||'');if(v===null)return;
+  const n=Math.max(0,+v||0);pr.planned_manpower=n;render();
+  try{await sb.from('jobs').update({planned_manpower:n}).eq('id',pid);}catch(e){}
 }
 async function setPlannedHours(pid){
   const pr=(store.projects||[]).find(x=>String(x.id)===String(pid));
@@ -7040,6 +7101,49 @@ async function setProjectSiteLocation(pid){
 // DAY (anything past the threshold), never on the period total, because
 // 40 hours across five days is normal while 12 hours in one day is not.
 const tsHours = r => crewHours(r);
+async function loadCompanySettings(){
+  store.coSetLoaded=true;
+  if(!sb||!store.account||!store.account.companyId)return;
+  try{const {data}=await sb.from('companies').select('std_day_hours,rest_days,ot_mode,ot_multiplier,ot_flat,currency').eq('id',store.account.companyId).maybeSingle();
+    if(data){store.otThreshold=+data.std_day_hours||store.otThreshold||8;store.offDays=Array.isArray(data.rest_days)?data.rest_days:(store.offDays||[5]);store.otMode=data.ot_mode||'multiplier';store.otMultiplier=+data.ot_multiplier||1.25;store.otFlat=+data.ot_flat||0;if(data.currency)store.currency=data.currency;}
+  }catch(e){}
+  render();
+}
+async function saveCompanySettings(){
+  const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  const days=[...document.querySelectorAll('[data-restday]')].filter(c=>c.checked).map(c=>+c.dataset.restday);
+  const patch={std_day_hours:+g('cs_std')||8,rest_days:days,ot_mode:g('cs_mode')||'multiplier',ot_multiplier:+g('cs_mult')||1.25,ot_flat:+g('cs_flat')||0};
+  Object.assign(store,{otThreshold:patch.std_day_hours,offDays:days,otMode:patch.ot_mode,otMultiplier:patch.ot_multiplier,otFlat:patch.ot_flat});
+  try{const {error}=await sb.from('companies').update(patch).eq('id',store.account.companyId);if(error)throw error;store.coSetMsg='Saved.';}catch(e){store.coSetMsg='Could not save: '+(e.message||'error');}
+  render();
+}
+function companySettingsHTML(){
+  if(!store.coSetLoaded)loadCompanySettings();
+  const mode=store.otMode||'multiplier';
+  return `<div class="card"><div class="cardHead"><span>⚙ LABOUR SETTINGS</span><small style="color:var(--mut);font-weight:400">applies to every project and timesheet</small></div>
+    <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end">
+      <label class="field"><span class="fl">STANDARD DAY (HOURS)</span><input class="fi" id="cs_std" type="number" min="1" max="16" step="0.5" value="${+store.otThreshold||8}" style="width:100%"></label>
+      <div class="field"><span class="fl">REST DAYS (all hours = overtime)</span><div style="display:flex;gap:6px;flex-wrap:wrap">${WEEKDAY_NAMES.map((d,i)=>`<label class="chip" style="cursor:pointer;padding:5px 8px"><input type="checkbox" data-restday="${i}" ${(store.offDays||[5]).indexOf(i)>-1?'checked':''}> ${d.slice(0,3)}</label>`).join('')}</div></div>
+      <label class="field"><span class="fl">OVERTIME PAID AS</span><select class="fi" id="cs_mode" style="width:100%"><option value="multiplier" ${mode==='multiplier'?'selected':''}>× hourly rate</option><option value="flat" ${mode==='flat'?'selected':''}>flat amount per OT hour</option></select></label>
+      <label class="field"><span class="fl">MULTIPLIER</span><input class="fi" id="cs_mult" type="number" step="0.05" min="1" value="${store.otMultiplier||1.25}" style="width:100%"></label>
+      <label class="field"><span class="fl">FLAT PER OT HOUR (${store.currency||'$'})</span><input class="fi" id="cs_flat" type="number" step="0.5" min="0" value="${store.otFlat||0}" style="width:100%"></label>
+      <button class="pbtn" id="cs_save" style="padding:11px">SAVE SETTINGS</button>
+      ${store.coSetMsg?`<div class="hint" style="grid-column:1/-1;color:${/Could not/.test(store.coSetMsg)?'var(--red)':'var(--green)'}">${store.coSetMsg}</div>`:''}
+    </div></div>`;
+}
+function crewHourly(c){
+  const r=+(c&&c.rate)||0; const std=+store.otThreshold||8;
+  if(!r)return 0;
+  if(c.rate_basis==='day')return r/std;
+  if(c.rate_basis==='month')return r/(std*26);
+  return r;
+}
+function payFor(p,c){
+  const hr=crewHourly(c); if(!hr)return null;
+  const otHrs=(p.ot||0)+(p.offHrs||0);
+  const ot=(store.otMode==='flat')?otHrs*(+store.otFlat||0):otHrs*hr*(+store.otMultiplier||1.25);
+  return {normal:(p.normal||0)*hr,ot,total:(p.normal||0)*hr+ot,hr};
+}
 // Which weekdays count as rest days for this company. 0=Sunday … 6=Saturday.
 // Defaults to Friday, the usual site rest day in the UAE, but it's editable
 // because companies genuinely differ.
@@ -7061,7 +7165,7 @@ function timesheetData(){
   const people={};
   const add=(key,name,type,date,project,hours)=>{
     if(hours<=0)return;
-    if(!people[key])people[key]={name,type,dates:{},projects:{},total:0};
+    if(!people[key])people[key]={key,name,type,dates:{},projects:{},total:0};
     const p=people[key];
     p.total+=hours;
     p.projects[project]=(p.projects[project]||0)+hours;
@@ -7085,6 +7189,25 @@ function timesheetData(){
   });
   return list.sort((a,b)=>b.total-a.total);
 }
+function workerRecordHTML(){
+  const id=store.workerRec;if(!id)return '';
+  const c=(store.crew||[]).find(x=>String(x.id)===String(id));if(!c)return '';
+  const recs=(store.crewAtt||[]).filter(r=>String(r.crew_member_id)===String(c.id)).slice().sort((a,b)=>String(b.sign_in_at||'').localeCompare(String(a.sign_in_at||'')));
+  const thr=+store.otThreshold||8;
+  const byDay={},byProj={};let total=0,ot=0,off=0,normal=0;
+  recs.forEach(r=>{const h=crewHours(r);if(!(h>0))return;const d=r.work_date||String(r.sign_in_at||'').slice(0,10);byDay[d]=(byDay[d]||0)+h;byProj[r.project_name||'—']=(byProj[r.project_name||'—']||0)+h;total+=h;});
+  Object.entries(byDay).forEach(([d,h])=>{if(isOffDay(d))off+=h;else{normal+=Math.min(h,thr);ot+=Math.max(0,h-thr);}});
+  const pay=payFor({normal,ot,offHrs:off},c);
+  const first=recs.length?recs[recs.length-1].sign_in_at:null;
+  const away=recs.filter(r=>r.sign_in_dist!=null&&r.sign_in_dist>200).length;
+  const top=Object.entries(byProj).sort((a,b)=>b[1]-a[1]);
+  return `<div class="cmFace" style="align-items:flex-start;overflow:auto;padding:24px 12px"><div class="cmFaceBox" style="width:min(900px,100%)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><div class="cmFaceT" style="margin:0">👷 ${c.name}</div><div class="hint" style="padding:0">${c.trade||''} · joined ${c.joined_at?seFmtWhen(c.joined_at):(c.created_at?seFmtWhen(c.created_at):'—')} · rate ${c.rate?(store.currency||'$')+c.rate+'/'+(c.rate_basis||'hour'):'not set'}${first?' · first shift '+seFmtWhen(first):''}</div></div><button class="gbtn" id="workerRecClose">✕</button></div>
+    <div class="mdKpis"><div class="mdKpi"><div class="v">${total.toFixed(0)} h</div><div class="l">Total hours (all time)</div></div><div class="mdKpi"><div class="v" style="color:var(--amber)">${(ot+off).toFixed(0)} h</div><div class="l">Overtime incl. rest days</div></div><div class="mdKpi"><div class="v">${Object.keys(byDay).length}</div><div class="l">Days worked</div></div><div class="mdKpi"><div class="v" style="color:${away?'var(--red)':'var(--txt)'}">${away}</div><div class="l">Sign-ins over 200 m away</div></div>${pay?`<div class="mdKpi"><div class="v" style="color:var(--green)">${store.currency||'$'}${Math.round(pay.total).toLocaleString()}</div><div class="l">Pay to date (${(store.currency||'$')}${pay.hr.toFixed(2)}/h)</div></div>`:''}</div>
+    <div class="card"><div class="cardHead"><span>PROJECTS WORKED</span><small style="color:var(--mut);font-weight:400">most first</small></div><div style="padding:8px 14px">${top.map(([n,h])=>`<div style="display:grid;grid-template-columns:1fr 3fr 60px;gap:10px;align-items:center;font-size:11px;padding:4px 0"><span>${n}</span><div class="mdRail"><i style="width:${Math.round(h/(total||1)*100)}%;background:var(--blue)"></i></div><span class="r">${h.toFixed(1)} h</span></div>`).join('')||'<span class="empty">No shifts yet.</span>'}</div></div>
+    <div class="card"><div class="cardHead"><span>SHIFTS</span><small style="color:var(--mut);font-weight:400">latest ${Math.min(recs.length,60)}</small></div><div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Side</th><th>In</th><th>Out</th><th class="r">Hours</th><th>Where</th><th>How</th><th>By</th></tr></thead><tbody>${recs.slice(0,60).map(r=>{const h=crewHours(r);const pr=(store.projects||[]).find(p=>String(p.id)===String(r.project_id));const din=r.sign_in_dist!=null?r.sign_in_dist:(r.sign_in_lat!=null&&pr&&pr.site_lat!=null?metresBetween(r.sign_in_lat,r.sign_in_lng,pr.site_lat,pr.site_lng):null);const b=distBand(din);return `<tr><td>${r.work_date||String(r.sign_in_at||'').slice(0,10)}</td><td>${r.project_name||''}</td><td>${r.work_location||'site'}</td><td>${r.sign_in_at?new Date(r.sign_in_at).toTimeString().slice(0,5):''}</td><td>${r.sign_out_at?new Date(r.sign_out_at).toTimeString().slice(0,5):'<span style="color:var(--amber)">open</span>'}</td><td class="r">${h>0?h.toFixed(2):''}</td><td>${r.work_location==='factory'?'<span style="color:var(--mut)">factory</span>':din==null?'<span style="color:var(--mut)">no GPS</span>':`<span style="color:var(--${b==='green'?'green':b==='amber'?'amber':'red'})">${din<1000?din+' m':(din/1000).toFixed(1)+' km'}</span>`}</td><td>${r.method==='fingerprint'?'👆':r.method==='face'?'😊':'✍'}${r.photo_in_url?' <a href="'+r.photo_in_url+'" target="_blank">📷</a>':''}</td><td style="font-size:10px;color:var(--mut)">${r.recorded_by_name||''}</td></tr>`;}).join('')}</tbody></table></div></div>
+  </div></div>`;
+}
 function timesheetHTML(){
   const rows=timesheetData();
   const period=store.tsPeriod||'today';
@@ -7095,25 +7218,26 @@ function timesheetHTML(){
     <div class="cardHead" style="color:var(--blue)"><span>🧾 WORKER TIMESHEET — ${label}</span>
       <span style="display:flex;gap:4px">
         ${['today','week','month'].map(k=>`<button class="zadd" data-tsperiod="${k}" style="font-size:10px;padding:4px 8px;${period===k?'background:var(--blue);color:#fff;border-color:var(--blue)':''}">${k==='today'?'TODAY':k==='week'?'7 DAYS':'MONTH'}</button>`).join('')}
-        <button class="zadd" id="tsThreshold" style="font-size:10px;padding:4px 8px">⚙ OT after ${thr}h</button>
-        <button class="zadd" id="tsOffDays" style="font-size:10px;padding:4px 8px">📅 Rest: ${(store.offDays||[5]).map(i=>WEEKDAY_NAMES[i].slice(0,3)).join(', ')||'none'}</button>
+        <span class="hint" style="padding:4px 8px">OT after ${thr}h · rest ${(store.offDays||[5]).map(i=>WEEKDAY_NAMES[i].slice(0,3)).join(', ')||'none'} · ${store.otMode==='flat'?(store.currency||'$')+(store.otFlat||0)+'/OT h':'×'+(store.otMultiplier||1.25)}</span>
       </span></div>
     <div class="hint" style="padding:0 12px 8px">Every project a person worked on, added together. Hours worked on a rest day (${(store.offDays||[5]).map(i=>WEEKDAY_NAMES[i]).join(', ')||'none set'}) are <strong>all</strong> overtime. On a working day, overtime is anything past ${thr} hours <strong>in that day</strong> — so a long week of normal days stays normal. This section always covers all projects, regardless of the filter above.</div>
-    ${rows.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Type</th><th>Projects worked</th><th class="r">Days</th><th class="r">Normal</th><th class="r">Off-day</th><th class="r">Overtime</th><th class="r">Total</th></tr></thead><tbody>
-      ${rows.map(p=>`<tr>
-        <td><strong>${p.name}</strong></td>
+    ${rows.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Type</th><th>Projects worked</th><th class="r">Days</th><th class="r">Normal</th><th class="r">Off-day</th><th class="r">Overtime</th><th class="r">Total</th><th class="r">Pay</th></tr></thead><tbody>
+      ${rows.map(p=>{const cm=p.key&&p.key.startsWith('c:')?(store.crew||[]).find(c=>String(c.id)===p.key.slice(2)):null;const pay=cm?payFor(p,cm):null;return `<tr>
+        <td>${cm?`<a href="#" data-workerrec="${cm.id}" style="color:var(--txt);font-weight:700">${p.name}</a>`:`<strong>${p.name}</strong>`}</td>
         <td style="font-size:10px;color:${p.type==='Staff'?'var(--blue)':'var(--amber)'}">${p.type.toLowerCase()}</td>
         <td style="font-size:11px">${Object.entries(p.projects).sort((a,b)=>b[1]-a[1]).map(([n,h])=>`${n} <span style="color:var(--mut)">${h.toFixed(1)}h</span>`).join(' · ')}</td>
         <td class="r" style="font-size:11px">${p.days}</td>
         <td class="r">${p.normal.toFixed(1)}</td>
         <td class="r"><span style="color:${p.offHrs>0?'var(--red)':'var(--mut)'}">${p.offHrs>0?p.offHrs.toFixed(1):'—'}</span></td>
         <td class="r"><strong style="color:${p.ot>0?'var(--amber)':'var(--mut)'}">${p.ot>0?p.ot.toFixed(1):'—'}</strong></td>
-        <td class="r"><span class="cost">${p.total.toFixed(1)}h</span></td></tr>`).join('')}
+        <td class="r"><span class="cost">${p.total.toFixed(1)}h</span></td>
+        <td class="r">${pay?`<span class="cost" title="${(store.currency||'$')+pay.hr.toFixed(2)}/h">${(store.currency||'$')}${Math.round(pay.total).toLocaleString()}</span>`:(cm?'<span style="color:var(--mut);font-size:10px">no rate</span>':'—')}</td></tr>`;}).join('')}
       <tr style="border-top:2px solid var(--line)"><td colspan="4" class="r"><strong>TOTALS</strong></td>
         <td class="r"><strong>${tN.toFixed(1)}</strong></td>
         <td class="r"><strong style="color:${rows.reduce((a,p)=>a+p.offHrs,0)>0?'var(--red)':'var(--mut)'}">${rows.reduce((a,p)=>a+p.offHrs,0).toFixed(1)}</strong></td>
         <td class="r"><strong style="color:${tO>0?'var(--amber)':'var(--mut)'}">${tO>0?tO.toFixed(1):'—'}</strong></td>
-        <td class="r"><strong style="color:var(--blue)">${(tN+tO).toFixed(1)}h</strong></td></tr>
+        <td class="r"><strong style="color:var(--blue)">${(tN+tO).toFixed(1)}h</strong></td>
+        <td class="r"><strong class="cost">${(store.currency||'$')}${Math.round(rows.reduce((a,p)=>{const cm=p.key&&p.key.startsWith('c:')?(store.crew||[]).find(c=>String(c.id)===p.key.slice(2)):null;const pay=cm?payFor(p,cm):null;return a+(pay?pay.total:0);},0)).toLocaleString()}</strong></td></tr>
     </tbody></table></div>`:`<div class="empty">No hours recorded for ${label.toLowerCase()}.</div>`}
   </div>`;
 }
@@ -7247,6 +7371,7 @@ function timekeeperHTML(){
   ${accountOverlayHTML()}`;
 }
 function manpowerHTML(){
+  const __settings=(store.account.accountType==='manager')?companySettingsHTML():'';
   if(!store.attLoaded){loadAttendance();}
   if(!store.crewAttLoaded){loadCrewAttendance();}
   if(!store.crewLoaded){loadCrew();}
@@ -7275,7 +7400,7 @@ function manpowerHTML(){
   const Cs=[...C].sort((a,b)=>(b.work_date||'').localeCompare(a.work_date||'')||new Date(b.sign_in_at||0)-new Date(a.sign_in_at||0));
   const stillOnCrew=C.filter(r=>r.sign_in_at&&!r.sign_out_at).length;
   const grandHrs=totalHrs+crewHrsTotal;
-  return `<div class="body">
+  return `${__settings}<div class="body">
     <div class="hint" style="padding-top:14px">Who is signed in right now, and how much labour this project has taken. Covers both staff who sign in with their own account and crew marked by the site engineer. Read-only — nobody's attendance can be changed from here.</div>
     <div class="settings">
       <label class="field" style="flex:1"><span class="fl">PROJECT</span>
@@ -7293,7 +7418,7 @@ function manpowerHTML(){
       if(planned===null||planned<=0)return `<div class="card" style="border-color:var(--line)">
         <div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <span style="font-size:12px;color:var(--mut)">No hours planned for this project — set a figure to track how much of the labour budget has been used.</span>
-          <button class="zadd" data-setplanned="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--blue);color:var(--blue)">⏱ SET PLANNED HOURS</button>
+          <button class="zadd" data-setmen="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px">👥 SET PLANNED MANPOWER</button><button class="zadd" data-setplanned="${sel}" style="font-size:10px;padding:5px 10px;border-color:var(--blue);color:var(--blue)">⏱ SET PLANNED HOURS</button>
         </div></div>`;
       const used=grandHrs, left=planned-used, pct=Math.min(100,(used/planned)*100);
       const col=pct>=100?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
@@ -7302,7 +7427,7 @@ function manpowerHTML(){
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
             <span style="font-size:13px;font-weight:700">⏱ LABOUR BUDGET — ${used.toFixed(1)} of ${planned.toFixed(0)} hours used</span>
             <span style="font-size:12px;color:${col};font-weight:700">${pct.toFixed(0)}%</span>
-            <button class="zadd" data-setplanned="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px">✎ CHANGE</button>
+            <button class="zadd" data-setmen="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px">👥 ${(()=>{const p=(store.projects||[]).find(x=>String(x.id)===String(sel));return p&&p.planned_manpower?p.planned_manpower+' people planned':'planned manpower';})()}</button><button class="zadd" data-setplanned="${sel}" style="font-size:10px;padding:5px 10px">✎ CHANGE</button>
           </div>
           <div style="height:14px;background:var(--steel);border-radius:7px;overflow:hidden;border:1px solid var(--line)">
             <div style="height:100%;width:${pct}%;background:${col};transition:width .3s"></div>
@@ -8426,6 +8551,8 @@ function wireProduction(){
 }
 function wire(){
   if(typeof ownerWire==='function')ownerWire();
+  {const cs=document.getElementById('cs_save');if(cs)cs.onclick=saveCompanySettings;document.querySelectorAll('[data-workerrec]').forEach(a=>a.onclick=(e)=>{e.preventDefault();store.workerRec=a.dataset.workerrec;render();});const wc=document.getElementById('workerRecClose');if(wc)wc.onclick=()=>{store.workerRec=null;render();};}
+  if(typeof needsWire==='function')needsWire();
   document.querySelectorAll('[data-crewmethod]').forEach(b=>b.onclick=()=>{store.crewMethod=b.dataset.crewmethod;render();});
   if(!store.account){
     document.querySelectorAll('[data-authmode]').forEach(b=>b.onclick=()=>{store.authMode=b.dataset.authmode;store.authMsg='';render();});
@@ -8710,6 +8837,7 @@ function wire(){
     {const mpr=document.getElementById('manpowerPrint'); if(mpr)mpr.onclick=printManpower;}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
     document.querySelectorAll('[data-setplanned]').forEach(b=>b.onclick=()=>setPlannedHours(b.dataset.setplanned));
+    document.querySelectorAll('[data-setmen]').forEach(b=>b.onclick=()=>setPlannedManpower(b.dataset.setmen));
     document.querySelectorAll('[data-tsperiod]').forEach(b=>b.onclick=()=>{store.tsPeriod=b.dataset.tsperiod;render();});
     {const tt=document.getElementById('tsThreshold'); if(tt)tt.onclick=()=>{
       const v=prompt('Overtime starts after how many hours in a single day?',(+store.otThreshold||8));
@@ -8758,6 +8886,7 @@ function wire(){
     {const mr=document.getElementById('manpowerRefresh'); if(mr)mr.onclick=()=>{store.attLoaded=false;store.crewAttLoaded=false;loadAttendance();loadCrewAttendance();};}
     document.querySelectorAll('[data-setsiteloc]').forEach(b=>b.onclick=()=>setProjectSiteLocation(b.dataset.setsiteloc));
     document.querySelectorAll('[data-setplanned]').forEach(b=>b.onclick=()=>setPlannedHours(b.dataset.setplanned));
+    document.querySelectorAll('[data-setmen]').forEach(b=>b.onclick=()=>setPlannedManpower(b.dataset.setmen));
     document.querySelectorAll('[data-tsperiod]').forEach(b=>b.onclick=()=>{store.tsPeriod=b.dataset.tsperiod;render();});
     {const tt=document.getElementById('tsThreshold'); if(tt)tt.onclick=()=>{
       const v=prompt('Overtime starts after how many hours in a single day?',(+store.otThreshold||8));
