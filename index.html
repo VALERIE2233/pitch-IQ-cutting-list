@@ -2430,12 +2430,12 @@ function managerHTML(){
   return `<header><div class="brand"><div class="logo sm">▰▰</div><div><div class="bn">FIT-OUT IQ · MANAGER</div><div class="bs">${store.account.company}</div></div></div>
     <div class="hdrRight">${isOwner()?'<button class="gbtn" id="ownerBtn" style="border-color:var(--amber)">🛠 OWNER</button>':''}${store.hideDemo?'<button class="gbtn" id="showDemoBtn" title="Bring the demo project back">DEMO</button>':''}<span style="font-size:11px;color:var(--txt);padding:6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--steel);white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis">${(store.account.name||store.account.email||'').split(' ')[0]}</span><button class="pbtn" id="signout">SIGN OUT</button><a href="${helpDeskLink()}" target="_blank" rel="noopener" class="pbtn" title="Help via WhatsApp" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">${whatsappIcon(16)}</a></div></header>
   <div class="tabs" style="padding:10px 16px 0">
-    <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="color:var(--amber)">PROJECT STATUS</button>
-    <button class="tab ${store.managerTab==='review'?'on':''}" data-mgrtab="review" style="color:var(--amber)">COMPANY REVIEW</button>
+    <button class="tab ${(!store.managerTab||store.managerTab==='dash')?'on':''}" data-mgrtab="dash" style="${(!store.managerTab||store.managerTab==='dash')?'':'color:var(--amber)'}">PROJECT STATUS</button>
+    <button class="tab ${store.managerTab==='review'?'on':''}" data-mgrtab="review" style="${store.managerTab==='review'?'':'color:var(--amber)'}">COMPANY REVIEW</button>
 
-    <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="color:var(--amber)">👷 SITE VISITS</button>
-    <button class="tab ${store.managerTab==='editor'?'on':''}" data-mgrtab="editor" style="color:var(--amber)">🔧 EDITOR</button>
-    <button class="tab ${store.managerTab==='manpower'?'on':''}" data-mgrtab="manpower" style="color:var(--green)">👷 MANPOWER</button>
+    <button class="tab ${store.managerTab==='sitevisits'?'on':''}" data-mgrtab="sitevisits" style="${store.managerTab==='sitevisits'?'':'color:var(--amber)'}">👷 SITE VISITS</button>
+    <button class="tab ${store.managerTab==='editor'?'on':''}" data-mgrtab="editor" style="${store.managerTab==='editor'?'':'color:var(--amber)'}">🔧 EDITOR</button>
+    <button class="tab ${store.managerTab==='manpower'?'on':''}" data-mgrtab="manpower" style="${store.managerTab==='manpower'?'':'color:var(--green)'}">👷 MANPOWER</button>
   </div>
   ${(!store.managerTab||store.managerTab==='dash')?`<div class="body">${mgrDashboardHTML()}</div>`:store.managerTab==='review'?`<div class="body">${mgrReviewHTML()}</div>`:store.managerTab==='editor'?`<div class="body">${fullEditorPickerHTML()}</div>`:store.managerTab==='manpower'?manpowerHTML():mgrSiteVisitsTabHTML()}
   ${store.approvingId?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px" id="titleOverlay">
