@@ -21,6 +21,7 @@
   :root{--amber:#FFB300;--steel:#1b1e24;--panel:#22262e;--line:#333944;--bg:#15171c;--row:#2c313a;--head:#1f2329;--green:#3ddc84;--blue:#5db8ff;--red:#ff5d5d;--txt:#e7e9ec;--mut:#8b929c;--mono:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
   body{background:var(--bg);color:var(--txt);font-family:var(--mono);padding-bottom:50px;overflow-x:hidden;max-width:100vw}
+  body:has(>#root>div>.authWrap){padding-bottom:0}
   html{overflow-x:hidden}
   img,svg,table{max-width:100%}
   input:focus,select:focus{outline:1px solid var(--amber)}
@@ -32,13 +33,31 @@
      Below 980px they stack, which is right for a phone. */
   .authWrap{display:block}
   @media(min-width:980px){
-    .authWrap{display:grid;grid-template-columns:minmax(360px,430px) 1fr;gap:44px;
-      align-items:center;max-width:1180px;margin:0 auto;padding:0 32px;
-      min-height:calc(100vh - 40px)}
-    .authWrap .auth{margin:0;max-width:none;padding:0}
-    .authWrap .authPitch{margin:0;padding:0;max-width:none}
-    .authWrap .authPitch .pitchTop{border-top:none;padding-top:0}
+    .authWrap{display:grid;grid-template-columns:minmax(340px,400px) 1fr;gap:36px;
+      align-items:center;max-width:1240px;margin:0 auto;padding:0 28px;
+      height:100vh;box-sizing:border-box;overflow:hidden}
+    .authWrap .auth{margin:0;max-width:none;padding:0;max-height:100vh;overflow:auto}
+    /* the pitch scales with the window height so nothing needs a scroll bar */
+    .authPitch{margin:0!important;padding:0!important;max-width:none!important;max-height:100vh;overflow:hidden;font-size:clamp(11px,1.25vh,13px)}
+    .authPitch .pitchTop{border-top:none!important;padding-top:0!important}
+    .authPitch .pHead{font-size:clamp(16px,2.4vh,24px)!important;margin-bottom:.4em!important}
+    .authPitch .pLead{font-size:clamp(12px,1.75vh,17px)!important;line-height:1.55!important;margin-bottom:1em!important}
+    .authPitch .pDoes{font-size:clamp(10px,1.2vh,12px)!important;margin-bottom:.5em!important}
+    .authPitch .pGrid{grid-template-columns:repeat(3,1fr)!important;gap:clamp(5px,.8vh,10px)!important;margin-bottom:1em!important}
+    .authPitch .pGrid>div{padding:clamp(6px,1vh,12px) clamp(8px,1.2vh,14px)!important}
+    .authPitch .pGrid>div>div:first-child{font-size:clamp(11px,1.35vh,13px)!important}
+    .authPitch .pGrid>div>div:last-child{font-size:clamp(9px,1.1vh,11px)!important;line-height:1.45!important}
+    .authPitch .pFree{padding:clamp(8px,1.4vh,16px) clamp(10px,1.6vh,18px)!important;margin-bottom:1em!important}
+    .authPitch .pFreeH{font-size:clamp(15px,2.2vh,21px)!important}
+    .authPitch .pFreeP{font-size:clamp(12px,1.6vh,15px)!important;line-height:1.55!important;margin-bottom:.6em!important}
+    .authPitch .pFoot{font-size:clamp(9px,1.05vh,11px)!important;padding-top:.8em!important}
   }
+  /* phones and small tablets: the sign-in card is the first screen; the pitch follows it */
+  @media(max-width:979px){
+    .authWrap .auth{margin:16px auto 8px;min-height:calc(100vh - 32px);display:flex;flex-direction:column;justify-content:center}
+    .authPitch .pGrid{grid-template-columns:1fr 1fr!important}
+  }
+
   .phRow{display:flex;gap:6px;align-items:stretch}.phCC{display:flex;align-items:center;gap:6px;background:var(--steel);color:#fff;border:1px solid var(--line);border-radius:3px;padding:0 10px;font-family:var(--mono);font-size:13px;white-space:nowrap;cursor:pointer}
   .phPanel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px;margin-top:6px}.phList{max-height:220px;overflow:auto}.phOpt{display:flex;align-items:center;gap:8px;padding:7px 8px;font-size:12px;cursor:pointer;border-radius:3px}.phOpt:hover,.phOpt.on{background:#2a2614}.phOpt .n{flex:1}.phOpt .c{color:var(--mut)}
   .cmBar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.cmBtn{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--steel);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:10px 6px;font-family:var(--mono);cursor:pointer}.cmBtn .ic{font-size:22px}.cmBtn .l{font-size:11px;font-weight:800;letter-spacing:1px}.cmBtn .s{font-size:9px;color:var(--mut)}.cmBtn.on{border-color:var(--amber);background:#2a2614}.cmBtn.on .l{color:var(--amber)}
@@ -2039,31 +2058,31 @@ function authHTML(){
        before deciding to sign up. Sits below the sign-in card, no account needed. -->
   <div class="authPitch" style="max-width:640px;margin:26px auto 40px;padding:0 20px;color:var(--txt)">
     <div class="pitchTop" style="border-top:1px solid var(--line);padding-top:24px">
-      <div style="font-size:22px;font-weight:800;line-height:1.3;margin-bottom:10px">Built for fit-out and joinery. By someone who does the job.</div>
-      <p style="font-size:16px;line-height:1.7;color:var(--txt);margin:0 0 18px">
+      <div class="pHead" style="font-size:22px;font-weight:800;line-height:1.3;margin-bottom:10px">Built for fit-out and joinery. By someone who does the job.</div>
+      <p class="pLead" style="font-size:16px;line-height:1.7;color:var(--txt);margin:0 0 18px">
         A production platform for interior fit-out and joinery companies still running cutting lists on
         Excel and coordinating site work on WhatsApp. Built on a working factory floor to fix the three
         things that quietly cost the most: material wasted on unoptimised cutting lists, items remade
         because a site dimension went stale, and labour hours nobody could account for.
       </p>
 
-      <div style="font-size:12px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:8px">WHAT IT DOES</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:20px">
+      <div class="pDoes" style="font-size:12px;font-weight:700;color:var(--amber);letter-spacing:1px;margin-bottom:8px">WHAT IT DOES</div>
+      <div class="pGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:20px">
         ${[
-          ['Cutting lists &amp; nesting','Sheet and linear optimisation with an offcut bank, plus a solid timber requirement by species and section.'],
-          ['Site measurements','Measured on site against the exact item &mdash; not the zone. Fit warnings before anything is cut.'],
-          ['Production tracking','Every item through nine stages, from drawing to installation, with material and approval readiness.'],
-          ['Procurement &amp; suppliers','Order approvals, LPOs, and supplier catalogues searchable across the whole network.'],
-          ['Manpower &amp; hours','Site and factory attendance with GPS, overtime and rest days, and labour hours costed per project.'],
+          ['Cutting lists &amp; nesting','Sheet and linear optimisation, offcut bank, solid timber by species and section.'],
+          ['Site measurements','Measured against the exact item, with fit warnings before anything is cut.'],
+          ['Production tracking','Every item through nine stages, drawing to installation, with readiness checks.'],
+          ['Procurement &amp; suppliers','Order approvals, LPOs and searchable supplier catalogues.'],
+          ['Manpower &amp; hours','GPS attendance for site and factory, hours costed per project.'],
           ['RAL paint mixer','Match and mix to RAL references without guesswork.']
         ].map(function(x){return '<div style="border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--panel)">'
           +'<div style="font-size:13px;font-weight:700;margin-bottom:4px">'+x[0]+'</div>'
           +'<div style="font-size:11px;color:var(--mut);line-height:1.6">'+x[1]+'</div></div>';}).join('')}
       </div>
 
-      <div style="border:1px solid var(--amber);border-radius:8px;padding:16px 18px;background:rgba(255,179,0,.06);margin-bottom:18px">
-        <div style="font-size:20px;font-weight:800;color:var(--amber);margin-bottom:8px">Setup and training are free</div>
-        <p style="font-size:15px;line-height:1.7;color:var(--txt);margin:0 0 12px">
+      <div class="pFree" style="border:1px solid var(--amber);border-radius:8px;padding:16px 18px;background:rgba(255,179,0,.06);margin-bottom:18px">
+        <div class="pFreeH" style="font-size:20px;font-weight:800;color:var(--amber);margin-bottom:8px">Setup and training are free</div>
+        <p class="pFreeP" style="font-size:15px;line-height:1.7;color:var(--txt);margin:0 0 12px">
           We'll set it up on one of your live projects, import your price book and train your team &mdash;
           at no cost. See it working on your own job before deciding anything.
         </p>
@@ -2076,7 +2095,7 @@ function authHTML(){
         </div>
       </div>
 
-      <div style="font-size:11px;color:var(--mut);line-height:1.7;border-top:1px solid var(--line);padding-top:14px">
+      <div class="pFoot" style="font-size:11px;color:var(--mut);line-height:1.7;border-top:1px solid var(--line);padding-top:14px">
         <strong style="color:var(--txt)">FIT-OUT IQ</strong> &middot; Production management for interior fit-out, joinery and furniture manufacturing.<br>
         Serving fit-out contractors, joinery factories and material suppliers in Dubai, the UAE and the wider GCC.<br>
         Contact <a href="mailto:fitoutiq@gmail.com" style="color:var(--mut)">fitoutiq@gmail.com</a> &middot;
