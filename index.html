@@ -2765,8 +2765,9 @@ function clientReportHTML(pr){
   const returnsHTML=rets.length?`<h2>Items returned for rework</h2><table><thead><tr><th>Zone</th><th>Item</th><th>Reason</th><th>Status</th><th>Since</th></tr></thead><tbody>${rets.map(r=>`<tr><td>${esc(r.zone_name||'')}</td><td>${esc(r.item_name||'')}</td><td>${esc(r.reason||'')}${r.reason_other?' — '+esc(r.reason_other):''}</td><td><span class="st ${r.status==='redelivered'?'g':'a'}">${retStep(r.status)}</span></td><td>${dfmt(r.created_at)}</td></tr>`).join('')}</tbody></table>`:'';
   const notReady=rows.filter(r=>r.it.site_ready===false);
   const readyAsks=notReady.map(r=>`<li><b>${esc(mdashItemName(r.it))}</b> — site not ready for installation: ${esc(r.it.site_ready_note||'')}.</li>`);
-  const lastVisit=visits[0];
-  const siteNote=lastVisit&&lastVisit.notes?`<div class="note"><b>Site note${lastVisit.site_engineer_name?' ('+esc(lastVisit.site_engineer_name)+', '+dfmt(lastVisit.created_at)+')':''}:</b> ${esc(String(lastVisit.notes).slice(0,300))}${snags.length?' <b>'+snags.length+' snag'+(snags.length>1?'s':'')+' open.</b>':''}</div>`:(snags.length?`<div class="note">${snags.length} snag${snags.length>1?'s':''} open on site, being attended to.</div>`:'');
+  const sortedV=visits.slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const lastVisit=sortedV.find(v=>seKind(v)==='daily')||sortedV[0];
+  const siteNote=lastVisit&&lastVisit.notes?`<div class="note"><b>Site note${lastVisit.site_engineer_name?' ('+esc(lastVisit.site_engineer_name)+', '+dfmt(lastVisit.created_at)+')':''}:</b> ${esc(String(lastVisit.notes).replace(/^\[[A-Z_]+\]\s*/,'').slice(0,400))}${snags.length?' <b>'+snags.length+' snag'+(snags.length>1?'s':'')+' open.</b>':''}</div>`:(snags.length?`<div class="note">${snags.length} snag${snags.length>1?'s':''} open on site, being attended to.</div>`:'');
   return `<!doctype html><html><head><meta charset="utf-8"><title>Project Status Report — ${esc(pr.name)}</title>
 <style>
 :root{--ink:#1c1f24;--mut:#6b7280;--line:#d9d6ce;--amber:#e39a00;--green:#1f9d5a;--blue:#2f7fc4;--bg:#f6f4ef}
@@ -2899,12 +2900,12 @@ function mgrDashboardHTML(){
     const mine=mdashItemsFor(pr,items); if(!mine.length)return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">no production items yet</span></div></div>`;
     const installed=mine.filter(i=>i.stage==='Site').length, deliveredN=mine.filter(i=>prodStageIndex(i.stage)>=7).length;
     const openSnags=snags.filter(sn=>String(sn.project_id)===String(pr.id)&&sn.status!=='resolved'&&sn.status!=='closed');
-    const pv=visits.filter(v=>String(v.project_id)===String(pr.id)||v.project_name===pr.name);
-    const last=pv[0]; const eng=last?(last.site_engineer_name||'—'):'—';
-    const ago=last&&last.created_at?Math.floor((Date.now()-new Date(last.created_at))/86400000):null;
+    const pv=visits.filter(v=>String(v.project_id)===String(pr.id)||v.project_name===pr.name).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+    const last=pv.find(v=>seKind(v)==='daily')||pv[0]; const eng=(pv[0]&&pv[0].site_engineer_name)||'—';
+    const ago=pv[0]&&pv[0].created_at?Math.floor((Date.now()-new Date(pv[0].created_at))/86400000):null;
     const pct=Math.round(installed/mine.length*100);
     const zones=[];mine.forEach(i=>{const z=(i.zone_name||'').trim();if(zones.indexOf(z)<0)zones.push(z);});
-    const note=last&&last.notes?String(last.notes).slice(0,140):'';
+    const note=last&&last.notes?String(last.notes).replace(/^\[[A-Z_]+\]\s*/,'').slice(0,220):'';
     return `<div class="mdSite"><div class="top"><span class="nm">${pr.name||'(unnamed)'}</span><span class="eng">${eng}${ago==null?' · no visits yet':ago===0?' · visited today':' · last visit '+ago+' day'+(ago===1?'':'s')+' ago'}</span></div>
       <div class="meta"><span><b>${mine.length-deliveredN}</b> still in factory</span><span>&rarr;</span><span><b style="color:var(--blue)">${deliveredN-installed}</b> in delivery</span><span>&rarr;</span><span><b style="color:var(--green)">${installed}</b> at site</span><span>·</span><span><b style="color:${openSnags.length?'var(--amber)':'inherit'}">${openSnags.length}</b> snags open</span><span>·</span><span><b style="color:${mine.some(i=>i.site_ready===false)?'var(--red)':'inherit'}">${mine.filter(i=>i.site_ready===false).length}</b> sites not ready</span><span>·</span><span>${zones.length} zone${zones.length===1?'':'s'} · ${pct}% installed</span></div>
       ${mine.some(i=>i.site_ready===false)?`<div class="snag" style="color:var(--red)">Not ready: ${mine.filter(i=>i.site_ready===false).map(i=>mdashItemName(i)+(i.site_ready_note?' — '+i.site_ready_note:'')).join('; ')}</div>`:''}
@@ -3111,16 +3112,19 @@ function mgrSiteVisitsTabHTML(){
     ${sendDrawingFormHTML()}
     <div class="card">
       <div class="cardHead"><span>👷 SITE VISITS (${visits.length})</span><button class="zadd" id="svRefresh" style="font-size:10px;padding:4px 8px">🔄 REFRESH</button></div>
-      ${visits.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Location</th><th class="r">Site W×H×D</th><th>Site Engineer</th><th>Sent for review</th><th style="color:var(--green)">Marked-up (received)</th><th></th></tr></thead><tbody>
+      ${visits.length?`<div class="scroll"><table><thead><tr><th>Date</th><th>Project</th><th>Type</th><th>Item / location</th><th class="r">Site W×H×D</th><th>Site Engineer</th><th>Note</th><th>Photos</th><th>Sent for review</th><th style="color:var(--green)">Marked-up (received)</th><th></th></tr></thead><tbody>
       ${visits.map(v=>{
         const fAtts=Array.isArray(v.factory_attachments)?v.factory_attachments:[];
         const mAtts=Array.isArray(v.marked_attachments)?v.marked_attachments:[];
         return `<tr>
           <td style="font-size:11px;white-space:nowrap">${(v.created_at||'').slice(0,10)}</td>
           <td>${v.project_name||'—'}</td>
-          <td>${v.location_name||'—'}</td>
-          <td class="r">${v.site_w||'?'}×${v.site_h||'?'}×${v.site_d||'?'}</td>
+          <td><span class="mdTag ${seKind(v)==='installed'?'amber':''}">${seKind(v).toUpperCase().replace('_',' ')}</span></td>
+          <td>${v.item_name||''}${v.location_name?' <span style="color:var(--mut)">· '+v.location_name+'</span>':''}</td>
+          <td class="r">${[v.site_w,v.site_h,v.site_d].some(Boolean)?(v.site_w||'?')+'×'+(v.site_h||'?')+'×'+(v.site_d||'?'):'—'}</td>
           <td style="font-size:11px">${v.site_engineer_name||'—'}</td>
+          <td style="font-size:11px;max-width:320px">${String(v.notes||'').replace(/^\[[A-Z_]+\]\s*/,'')}</td>
+          <td style="white-space:nowrap">${(Array.isArray(v.photos)?v.photos:[]).slice(0,3).map(u=>attachCell(u,32)).join(' ')||'—'}</td>
           <td style="white-space:nowrap">${fAtts.length?fAtts.map((a,i)=>`<div style="position:relative;display:inline-block;margin:1px">${attachCell(a.url,32)}<span style="position:absolute;bottom:-4px;right:-4px;font-size:10px" title="${a.status==='reviewed'?'Reviewed':'Pending'}">${a.status==='reviewed'?'✓':'⏳'}</span>${a.status!=='reviewed'?`<button data-cancelsend="${v.id}:${i}" title="Cancel this send" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:1">✕</button>`:''}</div>`).join(''):'<span style="color:var(--mut);font-size:10px">—</span>'}</td>
           <td style="white-space:nowrap">${mAtts.length?mAtts.map((a,i)=>{
             const already=(Array.isArray(v.forwarded_attachments)?v.forwarded_attachments:[]).some(f=>f.url===a.url);
