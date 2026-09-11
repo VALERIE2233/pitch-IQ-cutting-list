@@ -343,8 +343,8 @@
 // server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
 // request and compares it to the one we loaded with. Any redeploy changes the
 // fingerprint, so it works whether or not anyone remembers to update anything.
-const APP_VERSION='1.4.5';   // display only - not what triggers the banner
-const APP_BUILD='20260911.9d9dc7';  // stamped at build time so the live version is verifiable
+const APP_VERSION='1.4.7';   // display only - not what triggers the banner
+const APP_BUILD='20260911.f598f5';  // stamped at build time so the live version is verifiable
 let _appFingerprint=null;
 function fingerprintOf(res){
   return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
@@ -6706,6 +6706,7 @@ const OWNER_DEFAULT_TEMPLATES=[
   {name:'Introduction + presentation (attach PDF)',subject:'Introducing Fit-Out IQ to {company} — free setup and training',body:`Dear {name},\n\nThank you for taking the time to speak with me. As promised, here is a formal introduction of Fit-Out IQ to {company}, with a short presentation attached.\n\nFit-Out IQ is a production platform for joinery and fit-out companies, built from ten years in UAE factories and on sites. It follows every item on a project from the cutting list to installed and snag-free, with the supervisor, site engineer, procurement, timekeeper and manager all working on one record.\n\nYour CNC and nesting software does the cutting well and stays exactly where it is. Fit-Out IQ picks the item up from there: production tracking with readiness checks, the site engineer on a tablet (measurement against the drawing, drawings marked up and sent back, delivery and installation with photos, snags, returns), attendance and hours per project, a procurement inbox filled by the factory and the site, and a client progress report in one tap.\n\nTwo demo projects are loaded at https://fit-out-iq.com so you can see a finished job before entering your own.\n\nSetup and training are free. I am ready to come to {company}, enter your first live project with the team and train the supervisor, site engineer, procurement and timekeeper on it — half a day on site, nothing to install, nothing to change in the factory. The improvements in material waste, rework and time lost on site start with that first project.\n\nWhich week in September or October would suit you for me to come?\n\nKind regards,\n{me}\nFounder, Fit-Out IQ\nfitoutiq@gmail.com · https://fit-out-iq.com`},
   {name:'Intro after meeting',subject:'Fit-Out IQ — following our conversation',body:`Hi {name},\n\nGood to meet you at {source}. As promised, a quick note on Fit-Out IQ: it follows every joinery item from cutting list to installed and snag-free — supervisor, site engineer, procurement and manager on one record.\n\nTwo demo projects are ready on the platform so you can see a finished job before adding your own. If you have 20 minutes this week I can walk {company} through it.\n\nBest regards,\n{me}`},
   {name:'After demo',subject:'Next step for {company}',body:`Hi {name},\n\nThanks for the time today. To recap what we covered:\n{notes}\n\nA 30-day trial is open for {company} — sign up at fit-out-iq.com, and I will set up your first project with you.\n\nBest regards,\n{me}`},
+  {name:'Recap from the story',subject:'Fit-Out IQ for {company} — what I understood',body:`Dear {full_name},\n\nThank you for your time. Here is what I understood about {company}:\n{story}\n\nWhere we are so far:\n{timeline}\n\nProposed next step: I will follow up with you on {next_action}.\n\nIf anything above is not right, please correct me — that is exactly what I need to know.\n\nBest regards,\n{me}\nFit-Out IQ`},
   {name:'Trial ending',subject:'{company} — your Fit-Out IQ trial ends soon',body:`Hi {name},\n\nYour trial ends in a few days. If it has been useful, the Production plan keeps everything as it is for {company}. If something is missing, tell me — that is how the platform gets built.\n\nBest regards,\n{me}`},
   {name:'New feature',subject:'New on Fit-Out IQ: {feature}',body:`Hi {name},\n\nA short update. This week we added {feature}.\n\nIt is live now for {company} — no action needed. Reply if you want a two-minute walkthrough.\n\nBest regards,\n{me}`},
   {name:'Win-back',subject:'Still here if {company} needs it',body:`Hi {name},\n\nWe spoke a while ago about Fit-Out IQ. A lot has changed since — site engineers now work from a tablet on site, and managers print a client report in one tap.\n\nIf timing is better now, I am happy to show you in 20 minutes.\n\nBest regards,\n{me}`},
@@ -6849,6 +6850,40 @@ function ownerCompanies(){
     const plan=mgr&&mgr.plan||'trial'; const trialEnds=mgr&&mgr.trial_ends;
     return {id:c.id,name:c.name,created_at:c.created_at,people,mgr,jobs:jobs.length,last,plan,trialEnds,status:plan==='blocked'?'blocked':plan==='trial'?(trialEnds&&new Date(trialEnds)<new Date()?'lapsed':'trial'):'subscribed',email:mgr&&mgr.email,phone:mgr&&mgr.phone,contact:mgr&&mgr.full_name,marketing_ok:!!(mgr&&mgr.marketing_ok)};});
 }
+// Everyone Compose can write to: every subscriber company and every prospect.
+function ownerTargets(){
+  return [...ownerCompanies().map(c=>({k:'co:'+c.id,label:c.name+' (subscriber · '+c.status+')',name:c.contact||'',full_name:c.contact||'',company:c.name,email:c.email||'',phone:c.phone||'',source:'',notes:'',status:c.status||'',next_action:'',timeline:[],ok:c.marketing_ok})),
+    ...(store.prospects||[]).map(p=>({k:'pr:'+p.id,label:p.company+' (prospect · '+p.status+')',name:p.contact_name||'',full_name:p.contact_name||'',company:p.company||'',email:p.email||'',phone:p.phone||'',source:p.source||'',notes:p.notes||'',status:p.status||'',next_action:p.next_action||'',timeline:Array.isArray(p.timeline)?p.timeline:[],ok:true}))];
+}
+// Everything a template can pull from the selected contact. {story} is the notes as
+// bullet points, {timeline} every dated entry, {next_action} the follow-up date.
+function ownerCtx(tg,cmp){
+  if(!tg)return {};
+  const tl=(tg.timeline||[]).slice().sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  const last=tl[tl.length-1];
+  const day=x=>x?fmtDT(x).replace(/, \d\d:\d\d$/,''):'';
+  const story=String(tg.notes||'').trim();
+  const lines=[];story.split(/\n+/).map(s=>s.trim()).filter(Boolean).forEach(s=>{(s.length>140?(s.match(/[^.!?]+[.!?]*/g)||[s]):[s]).forEach(x=>{x=x.trim().replace(/^[-•*]\s*/,'');if(x)lines.push('• '+x);});});
+  return {name:(tg.name||'').split(' ')[0]||'there',full_name:tg.full_name||tg.name||'',company:tg.company||'',source:tg.source||'our conversation',
+    notes:story,story:lines.join('\n'),timeline:tl.map(e=>'• '+day(e.at)+' — '+e.text).join('\n'),last_event:last?last.text:'',last_event_date:last?day(last.at):'',
+    next_action:tg.next_action?day(tg.next_action):'',status:tg.status||'',phone:tg.phone||'',email:tg.email||'',today:day(new Date().toISOString()),
+    feature:(cmp&&cmp.feature)||'',me:(store.account&&store.account.name)||''};
+}
+// Writes a complete email from the prospect's story, timeline and next action — no
+// template needed. The owner edits it, then opens it in the mail app.
+function ownerStoryEmail(tg,cmp){
+  const c=ownerCtx(tg,cmp); const parts=[];
+  parts.push('Dear '+(c.full_name||c.name)+',');
+  parts.push('Thank you for your time. I wanted to write down what I understood from our conversation, so we are working from the same page.');
+  if(c.story)parts.push('What I understood about '+c.company+':\n'+c.story);
+  const where=[];if(tg.source)where.push('• How we met: '+tg.source);if(c.timeline)where.push(c.timeline);
+  if(where.length)parts.push('Where we are so far:\n'+where.join('\n'));
+  parts.push('What Fit-Out IQ would do for '+c.company+':\nIt follows every joinery item from the cutting list to installed and snag-free, with the supervisor, site engineer, procurement, timekeeper and manager all working on one record. Your CNC and nesting software stays exactly where it is — Fit-Out IQ picks the item up from there.');
+  parts.push('Proposed next step:\n'+(c.next_action?'I will follow up with you on '+c.next_action+'.':'A 30-day free trial is open for '+c.company+' at fit-out-iq.com — I will set up your first project with you on site and train the team.'));
+  parts.push('If anything above is not right, please correct me — that is exactly what I need to know.');
+  parts.push('Best regards,\n'+c.me+'\nFit-Out IQ');
+  return {subject:'Fit-Out IQ for '+c.company+' — what I understood from our conversation',body:parts.join('\n\n')};
+}
 function ownerFill(t,ctx){return String(t||'').replace(/\{(\w+)\}/g,(m,k)=>ctx[k]!=null?ctx[k]:m);}
 function ownerCSV(rows,cols){const esc=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const csv=[cols.join(',')].concat(rows.map(r=>cols.map(c=>esc(r[c])).join(','))).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='fit-out-iq-'+(store.ownerTab||'list')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
 function ownerOverlayHTML(){
@@ -6889,17 +6924,18 @@ function ownerOverlayHTML(){
       ${e?`<div class="card" style="border-color:var(--amber);margin-top:12px"><div class="cardHead"><span>${e.id&&!String(e.id).startsWith('default-')?'EDIT':'NEW'} TEMPLATE</span></div><div style="padding:12px;display:grid;gap:8px"><input class="inp" id="tp_name" placeholder="Name" value="${(e.name||'').replace(/"/g,'&quot;')}"><input class="inp" id="tp_subject" placeholder="Subject" value="${(e.subject||'').replace(/"/g,'&quot;')}"><textarea class="inp" id="tp_body" rows="10">${e.body||''}</textarea><div style="display:flex;gap:6px"><button class="pbtn" id="ownerSaveT" style="flex:1;padding:10px">SAVE TEMPLATE</button><button class="gbtn" id="ownerCancelT">✕</button></div></div></div>`:''}`;
   }else{
     const cmp=store.composeDraft||{};
-    const targets=[...ownerCompanies().map(c=>({k:'co:'+c.id,label:c.name+' (subscriber · '+c.status+')',name:c.contact||'',company:c.name,email:c.email||'',source:'',notes:'',ok:c.marketing_ok})),...(store.prospects||[]).map(p=>({k:'pr:'+p.id,label:p.company+' (prospect · '+p.status+')',name:p.contact_name||'',company:p.company||'',email:p.email||'',source:p.source||'',notes:p.notes||'',ok:true}))];
+    const targets=ownerTargets();
     const tg=targets.find(t=>t.k===cmp.target)||targets[0]; const tp=(store.ownerTemplates||[]).find(t=>String(t.id)===String(cmp.template))||(store.ownerTemplates||[])[0];
-    const ctx=tg?{name:(tg.name||'').split(' ')[0],company:tg.company,source:tg.source||'our conversation',notes:tg.notes,feature:cmp.feature||'',me:store.account.name||''}:{};
+    const ctx=ownerCtx(tg,cmp);
     const subject=cmp.subject!=null?cmp.subject:ownerFill(tp&&tp.subject,ctx), bodyTxt=cmp.body!=null?cmp.body:ownerFill(tp&&tp.body,ctx);
     body=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-bottom:10px">
       <label class="field"><span class="fl">TO</span><select class="fi" id="cm_target" style="width:100%">${targets.map(t=>`<option value="${t.k}" ${tg&&t.k===tg.k?'selected':''}>${t.label}</option>`).join('')}</select></label>
       <label class="field"><span class="fl">TEMPLATE</span><select class="fi" id="cm_template" style="width:100%">${(store.ownerTemplates||[]).map(t=>`<option value="${t.id}" ${tp&&String(t.id)===String(tp.id)?'selected':''}>${t.name}</option>`).join('')}</select></label>
       <label class="field"><span class="fl">{feature} (if the template uses it)</span><input class="fi" id="cm_feature" style="width:100%;font-size:12px" value="${(cmp.feature||'').replace(/"/g,'&quot;')}"></label></div>
       ${tg&&!tg.ok?'<div class="hint" style="color:var(--amber);padding:0 0 8px">This contact did not tick "product updates" at sign-up — one-to-one replies are fine, bulk marketing is not.</div>':''}
+      <div class="hint" style="padding:0 0 8px">Placeholders a template can use: {name} {full_name} {company} {source} {story} {notes} {timeline} {last_event} {next_action} {phone} {feature} {today} {me}. Or press <b>WRITE FROM THE STORY</b> to build the whole email from what you saved about this prospect.</div>
       <input class="inp" id="cm_subject" value="${(subject||'').replace(/"/g,'&quot;')}" style="margin-bottom:6px"><textarea class="inp" id="cm_body" rows="12">${bodyTxt||''}</textarea>
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><a class="pbtn" id="cm_open" href="#" style="text-decoration:none;padding:11px 14px">✉ OPEN IN MAIL APP</a><button class="gbtn" id="cm_copy">COPY TEXT</button><button class="gbtn" id="cm_log">LOG "SENT" ON TIMELINE</button><button class="gbtn" id="cm_reset">↺ RESET TO TEMPLATE</button></div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="pbtn" id="cm_story" style="padding:11px 14px;border-color:var(--amber);color:var(--amber)">✨ WRITE FROM THE STORY</button><a class="pbtn" id="cm_open" href="#" style="text-decoration:none;padding:11px 14px">✉ OPEN IN MAIL APP</a><button class="gbtn" id="cm_copy">COPY TEXT</button><button class="gbtn" id="cm_log">LOG "SENT" ON TIMELINE</button><button class="gbtn" id="cm_reset">↺ RESET TO TEMPLATE</button></div>
       <div class="hint" style="padding:8px 0 0">Sending from inside the platform (bulk release notes, automatic trial reminders) is the next step — it needs a small server function. Everything written here is kept.</div>`;
   }
   return `<div class="cmFace" style="align-items:flex-start;overflow:auto;padding:24px 12px"><div class="cmFaceBox" style="width:min(1100px,100%)">
@@ -6978,6 +7014,7 @@ function ownerWire(){
   const cc=document.getElementById('cm_copy');if(cc)cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(subj.value+'\n\n'+bd.value);cc.textContent='COPIED';};
   const lg=document.getElementById('cm_log');if(lg)lg.onclick=async()=>{const t=(store.composeDraft||{}).target||(tgt&&tgt.value)||'';if(!t.startsWith('pr:')){alert('Timeline logging is for prospects; subscriber activity is tracked by the platform.');return;}const p=(store.prospects||[]).find(x=>'pr:'+x.id===t);if(!p)return;const tl=(Array.isArray(p.timeline)?p.timeline:[]).concat([{at:new Date().toISOString(),text:'Sent: '+subj.value}]);try{await sb.from('prospects').update({timeline:tl,updated_at:new Date().toISOString()}).eq('id',p.id);p.timeline=tl;lg.textContent='LOGGED';}catch(e){alert('Could not log: '+(e.message||''));}};
   const rs=document.getElementById('cm_reset');if(rs)rs.onclick=()=>{store.composeDraft={target:(tgt||{}).value,template:(tpl||{}).value,feature:(ft||{}).value};render();};
+  const stb=document.getElementById('cm_story');if(stb)stb.onclick=()=>{const t=(tgt||{}).value||'';const tg=ownerTargets().find(x=>x.k===t);if(!tg)return;const e=ownerStoryEmail(tg,{feature:(ft||{}).value});store.composeDraft={target:t,template:(tpl||{}).value,feature:(ft||{}).value,subject:e.subject,body:e.body};render();};
 }
 function accountOverlayHTML(){
   if(!store.showAccountPanel)return ownerOverlayHTML()+workerRecordHTML();
@@ -7426,32 +7463,31 @@ function manpowerRows(){
     return m==null?'':(m<1000?m+'m':(m/1000).toFixed(1)+'km');};
   const hrs=r=>{if(!r.sign_in_at)return 0;const end=r.sign_out_at?new Date(r.sign_out_at):new Date();
     return Math.max(0,(end-new Date(r.sign_in_at))/36e5);};
-  // Show the date on a sign-out when it lands on a different day from the
-  // sign-in, so a shift running past midnight (or over several days) reads
-  // correctly instead of looking like a short one.
-  const fmtIn=r=>r.sign_in_at?new Date(r.sign_in_at).toLocaleDateString()+' '+new Date(r.sign_in_at).toLocaleTimeString():'';
+  // Sign-in and sign-out both carry the full date and time ("11 Sep 2026, 07:02"),
+  // so a shift that runs past midnight reads correctly and a printed sheet never
+  // leaves the reader guessing which day an out-time belongs to.
+  const fmtIn=r=>r.sign_in_at?fmtDT(r.sign_in_at):'';
   const fmtOut=r=>{
     if(!r.sign_out_at)return 'still on site';
     const i=new Date(r.sign_in_at), o=new Date(r.sign_out_at);
-    const sameDay=i.toDateString()===o.toDateString();
-    return (sameDay?'':o.toLocaleDateString()+' ')+o.toLocaleTimeString()+(sameDay?'':' (next day)');
+    return fmtDT(r.sign_out_at)+(i.toDateString()===o.toDateString()?'':' (next day)');
   };
   const rows=[];
-  att.filter(inScope).forEach(r=>rows.push({
+  att.filter(inScope).forEach(r=>rows.push({_key:'s:'+(r.user_id||r.user_name), _in:r.sign_in_at||'',
     Name:r.user_name||'', Type:'Staff', Project:r.project_name||'', Date:r.work_date||'',
     'Sign in':fmtIn(r),
     'Sign out':fmtOut(r),
-    Hours:+hrs(r).toFixed(2),
+    Hours:+hrs(r).toFixed(2), 'Normal hours':0, 'Overtime hours':0,
     'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
     'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
     Method:r.sign_in_method==='biometric'?'Fingerprint':'Manual',
     Where:r.work_location==='factory'?'Factory':'Site',
     'Recorded by':'self'}));
-  crewAtt.filter(inScope).forEach(r=>rows.push({
+  crewAtt.filter(inScope).forEach(r=>rows.push({_key:'c:'+(r.crew_member_id||r.worker_name), _in:r.sign_in_at||'',
     Name:r.worker_name||'', Type:'Crew'+(r.trade?' ('+r.trade+')':''), Project:r.project_name||'', Date:r.work_date||'',
     'Sign in':fmtIn(r),
     'Sign out':r.sign_in_at?fmtOut(r):'',
-    Hours:+crewHours(r).toFixed(2),
+    Hours:+crewHours(r).toFixed(2), 'Normal hours':0, 'Overtime hours':0,
     'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
     'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
     Method:r.sign_out_manual?'Recorded on site (out time adjusted)':'Recorded on site',
@@ -7459,6 +7495,18 @@ function manpowerRows(){
     'Recorded by':r.recorded_by_name||'',
     'Adjusted by':r.sign_out_manual?(r.adjusted_by||'yes'):''}));
   rows.sort((a,b)=>(b.Date||'').localeCompare(a.Date||'')||String(a.Name).localeCompare(String(b.Name)));
+  // Split every worker's day into NORMAL and OVERTIME: the first N hours of a working
+  // day (company setting, default 8) are normal, everything beyond is overtime; on a
+  // rest day every hour is overtime. Allocated in sign-in order when someone has
+  // more than one record on the same day.
+  const thr=+store.otThreshold||8; const byKD={};
+  rows.forEach(r=>{const k=r._key+'|'+r.Date;(byKD[k]=byKD[k]||[]).push(r);});
+  Object.values(byKD).forEach(list=>{
+    list.sort((a,b)=>String(a._in).localeCompare(String(b._in)));
+    const off=typeof isOffDay==='function'&&isOffDay(list[0].Date); let left=thr;
+    list.forEach(r=>{const h=+r.Hours||0;const n=off?0:Math.min(h,Math.max(0,left));left-=n;r['Normal hours']=+n.toFixed(2);r['Overtime hours']=+Math.max(0,h-n).toFixed(2);});
+  });
+  rows.forEach(r=>{delete r._key;delete r._in;});
   return rows;
 }
 function manpowerProjectLabel(){
@@ -7495,34 +7543,72 @@ function exportManpowerExcel(){
   const safe=manpowerProjectLabel().replace(/[^a-z0-9]+/gi,'-').toLowerCase();
   XLSX.writeFile(wb, `attendance-${safe}-${new Date().toISOString().slice(0,10)}.xlsx`);
 }
+// "11 Sep 2026, 07:02" - unambiguous whatever the phone's locale is.
+function fmtDT(d){const x=new Date(d);if(isNaN(x))return '';const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return x.getDate()+' '+M[x.getMonth()]+' '+x.getFullYear()+', '+String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0');}
+function fmtDayHeading(ymd){const x=new Date(ymd+'T12:00:00');if(isNaN(x))return ymd||'';const D=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return D[x.getDay()]+' '+x.getDate()+' '+M[x.getMonth()]+' '+x.getFullYear();}
+// The printed attendance sheet. Pure: takes the rows from manpowerRows() plus the
+// header details and returns a complete HTML document, so the same template can be
+// previewed with sample data.
+function manpowerPrintHTML(p){
+  const rows=p.rows||[];
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const cols=[['Name',r=>r.Name],['Type',r=>r.Type],['Project',r=>r.Project||'—'],['Where',r=>r.Where],['Sign in',r=>r['Sign in']],['Sign out',r=>r['Sign out']],['Actual h',r=>(+r.Hours||0).toFixed(2)],['Normal h',r=>(+r['Normal hours']||0).toFixed(2)],['Overtime h',r=>(+r['Overtime hours']||0).toFixed(2)],['In: distance from site',r=>r['In: distance from site']],['Recorded by',r=>r['Recorded by']+(r['Adjusted by']?' · out time adjusted':'')]];
+  const staffH=rows.filter(r=>r.Type==='Staff').reduce((a,r)=>a+(+r.Hours||0),0);
+  const crewH=rows.filter(r=>r.Type!=='Staff').reduce((a,r)=>a+(+r.Hours||0),0);
+  const normH=rows.reduce((a,r)=>a+(+r['Normal hours']||0),0), otH=rows.reduce((a,r)=>a+(+r['Overtime hours']||0),0);
+  const open=rows.filter(r=>r['Sign out']==='still on site').length;
+  const NUM=['Actual h','Normal h','Overtime h'];
+  // group by day (rows arrive newest day first)
+  const days=[];rows.forEach(r=>{let g=days.find(d=>d.date===r.Date);if(!g){g={date:r.Date,rows:[]};days.push(g);}g.rows.push(r);});
+  const projects=[...new Set(rows.map(r=>r.Project).filter(Boolean))];
+  const ts=p.ts||[];
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Attendance - ${esc(p.projectLabel)}</title><style>
+    @page{size:A4 landscape;margin:12mm}
+    body{font-family:Arial,Helvetica,sans-serif;padding:20px 24px;color:#222;font-size:11px}
+    h1{font-size:18px;margin:0 0 2px;letter-spacing:.5px} h2{font-size:13px;margin:22px 0 6px}
+    .sub{color:#666;font-size:11px;margin-bottom:12px;line-height:1.5}
+    .kpis{display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap}
+    .kpi{border:1px solid #ddd;border-radius:4px;padding:6px 12px;min-width:110px} .kpi b{display:block;font-size:15px} .kpi span{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px}
+    table{border-collapse:collapse;width:100%;font-size:10.5px;page-break-inside:auto}
+    th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}
+    th{background:#eaeaea;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+    td.r,th.r{text-align:right} tr{page-break-inside:avoid}
+    tr.day td{background:#e6edf5;font-weight:700;font-size:11px;border-top:2px solid #9fb3cc}
+    tr.daytot td{background:#f6f8fb;font-weight:700}
+    .open{color:#b26a00;font-weight:700} .crew td:first-child{padding-left:14px} td.ot{color:#b26a00;font-weight:700} th.oth{background:#fff1dc}
+    .tot{margin-top:12px;font-size:12px} .tot strong{font-size:14px}
+    .sign{margin-top:34px;display:flex;gap:40px;font-size:11px;color:#444}
+    .sign div{border-top:1px solid #888;padding-top:5px;min-width:190px} .sign small{display:block;color:#888;margin-top:14px}
+    .foot{margin-top:18px;font-size:9.5px;color:#888}
+    @media print{.noprint{display:none}}
+  </style></head><body>
+    <h1>ATTENDANCE &amp; MANPOWER — ${esc(p.projectLabel)}</h1>
+    <div class="sub">${esc(p.company)}${projects.length>1?' · projects on this sheet: '+esc(projects.join(', ')):''}<br>Generated ${esc(p.generated)} by ${esc(p.by)}</div>
+    <div class="kpis"><div class="kpi"><b>${rows.length}</b><span>records</span></div><div class="kpi"><b>${days.length}</b><span>days</span></div><div class="kpi"><b>${staffH.toFixed(1)} h</b><span>staff hours</span></div><div class="kpi"><b>${crewH.toFixed(1)} h</b><span>crew hours</span></div><div class="kpi"><b>${normH.toFixed(1)} h</b><span>normal hours</span></div><div class="kpi"><b class="open">${otH.toFixed(1)} h</b><span>overtime hours</span></div><div class="kpi"><b>${(staffH+crewH).toFixed(1)} h</b><span>actual total</span></div>${open?`<div class="kpi"><b class="open">${open}</b><span>still on site</span></div>`:''}</div>
+    <table><thead><tr>${cols.map(c=>`<th class="${NUM.indexOf(c[0])>-1?'r':''}${c[0]==='Overtime h'?' oth':''}">${c[0]}</th>`).join('')}</tr></thead><tbody>
+      ${days.map(d=>{const dh=d.rows.reduce((a,r)=>a+(+r.Hours||0),0),dn=d.rows.reduce((a,r)=>a+(+r['Normal hours']||0),0),dot=d.rows.reduce((a,r)=>a+(+r['Overtime hours']||0),0);return `<tr class="day"><td colspan="${cols.length}">${fmtDayHeading(d.date)} &nbsp;·&nbsp; ${d.rows.length} record${d.rows.length===1?'':'s'} &nbsp;·&nbsp; actual ${dh.toFixed(1)} h = normal ${dn.toFixed(1)} h + overtime ${dot.toFixed(1)} h</td></tr>`+
+        d.rows.map(r=>`<tr class="${r.Type==='Staff'?'':'crew'}">${cols.map(c=>{const v=c[1](r);const isOt=c[0]==='Overtime h'&&+v>0;return `<td class="${NUM.indexOf(c[0])>-1?'r':''}${v==='still on site'?' open':''}${isOt?' ot':''}">${isOt?esc(v):(c[0]==='Overtime h'?'—':esc(v))}</td>`;}).join('')}</tr>`).join('');}).join('')}
+    </tbody></table>
+    <div class="tot">Staff hours: ${staffH.toFixed(2)} &nbsp;·&nbsp; Crew hours: ${crewH.toFixed(2)} &nbsp;·&nbsp; Normal: <strong>${normH.toFixed(2)} h</strong> &nbsp;·&nbsp; Overtime: <strong class="open">${otH.toFixed(2)} h</strong> &nbsp;·&nbsp; <strong>Actual total: ${(staffH+crewH).toFixed(2)} hours</strong>${open?` &nbsp;·&nbsp; <span class="open">${open} still on site — hours counted up to the time of printing</span>`:''}</div>
+    ${ts.length?`<h2>TIMESHEET SUMMARY — ${esc(p.tsLabel||'')}</h2>
+    <table><thead><tr><th>Worker</th><th>Type</th><th>Projects (hours)</th><th class="r">Days</th><th class="r">Normal h</th><th class="r">Rest-day h</th><th class="r">Overtime h</th><th class="r">Total h</th></tr></thead><tbody>
+      ${ts.map(w=>`<tr><td>${esc(w.name)}</td><td>${esc(w.type)}</td><td>${esc(Object.entries(w.projects||{}).map(([n,h])=>n+' '+(+h).toFixed(1)+'h').join('; '))}</td><td class="r">${w.days||0}</td><td class="r">${(+w.normal||0).toFixed(1)}</td><td class="r">${(+(w.offHrs||0)).toFixed(1)}</td><td class="r">${(+w.ot||0).toFixed(1)}</td><td class="r"><b>${(+w.total||0).toFixed(1)}</b></td></tr>`).join('')}
+      <tr class="daytot"><td colspan="3">TOTAL</td><td class="r">${ts.reduce((a,w)=>a+(+w.days||0),0)}</td><td class="r">${ts.reduce((a,w)=>a+(+w.normal||0),0).toFixed(1)}</td><td class="r">${ts.reduce((a,w)=>a+(+(w.offHrs||0)),0).toFixed(1)}</td><td class="r">${ts.reduce((a,w)=>a+(+w.ot||0),0).toFixed(1)}</td><td class="r"><b>${ts.reduce((a,w)=>a+(+w.total||0),0).toFixed(1)}</b></td></tr>
+    </tbody></table>`:''}
+    <div class="sign"><div>Prepared by<small>Name / signature / date</small></div><div>Checked by (site engineer)<small>Name / signature / date</small></div><div>Approved by (manager)<small>Name / signature / date</small></div></div>
+    <div class="foot">${esc(p.rule||'')} Staff sign themselves in and out on their own phone (fingerprint / location where recorded). Crew are marked in and out by the site engineer; "out time adjusted" means the site engineer corrected an out-time afterwards. Distances are measured from the project's saved site location.</div>
+    <button class="noprint" onclick="window.print()" style="margin-top:20px;padding:8px 16px">Print</button>
+  </body></html>`;
+}
+// END manpowerPrintHTML
 function printManpower(){
   const rows=manpowerRows();
   if(!rows.length){alert('No attendance records to print yet.');return;}
-  const staffH=rows.filter(r=>r.Type==='Staff').reduce((a,r)=>a+r.Hours,0);
-  const crewH=rows.filter(r=>r.Type!=='Staff').reduce((a,r)=>a+r.Hours,0);
   const w=window.open('','_blank');
   if(!w){alert('Please allow pop-ups to print.');return;}
-  const cols=['Name','Type','Date','Sign in','Sign out','Hours','In: distance from site','Recorded by'];
-  w.document.write(`<html><head><title>Attendance - ${manpowerProjectLabel()}</title><style>
-    body{font-family:Arial,sans-serif;padding:28px;color:#222}
-    h1{font-size:18px;margin:0 0 4px} .sub{color:#666;font-size:12px;margin-bottom:16px}
-    table{border-collapse:collapse;width:100%;font-size:11px}
-    th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}
-    th{background:#f2f2f2} tr:nth-child(even) td{background:#fafafa}
-    .tot{margin-top:16px;font-size:13px} .tot strong{font-size:15px}
-    .sign{margin-top:38px;display:flex;gap:60px;font-size:12px;color:#444}
-    .sign div{border-top:1px solid #888;padding-top:5px;min-width:200px}
-    @media print{.noprint{display:none}}
-  </style></head><body>
-    <h1>Attendance &amp; Manpower — ${manpowerProjectLabel()}</h1>
-    <div class="sub">${store.account.company} · generated ${new Date().toLocaleString()} by ${store.account.name||store.account.email}</div>
-    <table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
-      ${rows.map(r=>`<tr>${cols.map(c=>`<td>${r[c]===undefined?'':r[c]}</td>`).join('')}</tr>`).join('')}
-    </tbody></table>
-    <div class="tot">Staff hours: ${staffH.toFixed(2)} &nbsp;·&nbsp; Crew hours: ${crewH.toFixed(2)} &nbsp;·&nbsp; <strong>Total: ${(staffH+crewH).toFixed(2)} hours</strong></div>
-    <div class="sign"><div>Prepared by</div><div>Approved by</div></div>
-    <button class="noprint" onclick="window.print()" style="margin-top:24px;padding:8px 16px">Print</button>
-  </body></html>`);
+  const period=store.tsPeriod||'today';
+  const DN=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];const restNames=(store.offDays||[5]).map(i=>DN[i]).filter(Boolean).join(', ')||'none';
+  w.document.write(manpowerPrintHTML({rows,rule:'Normal hours = the first '+(+store.otThreshold||8)+' h of a working day; anything beyond that, and every hour on a rest day ('+restNames+'), is overtime.',projectLabel:manpowerProjectLabel(),company:store.account.company||'',by:store.account.name||store.account.email||'',generated:new Date().toLocaleString(),ts:timesheetData(),tsLabel:period==='today'?'Today':period==='week'?'Last 7 days':'This month'}));
   w.document.close();
 }
 function timekeeperHTML(){
