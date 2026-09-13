@@ -343,8 +343,8 @@
 // server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
 // request and compares it to the one we loaded with. Any redeploy changes the
 // fingerprint, so it works whether or not anyone remembers to update anything.
-const APP_VERSION='1.5.0';   // display only - not what triggers the banner
-const APP_BUILD='20260913.cb236b';  // stamped at build time so the live version is verifiable
+const APP_VERSION='1.5.1';   // display only - not what triggers the banner
+const APP_BUILD='20260913.d7c0da';  // stamped at build time so the live version is verifiable
 let _appFingerprint=null;
 function fingerprintOf(res){
   return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
@@ -7353,31 +7353,34 @@ function companySettingsHTML(){
   const rateRow=(kind,id,name,sub,rate,basis)=>`<tr><td><strong>${name}</strong><div class="hint" style="padding:0">${sub}</div></td><td style="width:120px"><input class="fi" data-rate="${kind}:${id}" type="number" min="0" step="0.5" value="${rate!=null&&rate!==''?rate:''}" placeholder="0" style="width:100%;padding:5px 8px"></td><td style="width:120px">${basisSel(kind,id,basis)}</td></tr>`;
   const roleName=t=>({manager:'Manager',contractor:'Supervisor',site_engineer:'Site engineer',timekeeper:'Timekeeper',procurement:'Procurement'}[t]||t||'Staff');
   return `<div class="cmFace" style="align-items:flex-start;overflow:auto;padding:24px 12px"><div class="cmFaceBox" style="width:min(1000px,100%)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><div class="cmFaceT" style="margin:0">⚙ LABOUR SETTINGS</div><div class="hint" style="padding:0">Everything the timesheet, the pay and the attendance sheet depend on — in one place, applied to every project.</div></div><button class="zadd" id="lsClose" style="font-size:11px;padding:6px 12px">✕ CLOSE</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><div class="cmFaceT" style="margin:0">Labour settings</div><div class="hint" style="padding:0">Working day, rates and projects — set once, used by every timesheet and pay sheet.</div></div><button class="zadd" id="lsClose" style="font-size:11px;padding:6px 12px">✕ CLOSE</button></div>
 
-    <div class="card"><div class="cardHead"><span>1 · WORKING DAY</span><small style="color:var(--mut);font-weight:400">applies to every worker, every site, every month</small></div>
-    <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end">
-      <label class="field"><span class="fl">STANDARD DAY (HOURS)</span><input class="fi" id="cs_std" type="number" min="1" max="16" step="0.5" value="${+store.otThreshold||8}" style="width:100%"></label>
-      <label class="field"><span class="fl">UNPAID BREAK PER DAY (MINUTES)</span><input class="fi" id="cs_break" type="number" min="0" max="240" step="5" value="${+store.breakMinutes||0}" style="width:100%"><span class="hint" style="padding:4px 0 0">Deducted once per worker per day before normal and overtime are counted</span></label>
-      <div class="field"><span class="fl">REST DAYS (all hours = overtime)</span><div style="display:flex;gap:6px;flex-wrap:wrap">${WEEKDAY_NAMES.map((d,i)=>`<label class="chip" style="cursor:pointer;padding:5px 8px"><input type="checkbox" data-restday="${i}" ${(store.offDays||[5]).indexOf(i)>-1?'checked':''}> ${d.slice(0,3)}</label>`).join('')}</div></div>
-      <label class="field"><span class="fl">OVERTIME PAID AS</span><select class="fi" id="cs_mode" style="width:100%"><option value="multiplier" ${mode==='multiplier'?'selected':''}>each person's hourly rate × multiplier</option><option value="flat" ${mode==='flat'?'selected':''}>one flat amount per OT hour (everyone)</option></select></label>
-      <label class="field"><span class="fl">MULTIPLIER</span><input class="fi" id="cs_mult" type="number" step="0.05" min="1" value="${store.otMultiplier||1.25}" style="width:100%"></label>
-      <label class="field"><span class="fl">FLAT PER OT HOUR (${cur})</span><input class="fi" id="cs_flat" type="number" step="0.5" min="0" value="${store.otFlat||0}" style="width:100%"></label>
-      <button class="pbtn" id="cs_save" style="padding:11px">SAVE WORKING DAY</button>
-      ${store.coSetMsg?`<div class="hint" style="grid-column:1/-1;color:${/Could not/.test(store.coSetMsg)?'var(--red)':'var(--green)'}">${store.coSetMsg}</div>`:''}
+    <div class="card"><div class="cardHead" style="letter-spacing:.5px;text-transform:none;font-size:12px"><span>Working day</span><small style="color:var(--mut);font-weight:400">the rule every timesheet follows</small></div>
+    <div style="padding:14px 16px 10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;align-items:start">
+        <label class="field"><span class="fl" style="text-transform:none;letter-spacing:.3px;font-size:11px">Hours in a normal day</span><input class="fi" id="cs_std" type="number" min="1" max="16" step="0.5" value="${+store.otThreshold||8}" style="width:100%"><span class="hint" style="padding:4px 0 0">Time beyond this counts as overtime</span></label>
+        <label class="field"><span class="fl" style="text-transform:none;letter-spacing:.3px;font-size:11px">Break, in minutes</span><input class="fi" id="cs_break" type="number" min="0" max="240" step="5" value="${+store.breakMinutes||0}" style="width:100%"><span class="hint" style="padding:4px 0 0">Taken off once a day, not paid</span></label>
+        <div class="field"><span class="fl" style="text-transform:none;letter-spacing:.3px;font-size:11px">Rest days</span><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${WEEKDAY_NAMES.map((d,i)=>`<label class="chip" style="cursor:pointer;padding:5px 8px"><input type="checkbox" data-restday="${i}" ${(store.offDays||[5]).indexOf(i)>-1?'checked':''}> ${d.slice(0,3)}</label>`).join('')}</div><span class="hint" style="padding:4px 0 0">Work on these days is paid as overtime</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;align-items:start;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+        <label class="field"><span class="fl" style="text-transform:none;letter-spacing:.3px;font-size:11px">An overtime hour is paid as</span><select class="fi" id="cs_mode" style="width:100%"><option value="multiplier" ${mode==='multiplier'?'selected':''}>the person's rate × a factor</option><option value="flat" ${mode==='flat'?'selected':''}>a fixed amount per hour</option></select></label>
+        <label class="field" id="cs_multWrap" style="${mode==='multiplier'?'':'display:none'}"><span class="fl" style="text-transform:none;letter-spacing:.3px;font-size:11px">Factor</span><input class="fi" id="cs_mult" type="number" step="0.05" min="1" value="${store.otMultiplier||1.25}" style="width:100%"><span class="hint" style="padding:4px 0 0">1.25 = time and a quarter · 1.5 = time and a half</span></label>
+        <label class="field" id="cs_flatWrap" style="${mode==='flat'?'':'display:none'}"><span class="fl" style="text-transform:none;letter-spacing:.3px;font-size:11px">Amount per hour (${cur})</span><input class="fi" id="cs_flat" type="number" step="0.5" min="0" value="${store.otFlat||0}" style="width:100%"><span class="hint" style="padding:4px 0 0">Same for everyone</span></label>
+      </div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:14px"><span class="hint" style="padding:0;color:${/Could not/.test(store.coSetMsg||'')?'var(--red)':'var(--green)'}">${store.coSetMsg||''}</span><button class="pbtn" id="cs_save" style="padding:10px 18px">Save</button></div>
     </div></div>
 
-    <div class="card"><div class="cardHead"><span>2 · PEOPLE &amp; RATES</span><small style="color:var(--mut);font-weight:400">each person has their own rate — normal hours × rate, overtime by the rule above</small></div>
+    <div class="card"><div class="cardHead" style="letter-spacing:.5px;text-transform:none;font-size:12px"><span>People and rates</span><small style="color:var(--mut);font-weight:400">each person has their own rate; overtime follows the rule above</small></div>
     <div class="scroll" style="max-height:340px"><table><thead><tr><th>Person</th><th>Rate (${cur})</th><th>Basis</th></tr></thead><tbody>
-      ${staff.length?`<tr><td colspan="3" style="color:var(--amber);font-size:10px;letter-spacing:1px">STAFF (sign in on their own phone)</td></tr>`:''}
+      ${staff.length?`<tr><td colspan="3" style="color:var(--amber);font-size:10px;letter-spacing:1px">STAFF</td></tr>`:''}
       ${staff.map(s=>rateRow('s',s.id,s.full_name||s.id,roleName(s.account_type),s.rate,s.rate_basis)).join('')}
-      ${crew.length?`<tr><td colspan="3" style="color:var(--amber);font-size:10px;letter-spacing:1px">CREW (signed in by the site engineer / timekeeper)</td></tr>`:''}
+      ${crew.length?`<tr><td colspan="3" style="color:var(--amber);font-size:10px;letter-spacing:1px">CREW</td></tr>`:''}
       ${crew.map(c=>rateRow('c',c.id,c.name||c.id,c.trade||'',c.rate,c.rate_basis)).join('')}
       ${!staff.length&&!crew.length?'<tr><td colspan="3" class="hint">No people yet — staff appear here once they sign up under your company; crew once the site engineer or timekeeper adds them.</td></tr>':''}
     </tbody></table></div>
-    <div style="padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="pbtn" id="ls_saveRates" style="padding:11px 16px">SAVE RATES</button><span class="hint" style="padding:0">${store.lsRatesMsg||'A day rate is divided by the standard day; a month rate by 26 standard days.'}</span></div></div>
+    <div style="padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="hint" style="padding:0;flex:1">${store.lsRatesMsg||'A day rate is divided by the hours in a normal day; a month rate by 26 days.'}</span><button class="pbtn" id="ls_saveRates" style="padding:10px 18px">Save</button></div></div>
 
-    <div class="card"><div class="cardHead"><span>3 · PROJECTS</span><small style="color:var(--mut);font-weight:400">site location, planned hours and people, labour budget</small></div>
+    <div class="card"><div class="cardHead" style="letter-spacing:.5px;text-transform:none;font-size:12px"><span>Projects</span><small style="color:var(--mut);font-weight:400">site location, planned hours and people, labour budget</small></div>
     <div class="scroll" style="max-height:340px"><table><thead><tr><th>Project</th><th>Site location</th><th>Planned hours</th><th>Planned people</th><th>Labour budget (${cur})</th></tr></thead><tbody>
       ${projs.map(p=>{const has=p.site_lat!=null&&p.site_lat!==undefined;return `<tr><td><strong>${p.name}</strong></td>
         <td>${has?'<span style="color:var(--green)">✓ set</span>':'<span style="color:var(--amber)">⚠ not set</span>'} <button class="zadd" data-setsiteloc="${p.id}" style="font-size:10px;padding:4px 8px;margin-left:6px" title="Tap while standing on the site">📍 ${has?'UPDATE':'SET'} HERE</button></td>
@@ -7385,7 +7388,7 @@ function companySettingsHTML(){
         <td style="width:100px"><input class="fi" data-planm="${p.id}" type="number" min="0" value="${p.planned_manpower!=null?p.planned_manpower:''}" style="width:100%;padding:5px 8px"></td>
         <td style="width:130px"><input class="fi" data-planb="${p.id}" type="number" min="0" step="100" value="${p.labour_budget!=null?p.labour_budget:''}" style="width:100%;padding:5px 8px"></td></tr>`;}).join('')||'<tr><td colspan="5" class="hint">No projects yet.</td></tr>'}
     </tbody></table></div>
-    <div style="padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="pbtn" id="ls_saveProjects" style="padding:11px 16px">SAVE PROJECTS</button><span class="hint" style="padding:0">${store.lsProjMsg||'Set the site location while standing on the site — every sign-in is measured against that point.'}</span></div></div>
+    <div style="padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="hint" style="padding:0;flex:1">${store.lsProjMsg||'Set the site location while standing on the site; every sign-in is measured from that point.'}</span><button class="pbtn" id="ls_saveProjects" style="padding:10px 18px">Save</button></div></div>
   </div></div>`;
 }
 // Save every rate in the panel: staff -> profiles.rate/rate_basis, crew -> crew_members.rate/rate_basis.
@@ -7717,7 +7720,7 @@ function timekeeperHTML(){
   ${accountOverlayHTML()}`;
 }
 function manpowerHTML(){
-  const __settings=(store.account.accountType==='manager')?`<div style="display:flex;justify-content:flex-end;padding:10px 12px 0"><button class="zadd" id="lsOpen" style="font-size:11px;padding:7px 12px;border-color:var(--amber);color:var(--amber)">⚙ LABOUR SETTINGS · working day · break · rates · projects</button></div>${store.showLabourSettings?companySettingsHTML():''}`:'';
+  const __settings=(store.account.accountType==='manager')?`<div style="display:flex;justify-content:flex-end;padding:10px 12px 0"><button class="zadd" id="lsOpen" style="font-size:11px;padding:7px 12px;border-color:var(--amber);color:var(--amber)">⚙ Labour settings</button></div>${store.showLabourSettings?companySettingsHTML():''}`:'';
   if(!store.attLoaded){loadAttendance();}
   if(!store.crewAttLoaded){loadCrewAttendance();}
   if(!store.crewLoaded){loadCrew();}
@@ -8901,7 +8904,7 @@ function wire(){
   if(typeof ownerWire==='function')ownerWire();
   if(typeof supportWire==='function')supportWire();
   if(store.showResetPassword){const rb=document.getElementById('doSetNewPass');const sErr=t=>{store.authBusy=false;store.authMsg=t;render();};if(rb)rb.onclick=async()=>{const pw=(document.getElementById('f_newpass')||{}).value||'';const pw2=(document.getElementById('f_newpass2')||document.getElementById('f_newpass')||{}).value||'';if(pw.length<6)return sErr('Password must be at least 6 characters.');if(pw!==pw2)return sErr('The two passwords do not match.');if(!sb)return sErr('No connection.');store.authBusy=true;store.authMsg='';render();try{const {error}=await withTimeout(sb.auth.updateUser({password:pw}),12000,'Updating password');store.authBusy=false;if(error)return sErr(error.message);store.showResetPassword=false;store.authMsg='';try{history.replaceState(null,'',window.location.pathname);}catch(e){}await loadSession();}catch(ex){store.authBusy=false;sErr(ex.message||'Could not update password.');}};const rc=document.getElementById('cancelReset');if(rc)rc.onclick=()=>{store.showResetPassword=false;render();};return;}
-  {const lo=document.getElementById('lsOpen');if(lo)lo.onclick=()=>{store.showLabourSettings=true;if(!store.staffLoaded)loadStaffRates();render();};document.querySelectorAll('[data-lsopen]').forEach(b=>b.onclick=()=>{store.showLabourSettings=true;if(!store.staffLoaded)loadStaffRates();render();});const lc=document.getElementById('lsClose');if(lc)lc.onclick=()=>{store.showLabourSettings=false;store.lsRatesMsg='';store.lsProjMsg='';store.coSetMsg='';render();};const sr=document.getElementById('ls_saveRates');if(sr)sr.onclick=saveRates;const spj=document.getElementById('ls_saveProjects');if(spj)spj.onclick=saveProjectPlans;}
+  {const lo=document.getElementById('lsOpen');if(lo)lo.onclick=()=>{store.showLabourSettings=true;if(!store.staffLoaded)loadStaffRates();render();};document.querySelectorAll('[data-lsopen]').forEach(b=>b.onclick=()=>{store.showLabourSettings=true;if(!store.staffLoaded)loadStaffRates();render();});const lc=document.getElementById('lsClose');if(lc)lc.onclick=()=>{store.showLabourSettings=false;store.lsRatesMsg='';store.lsProjMsg='';store.coSetMsg='';render();};const cmode=document.getElementById('cs_mode');if(cmode){const tog=()=>{const a=document.getElementById('cs_multWrap'),b=document.getElementById('cs_flatWrap');if(a)a.style.display=cmode.value==='multiplier'?'':'none';if(b)b.style.display=cmode.value==='flat'?'':'none';};cmode.onchange=tog;}const sr=document.getElementById('ls_saveRates');if(sr)sr.onclick=saveRates;const spj=document.getElementById('ls_saveProjects');if(spj)spj.onclick=saveProjectPlans;}
   {const cs=document.getElementById('cs_save');if(cs)cs.onclick=saveCompanySettings;document.querySelectorAll('[data-workerrec]').forEach(a=>a.onclick=(e)=>{e.preventDefault();store.workerRec=a.dataset.workerrec;render();});const wc=document.getElementById('workerRecClose');if(wc)wc.onclick=()=>{store.workerRec=null;render();};}
   if(typeof needsWire==='function')needsWire();
   document.querySelectorAll('[data-crewmethod]').forEach(b=>b.onclick=()=>{store.crewMethod=b.dataset.crewmethod;render();});
