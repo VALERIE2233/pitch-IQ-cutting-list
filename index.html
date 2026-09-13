@@ -343,8 +343,8 @@
 // server for the file's fingerprint (ETag / Last-Modified) using a cheap HEAD
 // request and compares it to the one we loaded with. Any redeploy changes the
 // fingerprint, so it works whether or not anyone remembers to update anything.
-const APP_VERSION='1.4.7';   // display only - not what triggers the banner
-const APP_BUILD='20260911.f598f5';  // stamped at build time so the live version is verifiable
+const APP_VERSION='1.5.0';   // display only - not what triggers the banner
+const APP_BUILD='20260913.cb236b';  // stamped at build time so the live version is verifiable
 let _appFingerprint=null;
 function fingerprintOf(res){
   return (res.headers.get('etag')||'') + '|' + (res.headers.get('last-modified')||'');
@@ -6703,7 +6703,8 @@ function themePickerHTML(){
 // ============================================================================
 const OWNER_STATUSES=['contacted','demo','trial','subscribed','lost'];
 const OWNER_DEFAULT_TEMPLATES=[
-  {name:'Introduction + presentation (attach PDF)',subject:'Introducing Fit-Out IQ to {company} — free setup and training',body:`Dear {name},\n\nThank you for taking the time to speak with me. As promised, here is a formal introduction of Fit-Out IQ to {company}, with a short presentation attached.\n\nFit-Out IQ is a production platform for joinery and fit-out companies, built from ten years in UAE factories and on sites. It follows every item on a project from the cutting list to installed and snag-free, with the supervisor, site engineer, procurement, timekeeper and manager all working on one record.\n\nYour CNC and nesting software does the cutting well and stays exactly where it is. Fit-Out IQ picks the item up from there: production tracking with readiness checks, the site engineer on a tablet (measurement against the drawing, drawings marked up and sent back, delivery and installation with photos, snags, returns), attendance and hours per project, a procurement inbox filled by the factory and the site, and a client progress report in one tap.\n\nTwo demo projects are loaded at https://fit-out-iq.com so you can see a finished job before entering your own.\n\nSetup and training are free. I am ready to come to {company}, enter your first live project with the team and train the supervisor, site engineer, procurement and timekeeper on it — half a day on site, nothing to install, nothing to change in the factory. The improvements in material waste, rework and time lost on site start with that first project.\n\nWhich week in September or October would suit you for me to come?\n\nKind regards,\n{me}\nFounder, Fit-Out IQ\nfitoutiq@gmail.com · https://fit-out-iq.com`},
+  {name:'Introduction + presentation (attach PDF)',subject:'Introducing Fit-Out IQ to {company} — free setup and training on site',body:`Dear {name},\n\nThank you for taking the time to speak with me. As promised, here is a formal introduction of Fit-Out IQ to {company}, with a short presentation attached.\n\nFit-Out IQ is a production platform for joinery and fit-out companies, built from ten years in UAE factories and on sites. It follows every item on a project from the cutting list to installed and snag-free, with the supervisor, site engineer, procurement, timekeeper and manager all working on one record.\n\nYour CNC and nesting software does the cutting well and stays exactly where it is. Fit-Out IQ picks the item up from there: production tracking with readiness checks; the site engineer on a tablet — measurement against the drawing, drawings marked up and sent back, delivery and installation with photos, snags and returns; a procurement inbox filled by the factory and the site; and a client progress report in one tap.\n\nOne thing I want to single out, because every manager I have worked with struggles with it: labour. The material cost of a job is known to the dirham; the labour cost is a guess made at month end from a notebook at the gate and a WhatsApp group — after the overtime argument has already happened. On Fit-Out IQ the site engineer signs the crew in at the site itself, GPS-checked, the timekeeper covers the factory, and every worker's day is split automatically into normal and overtime hours by {company}'s own rule — standard day and rest days, set once, applied the same on every site every month. Every hour belongs to a project, so the labour cost of a job sits live next to its budget. The attendance and timesheet sheet on the Manpower pages of the presentation is exactly what your manager prints on Thursday afternoon, with the Excel version for accounts.\n\nTwo demo projects are loaded at https://fit-out-iq.com so you can see a finished job before entering your own.\n\nSetup and training are free. I am ready to come to {company}, enter your first live project with the team and train the supervisor, site engineer, procurement and timekeeper on it — half a day on site, nothing to install, nothing to change in the factory. The savings in material waste, rework, hours lost on site and labour that nobody can account for start with that first project.\n\nWhich week would suit you for me to come?\n\nKind regards,\n{me}\nFounder, Fit-Out IQ\nfitoutiq@gmail.com · +971 56 725 7880 (WhatsApp) · https://fit-out-iq.com`},
+  {name:'Cold introduction (no prior contact) + presentation',subject:'Fit-Out IQ — a production platform built for joinery and fit-out companies like {company}',body:`Dear {name},\n\nMy name is {me}. I have spent ten years in UAE fit-out joinery as a production supervisor — scheduling, quality control, finishing and coordination with site teams — and I built Fit-Out IQ around the problems I met every day in the factory and on site. I am writing to introduce it to {company}; a short presentation is attached.\n\nTwo costs decide whether a fit-out project makes money: material and labour. Fit-Out IQ is built to watch both, every day, on one record that the whole company reads.\n\nMaterial — cutting lists and nesting with grain and offcut reuse, so the sheet count is right before the first cut; readiness checks so nothing starts without its drawing, veneer, ironmongery and paint; a procurement inbox filled automatically by the factory and the site; rework counted instead of hidden.\n\nLabour — the site engineer signs the crew in at the site itself, GPS-checked; the timekeeper covers the factory; every worker's day is split into normal and overtime by your own rule, and every hour belongs to a project — so the labour cost of a job sits next to its budget while the job is running, not at month end.\n\nBetween the two sits the item itself: production tracking stage by stage, the site engineer on a tablet (measurement against the drawing, mark-ups sent back to the factory, delivery, installation with photos, snags), and a client progress report the manager prints in one tap. If you already run CNC or nesting software, it stays exactly where it is.\n\nTwo demo projects are loaded at https://fit-out-iq.com — see a finished job before entering your own.\n\nSetup and training are free. I would come to {company}, enter your first live project with the team and train the supervisor, site engineer, procurement and timekeeper — half a day on site, nothing to install, nothing to change in the factory.\n\nCould I have twenty minutes with whoever runs production at {company}? Which week would suit?\n\nKind regards,\n{me}\nFounder, Fit-Out IQ\nfitoutiq@gmail.com · +971 56 725 7880 (WhatsApp) · https://fit-out-iq.com`},
   {name:'Intro after meeting',subject:'Fit-Out IQ — following our conversation',body:`Hi {name},\n\nGood to meet you at {source}. As promised, a quick note on Fit-Out IQ: it follows every joinery item from cutting list to installed and snag-free — supervisor, site engineer, procurement and manager on one record.\n\nTwo demo projects are ready on the platform so you can see a finished job before adding your own. If you have 20 minutes this week I can walk {company} through it.\n\nBest regards,\n{me}`},
   {name:'After demo',subject:'Next step for {company}',body:`Hi {name},\n\nThanks for the time today. To recap what we covered:\n{notes}\n\nA 30-day trial is open for {company} — sign up at fit-out-iq.com, and I will set up your first project with you.\n\nBest regards,\n{me}`},
   {name:'Recap from the story',subject:'Fit-Out IQ for {company} — what I understood',body:`Dear {full_name},\n\nThank you for your time. Here is what I understood about {company}:\n{story}\n\nWhere we are so far:\n{timeline}\n\nProposed next step: I will follow up with you on {next_action}.\n\nIf anything above is not right, please correct me — that is exactly what I need to know.\n\nBest regards,\n{me}\nFit-Out IQ`},
@@ -6801,6 +6802,7 @@ function resetAfterSignOut(){
   ['projects','prodItems','purchases','attendance','crewAtt','siteVisits','snags','approvals','crew','procReqs','returns','needs','myOrders','myCatalogue','incoming','bioCreds','ownerCos','ownerProfiles','ownerJobs'].forEach(k=>store[k]=[]);
   store.svDraft={};store.snagDraft={};store.crewDraft={};store.reqDraft={};store.crewProject=null;store.threadOrderId=null;store.procReqViewId=null;store.showSitePull=false;
   store.markupTarget=null;store.markupImg=null;store.markupStrokes=[];store.markupLoading=false;
+  store.showLabourSettings=false;store.staffLoaded=false;store.staff=[];
   store.showOwner=false;store.ownerErr=null;store.prospectEditing=false;store.prospectDraft=null;store.templateDraft=null;store.composeDraft=null;
   render();
 }
@@ -6881,7 +6883,7 @@ function ownerStoryEmail(tg,cmp){
   parts.push('What Fit-Out IQ would do for '+c.company+':\nIt follows every joinery item from the cutting list to installed and snag-free, with the supervisor, site engineer, procurement, timekeeper and manager all working on one record. Your CNC and nesting software stays exactly where it is — Fit-Out IQ picks the item up from there.');
   parts.push('Proposed next step:\n'+(c.next_action?'I will follow up with you on '+c.next_action+'.':'A 30-day free trial is open for '+c.company+' at fit-out-iq.com — I will set up your first project with you on site and train the team.'));
   parts.push('If anything above is not right, please correct me — that is exactly what I need to know.');
-  parts.push('Best regards,\n'+c.me+'\nFit-Out IQ');
+  parts.push('Best regards,\n'+c.me+'\nFounder, Fit-Out IQ\nfitoutiq@gmail.com · +971 56 725 7880 (WhatsApp) · https://fit-out-iq.com');
   return {subject:'Fit-Out IQ for '+c.company+' — what I understood from our conversation',body:parts.join('\n\n')};
 }
 function ownerFill(t,ctx){return String(t||'').replace(/\{(\w+)\}/g,(m,k)=>ctx[k]!=null?ctx[k]:m);}
@@ -7286,17 +7288,30 @@ const tsHours = r => crewHours(r);
 async function loadCompanySettings(){
   store.coSetLoaded=true;
   if(!sb||!store.account||!store.account.companyId)return;
-  try{const {data}=await sb.from('companies').select('std_day_hours,rest_days,ot_mode,ot_multiplier,ot_flat,currency,support_until,support_financial,support_requested_at,support_request_note,support_requested_by').eq('id',store.account.companyId).maybeSingle();
+  try{const {data}=await sb.from('companies').select('std_day_hours,rest_days,ot_mode,ot_multiplier,ot_flat,break_minutes,currency,support_until,support_financial,support_requested_at,support_request_note,support_requested_by').eq('id',store.account.companyId).maybeSingle();
     if(data){store.support={until:data.support_until,financial:!!data.support_financial,requestedAt:data.support_requested_at,note:data.support_request_note,by:data.support_requested_by};
-      try{const {data:lg}=await sb.from('support_log').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false}).limit(12);store.supportLogRows=lg||[];}catch(e){}store.otThreshold=+data.std_day_hours||store.otThreshold||8;store.offDays=Array.isArray(data.rest_days)?data.rest_days:(store.offDays||[5]);store.otMode=data.ot_mode||'multiplier';store.otMultiplier=+data.ot_multiplier||1.25;store.otFlat=+data.ot_flat||0;if(data.currency)store.currency=data.currency;}
+      try{const {data:lg}=await sb.from('support_log').select('*').eq('company_id',store.account.companyId).order('created_at',{ascending:false}).limit(12);store.supportLogRows=lg||[];}catch(e){}store.otThreshold=+data.std_day_hours||store.otThreshold||8;store.offDays=Array.isArray(data.rest_days)?data.rest_days:(store.offDays||[5]);store.otMode=data.ot_mode||'multiplier';store.otMultiplier=+data.ot_multiplier||1.25;store.otFlat=+data.ot_flat||0;store.breakMinutes=+data.break_minutes||0;if(data.currency)store.currency=data.currency;}
   }catch(e){}
+  loadStaffRates();
   render();
 }
+// Staff of this company with their pay rate (profiles.rate / rate_basis) - crew rates live on crew_members.
+async function loadStaffRates(){
+  store.staffLoaded=true;
+  if(!sb||!store.account||!store.account.companyId)return;
+  try{const {data}=await sb.from('profiles').select('id,full_name,account_type,rate,rate_basis').eq('company_id',store.account.companyId);store.staff=(data||[]).filter(p=>p.account_type!=='supplier');}catch(e){store.staff=store.staff||[];}
+  render();
+}
+// Unpaid break: deducted once per worker per day, only when the day is longer than the break itself.
+function breakHours(){return Math.max(0,(+store.breakMinutes||0)/60);}
+function paidDayHours(h){const b=breakHours();return h>b?h-b:h;}
+// The person behind a timesheet key ('c:<crew id>' or 's:<user id>'), for rates.
+function personForKey(key){if(!key)return null;if(key.startsWith('c:'))return (store.crew||[]).find(c=>String(c.id)===key.slice(2))||null;return (store.staff||[]).find(s=>String(s.id)===key.slice(2))||null;}
 async function saveCompanySettings(){
   const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
   const days=[...document.querySelectorAll('[data-restday]')].filter(c=>c.checked).map(c=>+c.dataset.restday);
-  const patch={std_day_hours:+g('cs_std')||8,rest_days:days,ot_mode:g('cs_mode')||'multiplier',ot_multiplier:+g('cs_mult')||1.25,ot_flat:+g('cs_flat')||0};
-  Object.assign(store,{otThreshold:patch.std_day_hours,offDays:days,otMode:patch.ot_mode,otMultiplier:patch.ot_multiplier,otFlat:patch.ot_flat});
+  const patch={std_day_hours:+g('cs_std')||8,rest_days:days,ot_mode:g('cs_mode')||'multiplier',ot_multiplier:+g('cs_mult')||1.25,ot_flat:+g('cs_flat')||0,break_minutes:Math.max(0,Math.round(+g('cs_break')||0))};
+  Object.assign(store,{otThreshold:patch.std_day_hours,offDays:days,otMode:patch.ot_mode,otMultiplier:patch.ot_multiplier,otFlat:patch.ot_flat,breakMinutes:patch.break_minutes});
   try{const {error}=await sb.from('companies').update(patch).eq('id',store.account.companyId);if(error)throw error;store.coSetMsg='Saved.';}catch(e){store.coSetMsg='Could not save: '+(e.message||'error');}
   render();
 }
@@ -7330,17 +7345,84 @@ function supportAccessCardHTML(){
 }
 function companySettingsHTML(){
   if(!store.coSetLoaded)loadCompanySettings();
-  const mode=store.otMode||'multiplier';
-  return `<div class="card"><div class="cardHead"><span>⚙ LABOUR SETTINGS</span><small style="color:var(--mut);font-weight:400">applies to every project and timesheet</small></div>
+  const mode=store.otMode||'multiplier'; const cur=store.currency||'AED';
+  const staff=(store.staff||[]).slice().sort((a,b)=>String(a.full_name||'').localeCompare(String(b.full_name||'')));
+  const crew=(store.crew||[]).filter(c=>c.active!==false).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  const projs=(store.projects||[]).filter(p=>!isDemoId(p.id));
+  const basisSel=(kind,id,v)=>`<select class="fi" data-ratebasis="${kind}:${id}" style="padding:5px 6px;font-size:11px"><option value="hour" ${(v||'hour')==='hour'?'selected':''}>per hour</option><option value="day" ${v==='day'?'selected':''}>per day</option><option value="month" ${v==='month'?'selected':''}>per month</option></select>`;
+  const rateRow=(kind,id,name,sub,rate,basis)=>`<tr><td><strong>${name}</strong><div class="hint" style="padding:0">${sub}</div></td><td style="width:120px"><input class="fi" data-rate="${kind}:${id}" type="number" min="0" step="0.5" value="${rate!=null&&rate!==''?rate:''}" placeholder="0" style="width:100%;padding:5px 8px"></td><td style="width:120px">${basisSel(kind,id,basis)}</td></tr>`;
+  const roleName=t=>({manager:'Manager',contractor:'Supervisor',site_engineer:'Site engineer',timekeeper:'Timekeeper',procurement:'Procurement'}[t]||t||'Staff');
+  return `<div class="cmFace" style="align-items:flex-start;overflow:auto;padding:24px 12px"><div class="cmFaceBox" style="width:min(1000px,100%)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><div class="cmFaceT" style="margin:0">⚙ LABOUR SETTINGS</div><div class="hint" style="padding:0">Everything the timesheet, the pay and the attendance sheet depend on — in one place, applied to every project.</div></div><button class="zadd" id="lsClose" style="font-size:11px;padding:6px 12px">✕ CLOSE</button></div>
+
+    <div class="card"><div class="cardHead"><span>1 · WORKING DAY</span><small style="color:var(--mut);font-weight:400">applies to every worker, every site, every month</small></div>
     <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end">
       <label class="field"><span class="fl">STANDARD DAY (HOURS)</span><input class="fi" id="cs_std" type="number" min="1" max="16" step="0.5" value="${+store.otThreshold||8}" style="width:100%"></label>
+      <label class="field"><span class="fl">UNPAID BREAK PER DAY (MINUTES)</span><input class="fi" id="cs_break" type="number" min="0" max="240" step="5" value="${+store.breakMinutes||0}" style="width:100%"><span class="hint" style="padding:4px 0 0">Deducted once per worker per day before normal and overtime are counted</span></label>
       <div class="field"><span class="fl">REST DAYS (all hours = overtime)</span><div style="display:flex;gap:6px;flex-wrap:wrap">${WEEKDAY_NAMES.map((d,i)=>`<label class="chip" style="cursor:pointer;padding:5px 8px"><input type="checkbox" data-restday="${i}" ${(store.offDays||[5]).indexOf(i)>-1?'checked':''}> ${d.slice(0,3)}</label>`).join('')}</div></div>
-      <label class="field"><span class="fl">OVERTIME PAID AS</span><select class="fi" id="cs_mode" style="width:100%"><option value="multiplier" ${mode==='multiplier'?'selected':''}>× hourly rate</option><option value="flat" ${mode==='flat'?'selected':''}>flat amount per OT hour</option></select></label>
+      <label class="field"><span class="fl">OVERTIME PAID AS</span><select class="fi" id="cs_mode" style="width:100%"><option value="multiplier" ${mode==='multiplier'?'selected':''}>each person's hourly rate × multiplier</option><option value="flat" ${mode==='flat'?'selected':''}>one flat amount per OT hour (everyone)</option></select></label>
       <label class="field"><span class="fl">MULTIPLIER</span><input class="fi" id="cs_mult" type="number" step="0.05" min="1" value="${store.otMultiplier||1.25}" style="width:100%"></label>
-      <label class="field"><span class="fl">FLAT PER OT HOUR (${store.currency||'$'})</span><input class="fi" id="cs_flat" type="number" step="0.5" min="0" value="${store.otFlat||0}" style="width:100%"></label>
-      <button class="pbtn" id="cs_save" style="padding:11px">SAVE SETTINGS</button>
+      <label class="field"><span class="fl">FLAT PER OT HOUR (${cur})</span><input class="fi" id="cs_flat" type="number" step="0.5" min="0" value="${store.otFlat||0}" style="width:100%"></label>
+      <button class="pbtn" id="cs_save" style="padding:11px">SAVE WORKING DAY</button>
       ${store.coSetMsg?`<div class="hint" style="grid-column:1/-1;color:${/Could not/.test(store.coSetMsg)?'var(--red)':'var(--green)'}">${store.coSetMsg}</div>`:''}
-    </div></div>`;
+    </div></div>
+
+    <div class="card"><div class="cardHead"><span>2 · PEOPLE &amp; RATES</span><small style="color:var(--mut);font-weight:400">each person has their own rate — normal hours × rate, overtime by the rule above</small></div>
+    <div class="scroll" style="max-height:340px"><table><thead><tr><th>Person</th><th>Rate (${cur})</th><th>Basis</th></tr></thead><tbody>
+      ${staff.length?`<tr><td colspan="3" style="color:var(--amber);font-size:10px;letter-spacing:1px">STAFF (sign in on their own phone)</td></tr>`:''}
+      ${staff.map(s=>rateRow('s',s.id,s.full_name||s.id,roleName(s.account_type),s.rate,s.rate_basis)).join('')}
+      ${crew.length?`<tr><td colspan="3" style="color:var(--amber);font-size:10px;letter-spacing:1px">CREW (signed in by the site engineer / timekeeper)</td></tr>`:''}
+      ${crew.map(c=>rateRow('c',c.id,c.name||c.id,c.trade||'',c.rate,c.rate_basis)).join('')}
+      ${!staff.length&&!crew.length?'<tr><td colspan="3" class="hint">No people yet — staff appear here once they sign up under your company; crew once the site engineer or timekeeper adds them.</td></tr>':''}
+    </tbody></table></div>
+    <div style="padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="pbtn" id="ls_saveRates" style="padding:11px 16px">SAVE RATES</button><span class="hint" style="padding:0">${store.lsRatesMsg||'A day rate is divided by the standard day; a month rate by 26 standard days.'}</span></div></div>
+
+    <div class="card"><div class="cardHead"><span>3 · PROJECTS</span><small style="color:var(--mut);font-weight:400">site location, planned hours and people, labour budget</small></div>
+    <div class="scroll" style="max-height:340px"><table><thead><tr><th>Project</th><th>Site location</th><th>Planned hours</th><th>Planned people</th><th>Labour budget (${cur})</th></tr></thead><tbody>
+      ${projs.map(p=>{const has=p.site_lat!=null&&p.site_lat!==undefined;return `<tr><td><strong>${p.name}</strong></td>
+        <td>${has?'<span style="color:var(--green)">✓ set</span>':'<span style="color:var(--amber)">⚠ not set</span>'} <button class="zadd" data-setsiteloc="${p.id}" style="font-size:10px;padding:4px 8px;margin-left:6px" title="Tap while standing on the site">📍 ${has?'UPDATE':'SET'} HERE</button></td>
+        <td style="width:110px"><input class="fi" data-planh="${p.id}" type="number" min="0" value="${p.planned_hours!=null?p.planned_hours:''}" style="width:100%;padding:5px 8px"></td>
+        <td style="width:100px"><input class="fi" data-planm="${p.id}" type="number" min="0" value="${p.planned_manpower!=null?p.planned_manpower:''}" style="width:100%;padding:5px 8px"></td>
+        <td style="width:130px"><input class="fi" data-planb="${p.id}" type="number" min="0" step="100" value="${p.labour_budget!=null?p.labour_budget:''}" style="width:100%;padding:5px 8px"></td></tr>`;}).join('')||'<tr><td colspan="5" class="hint">No projects yet.</td></tr>'}
+    </tbody></table></div>
+    <div style="padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="pbtn" id="ls_saveProjects" style="padding:11px 16px">SAVE PROJECTS</button><span class="hint" style="padding:0">${store.lsProjMsg||'Set the site location while standing on the site — every sign-in is measured against that point.'}</span></div></div>
+  </div></div>`;
+}
+// Save every rate in the panel: staff -> profiles.rate/rate_basis, crew -> crew_members.rate/rate_basis.
+async function saveRates(){
+  const rows=[...document.querySelectorAll('[data-rate]')]; let ok=0,fail=0;
+  for(const inp of rows){
+    const [kind,id]=inp.dataset.rate.split(':'); const sel=document.querySelector(`[data-ratebasis="${kind}:${id}"]`);
+    const rate=inp.value===''?null:Math.max(0,+inp.value||0), basis=sel?sel.value:'hour';
+    const list=kind==='s'?(store.staff||[]):(store.crew||[]); const cur=list.find(x=>String(x.id)===String(id))||{};
+    if((cur.rate==null?null:+cur.rate)===rate&&(cur.rate_basis||'hour')===basis)continue;
+    try{const {error}=await sb.from(kind==='s'?'profiles':'crew_members').update({rate,rate_basis:basis}).eq('id',id);if(error)throw error;cur.rate=rate;cur.rate_basis=basis;ok++;}
+    catch(e){fail++;store.lsRatesMsg='Could not save one or more rates: '+(e.message||'error');}
+  }
+  if(!fail)store.lsRatesMsg=ok?`Saved ${ok} rate${ok===1?'':'s'}.`:'Nothing changed.';
+  render();
+}
+// Save planned hours / people / labour budget for every project row in the panel.
+async function saveProjectPlans(){
+  const ids=[...document.querySelectorAll('[data-planh]')].map(i=>i.dataset.planh); let ok=0,fail=0;
+  for(const id of ids){
+    const g=k=>{const el=document.querySelector(`[data-${k}="${id}"]`);return el?el.value:'';};
+    const num=v=>String(v).trim()===''?null:Math.max(0,+v||0);
+    const patch={planned_hours:num(g('planh')),planned_manpower:num(g('planm'))||0,labour_budget:num(g('planb'))};
+    const pr=(store.projects||[]).find(p=>String(p.id)===String(id))||{};
+    if(pr.planned_hours==patch.planned_hours&&(+pr.planned_manpower||0)==patch.planned_manpower&&pr.labour_budget==patch.labour_budget)continue;
+    try{const {error}=await sb.from('jobs').update(patch).eq('id',id);if(error)throw error;Object.assign(pr,patch);ok++;}
+    catch(e){fail++;store.lsProjMsg='Could not save: '+(e.message||'error');}
+  }
+  if(!fail)store.lsProjMsg=ok?`Saved ${ok} project${ok===1?'':'s'}.`:'Nothing changed.';
+  render();
+}
+// Labour cost of a project so far, at each person's base hourly rate (overtime premium not applied).
+function projectLabourCost(pid){
+  let cost=0; const hr=p=>p?crewHourly(p):0;
+  (store.attendance||[]).filter(r=>String(r.project_id)===String(pid)).forEach(r=>{cost+=hrs(r)*hr(personForKey('s:'+(r.user_id||r.user_name)));});
+  (store.crewAtt||[]).filter(r=>String(r.project_id)===String(pid)).forEach(r=>{cost+=crewHours(r)*hr(personForKey('c:'+(r.crew_member_id||r.worker_name)));});
+  return cost;
 }
 function crewHourly(c){
   const r=+(c&&c.rate)||0; const std=+store.otThreshold||8;
@@ -7390,13 +7472,16 @@ function timesheetData(){
   const off=store.offDays||[5]; // default Friday; set per company
   const list=Object.values(people);
   list.forEach(p=>{
-    p.normal=0; p.ot=0; p.offHrs=0; p.days=Object.keys(p.dates).length;
-    Object.entries(p.dates).forEach(([d,h])=>{
+    p.normal=0; p.ot=0; p.offHrs=0; p.breakH=0; p.actual=p.total; p.days=Object.keys(p.dates).length;
+    Object.entries(p.dates).forEach(([d,h0])=>{
+      // Unpaid break comes off the day first (once per day), then the split.
+      const h=paidDayHours(h0); p.breakH+=h0-h;
       // A day off is a day off — every hour worked on one is overtime, no
       // threshold applies. Working a rest day is different from a long day.
       if(isOffDay(d)){ p.ot+=h; p.offHrs+=h; }
       else { p.normal+=Math.min(h,thr); p.ot+=Math.max(0,h-thr); }
     });
+    p.total=p.normal+p.ot;   // paid hours; p.actual keeps the time on site
   });
   return list.sort((a,b)=>b.total-a.total);
 }
@@ -7407,7 +7492,7 @@ function workerRecordHTML(){
   const thr=+store.otThreshold||8;
   const byDay={},byProj={};let total=0,ot=0,off=0,normal=0;
   recs.forEach(r=>{const h=crewHours(r);if(!(h>0))return;const d=r.work_date||String(r.sign_in_at||'').slice(0,10);byDay[d]=(byDay[d]||0)+h;byProj[r.project_name||'—']=(byProj[r.project_name||'—']||0)+h;total+=h;});
-  Object.entries(byDay).forEach(([d,h])=>{if(isOffDay(d))off+=h;else{normal+=Math.min(h,thr);ot+=Math.max(0,h-thr);}});
+  Object.entries(byDay).forEach(([d,h0])=>{const h=paidDayHours(h0);if(isOffDay(d))off+=h;else{normal+=Math.min(h,thr);ot+=Math.max(0,h-thr);}});
   const pay=payFor({normal,ot,offHrs:off},c);
   const first=recs.length?recs[recs.length-1].sign_in_at:null;
   const away=recs.filter(r=>r.sign_in_dist!=null&&r.sign_in_dist>200).length;
@@ -7433,7 +7518,7 @@ function timesheetHTML(){
       </span></div>
     <div class="hint" style="padding:0 12px 8px">Every project a person worked on, added together. Hours worked on a rest day (${(store.offDays||[5]).map(i=>WEEKDAY_NAMES[i]).join(', ')||'none set'}) are <strong>all</strong> overtime. On a working day, overtime is anything past ${thr} hours <strong>in that day</strong> — so a long week of normal days stays normal. This section always covers all projects, regardless of the filter above.</div>
     ${rows.length?`<div class="scroll"><table><thead><tr><th>Worker</th><th>Type</th><th>Projects worked</th><th class="r">Days</th><th class="r">Normal</th><th class="r">Off-day</th><th class="r">Overtime</th><th class="r">Total</th><th class="r">Pay</th></tr></thead><tbody>
-      ${rows.map(p=>{const cm=p.key&&p.key.startsWith('c:')?(store.crew||[]).find(c=>String(c.id)===p.key.slice(2)):null;const pay=cm?payFor(p,cm):null;return `<tr>
+      ${rows.map(p=>{const cm=p.key?personForKey(p.key):null;const pay=cm?payFor(p,cm):null;return `<tr>
         <td>${cm?`<a href="#" data-workerrec="${cm.id}" style="color:var(--txt);font-weight:700">${p.name}</a>`:`<strong>${p.name}</strong>`}</td>
         <td style="font-size:10px;color:${p.type==='Staff'?'var(--blue)':'var(--amber)'}">${p.type.toLowerCase()}</td>
         <td style="font-size:11px">${Object.entries(p.projects).sort((a,b)=>b[1]-a[1]).map(([n,h])=>`${n} <span style="color:var(--mut)">${h.toFixed(1)}h</span>`).join(' · ')}</td>
@@ -7448,7 +7533,7 @@ function timesheetHTML(){
         <td class="r"><strong style="color:${rows.reduce((a,p)=>a+p.offHrs,0)>0?'var(--red)':'var(--mut)'}">${rows.reduce((a,p)=>a+p.offHrs,0).toFixed(1)}</strong></td>
         <td class="r"><strong style="color:${tO>0?'var(--amber)':'var(--mut)'}">${tO>0?tO.toFixed(1):'—'}</strong></td>
         <td class="r"><strong style="color:var(--blue)">${(tN+tO).toFixed(1)}h</strong></td>
-        <td class="r"><strong class="cost">${(store.currency||'$')}${Math.round(rows.reduce((a,p)=>{const cm=p.key&&p.key.startsWith('c:')?(store.crew||[]).find(c=>String(c.id)===p.key.slice(2)):null;const pay=cm?payFor(p,cm):null;return a+(pay?pay.total:0);},0)).toLocaleString()}</strong></td></tr>
+        <td class="r"><strong class="cost">${(store.currency||'$')}${Math.round(rows.reduce((a,p)=>{const cm=p.key?personForKey(p.key):null;const pay=cm?payFor(p,cm):null;return a+(pay?pay.total:0);},0)).toLocaleString()}</strong></td></tr>
     </tbody></table></div>`:`<div class="empty">No hours recorded for ${label.toLowerCase()}.</div>`}
   </div>`;
 }
@@ -7477,7 +7562,7 @@ function manpowerRows(){
     Name:r.user_name||'', Type:'Staff', Project:r.project_name||'', Date:r.work_date||'',
     'Sign in':fmtIn(r),
     'Sign out':fmtOut(r),
-    Hours:+hrs(r).toFixed(2), 'Normal hours':0, 'Overtime hours':0,
+    Hours:+hrs(r).toFixed(2), 'Break hours':0, 'Normal hours':0, 'Overtime hours':0,
     'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
     'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
     Method:r.sign_in_method==='biometric'?'Fingerprint':'Manual',
@@ -7487,7 +7572,7 @@ function manpowerRows(){
     Name:r.worker_name||'', Type:'Crew'+(r.trade?' ('+r.trade+')':''), Project:r.project_name||'', Date:r.work_date||'',
     'Sign in':fmtIn(r),
     'Sign out':r.sign_in_at?fmtOut(r):'',
-    Hours:+crewHours(r).toFixed(2), 'Normal hours':0, 'Overtime hours':0,
+    Hours:+crewHours(r).toFixed(2), 'Break hours':0, 'Normal hours':0, 'Overtime hours':0,
     'In: distance from site':dist(r.sign_in_lat,r.sign_in_lng,r.project_id),
     'Out: distance from site':r.sign_out_at?dist(r.sign_out_lat,r.sign_out_lng,r.project_id):'',
     Method:r.sign_out_manual?'Recorded on site (out time adjusted)':'Recorded on site',
@@ -7504,7 +7589,8 @@ function manpowerRows(){
   Object.values(byKD).forEach(list=>{
     list.sort((a,b)=>String(a._in).localeCompare(String(b._in)));
     const off=typeof isOffDay==='function'&&isOffDay(list[0].Date); let left=thr;
-    list.forEach(r=>{const h=+r.Hours||0;const n=off?0:Math.min(h,Math.max(0,left));left-=n;r['Normal hours']=+n.toFixed(2);r['Overtime hours']=+Math.max(0,h-n).toFixed(2);});
+    const dayTotal=list.reduce((a,r)=>a+(+r.Hours||0),0); let breakLeft=dayTotal>breakHours()?breakHours():0;
+    list.forEach(r=>{const h=+r.Hours||0;const bk=Math.min(h,breakLeft);breakLeft-=bk;const paid=h-bk;const n=off?0:Math.min(paid,Math.max(0,left));left-=n;r['Break hours']=+bk.toFixed(2);r['Normal hours']=+n.toFixed(2);r['Overtime hours']=+Math.max(0,paid-n).toFixed(2);});
   });
   rows.forEach(r=>{delete r._key;delete r._in;});
   return rows;
@@ -7552,12 +7638,12 @@ function fmtDayHeading(ymd){const x=new Date(ymd+'T12:00:00');if(isNaN(x))return
 function manpowerPrintHTML(p){
   const rows=p.rows||[];
   const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const cols=[['Name',r=>r.Name],['Type',r=>r.Type],['Project',r=>r.Project||'—'],['Where',r=>r.Where],['Sign in',r=>r['Sign in']],['Sign out',r=>r['Sign out']],['Actual h',r=>(+r.Hours||0).toFixed(2)],['Normal h',r=>(+r['Normal hours']||0).toFixed(2)],['Overtime h',r=>(+r['Overtime hours']||0).toFixed(2)],['In: distance from site',r=>r['In: distance from site']],['Recorded by',r=>r['Recorded by']+(r['Adjusted by']?' · out time adjusted':'')]];
+  const cols=[['Name',r=>r.Name],['Type',r=>r.Type],['Project',r=>r.Project||'—'],['Where',r=>r.Where],['Sign in',r=>r['Sign in']],['Sign out',r=>r['Sign out']],['Actual h',r=>(+r.Hours||0).toFixed(2)],['Break h',r=>(+r['Break hours']||0)?(+r['Break hours']).toFixed(2):'—'],['Normal h',r=>(+r['Normal hours']||0).toFixed(2)],['Overtime h',r=>(+r['Overtime hours']||0).toFixed(2)],['In: distance from site',r=>r['In: distance from site']],['Recorded by',r=>r['Recorded by']+(r['Adjusted by']?' · out time adjusted':'')]];
   const staffH=rows.filter(r=>r.Type==='Staff').reduce((a,r)=>a+(+r.Hours||0),0);
   const crewH=rows.filter(r=>r.Type!=='Staff').reduce((a,r)=>a+(+r.Hours||0),0);
-  const normH=rows.reduce((a,r)=>a+(+r['Normal hours']||0),0), otH=rows.reduce((a,r)=>a+(+r['Overtime hours']||0),0);
+  const normH=rows.reduce((a,r)=>a+(+r['Normal hours']||0),0), otH=rows.reduce((a,r)=>a+(+r['Overtime hours']||0),0), brkH=rows.reduce((a,r)=>a+(+r['Break hours']||0),0);
   const open=rows.filter(r=>r['Sign out']==='still on site').length;
-  const NUM=['Actual h','Normal h','Overtime h'];
+  const NUM=['Actual h','Break h','Normal h','Overtime h'];
   // group by day (rows arrive newest day first)
   const days=[];rows.forEach(r=>{let g=days.find(d=>d.date===r.Date);if(!g){g={date:r.Date,rows:[]};days.push(g);}g.rows.push(r);});
   const projects=[...new Set(rows.map(r=>r.Project).filter(Boolean))];
@@ -7586,10 +7672,10 @@ function manpowerPrintHTML(p){
     <div class="sub">${esc(p.company)}${projects.length>1?' · projects on this sheet: '+esc(projects.join(', ')):''}<br>Generated ${esc(p.generated)} by ${esc(p.by)}</div>
     <div class="kpis"><div class="kpi"><b>${rows.length}</b><span>records</span></div><div class="kpi"><b>${days.length}</b><span>days</span></div><div class="kpi"><b>${staffH.toFixed(1)} h</b><span>staff hours</span></div><div class="kpi"><b>${crewH.toFixed(1)} h</b><span>crew hours</span></div><div class="kpi"><b>${normH.toFixed(1)} h</b><span>normal hours</span></div><div class="kpi"><b class="open">${otH.toFixed(1)} h</b><span>overtime hours</span></div><div class="kpi"><b>${(staffH+crewH).toFixed(1)} h</b><span>actual total</span></div>${open?`<div class="kpi"><b class="open">${open}</b><span>still on site</span></div>`:''}</div>
     <table><thead><tr>${cols.map(c=>`<th class="${NUM.indexOf(c[0])>-1?'r':''}${c[0]==='Overtime h'?' oth':''}">${c[0]}</th>`).join('')}</tr></thead><tbody>
-      ${days.map(d=>{const dh=d.rows.reduce((a,r)=>a+(+r.Hours||0),0),dn=d.rows.reduce((a,r)=>a+(+r['Normal hours']||0),0),dot=d.rows.reduce((a,r)=>a+(+r['Overtime hours']||0),0);return `<tr class="day"><td colspan="${cols.length}">${fmtDayHeading(d.date)} &nbsp;·&nbsp; ${d.rows.length} record${d.rows.length===1?'':'s'} &nbsp;·&nbsp; actual ${dh.toFixed(1)} h = normal ${dn.toFixed(1)} h + overtime ${dot.toFixed(1)} h</td></tr>`+
+      ${days.map(d=>{const dh=d.rows.reduce((a,r)=>a+(+r.Hours||0),0),dn=d.rows.reduce((a,r)=>a+(+r['Normal hours']||0),0),dot=d.rows.reduce((a,r)=>a+(+r['Overtime hours']||0),0);const dbk=d.rows.reduce((a,r)=>a+(+r['Break hours']||0),0);return `<tr class="day"><td colspan="${cols.length}">${fmtDayHeading(d.date)} &nbsp;·&nbsp; ${d.rows.length} record${d.rows.length===1?'':'s'} &nbsp;·&nbsp; actual ${dh.toFixed(1)} h = ${dbk?'break '+dbk.toFixed(1)+' h + ':''}normal ${dn.toFixed(1)} h + overtime ${dot.toFixed(1)} h</td></tr>`+
         d.rows.map(r=>`<tr class="${r.Type==='Staff'?'':'crew'}">${cols.map(c=>{const v=c[1](r);const isOt=c[0]==='Overtime h'&&+v>0;return `<td class="${NUM.indexOf(c[0])>-1?'r':''}${v==='still on site'?' open':''}${isOt?' ot':''}">${isOt?esc(v):(c[0]==='Overtime h'?'—':esc(v))}</td>`;}).join('')}</tr>`).join('');}).join('')}
     </tbody></table>
-    <div class="tot">Staff hours: ${staffH.toFixed(2)} &nbsp;·&nbsp; Crew hours: ${crewH.toFixed(2)} &nbsp;·&nbsp; Normal: <strong>${normH.toFixed(2)} h</strong> &nbsp;·&nbsp; Overtime: <strong class="open">${otH.toFixed(2)} h</strong> &nbsp;·&nbsp; <strong>Actual total: ${(staffH+crewH).toFixed(2)} hours</strong>${open?` &nbsp;·&nbsp; <span class="open">${open} still on site — hours counted up to the time of printing</span>`:''}</div>
+    <div class="tot">Staff hours: ${staffH.toFixed(2)} &nbsp;·&nbsp; Crew hours: ${crewH.toFixed(2)} &nbsp;·&nbsp; ${brkH?'Unpaid breaks: '+brkH.toFixed(2)+' h &nbsp;·&nbsp; ':''}Normal: <strong>${normH.toFixed(2)} h</strong> &nbsp;·&nbsp; Overtime: <strong class="open">${otH.toFixed(2)} h</strong> &nbsp;·&nbsp; <strong>Actual total: ${(staffH+crewH).toFixed(2)} hours</strong>${open?` &nbsp;·&nbsp; <span class="open">${open} still on site — hours counted up to the time of printing</span>`:''}</div>
     ${ts.length?`<h2>TIMESHEET SUMMARY — ${esc(p.tsLabel||'')}</h2>
     <table><thead><tr><th>Worker</th><th>Type</th><th>Projects (hours)</th><th class="r">Days</th><th class="r">Normal h</th><th class="r">Rest-day h</th><th class="r">Overtime h</th><th class="r">Total h</th></tr></thead><tbody>
       ${ts.map(w=>`<tr><td>${esc(w.name)}</td><td>${esc(w.type)}</td><td>${esc(Object.entries(w.projects||{}).map(([n,h])=>n+' '+(+h).toFixed(1)+'h').join('; '))}</td><td class="r">${w.days||0}</td><td class="r">${(+w.normal||0).toFixed(1)}</td><td class="r">${(+(w.offHrs||0)).toFixed(1)}</td><td class="r">${(+w.ot||0).toFixed(1)}</td><td class="r"><b>${(+w.total||0).toFixed(1)}</b></td></tr>`).join('')}
@@ -7608,7 +7694,7 @@ function printManpower(){
   if(!w){alert('Please allow pop-ups to print.');return;}
   const period=store.tsPeriod||'today';
   const DN=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];const restNames=(store.offDays||[5]).map(i=>DN[i]).filter(Boolean).join(', ')||'none';
-  w.document.write(manpowerPrintHTML({rows,rule:'Normal hours = the first '+(+store.otThreshold||8)+' h of a working day; anything beyond that, and every hour on a rest day ('+restNames+'), is overtime.',projectLabel:manpowerProjectLabel(),company:store.account.company||'',by:store.account.name||store.account.email||'',generated:new Date().toLocaleString(),ts:timesheetData(),tsLabel:period==='today'?'Today':period==='week'?'Last 7 days':'This month'}));
+  w.document.write(manpowerPrintHTML({rows,rule:'Normal hours = the first '+(+store.otThreshold||8)+' h of a working day; anything beyond that, and every hour on a rest day ('+restNames+'), is overtime.'+((+store.breakMinutes||0)?' An unpaid break of '+(+store.breakMinutes)+' minutes is deducted once per worker per day.':''),projectLabel:manpowerProjectLabel(),company:store.account.company||'',by:store.account.name||store.account.email||'',generated:new Date().toLocaleString(),ts:timesheetData(),tsLabel:period==='today'?'Today':period==='week'?'Last 7 days':'This month'}));
   w.document.close();
 }
 function timekeeperHTML(){
@@ -7631,7 +7717,7 @@ function timekeeperHTML(){
   ${accountOverlayHTML()}`;
 }
 function manpowerHTML(){
-  const __settings=(store.account.accountType==='manager')?companySettingsHTML():'';
+  const __settings=(store.account.accountType==='manager')?`<div style="display:flex;justify-content:flex-end;padding:10px 12px 0"><button class="zadd" id="lsOpen" style="font-size:11px;padding:7px 12px;border-color:var(--amber);color:var(--amber)">⚙ LABOUR SETTINGS · working day · break · rates · projects</button></div>${store.showLabourSettings?companySettingsHTML():''}`:'';
   if(!store.attLoaded){loadAttendance();}
   if(!store.crewAttLoaded){loadCrewAttendance();}
   if(!store.crewLoaded){loadCrew();}
@@ -7678,7 +7764,7 @@ function manpowerHTML(){
       if(planned===null||planned<=0)return `<div class="card" style="border-color:var(--line)">
         <div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <span style="font-size:12px;color:var(--mut)">No hours planned for this project — set a figure to track how much of the labour budget has been used.</span>
-          <button class="zadd" data-setmen="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px">👥 SET PLANNED MANPOWER</button><button class="zadd" data-setplanned="${sel}" style="font-size:10px;padding:5px 10px;border-color:var(--blue);color:var(--blue)">⏱ SET PLANNED HOURS</button>
+          ${store.account.accountType==='manager'?`<button class="zadd" data-lsopen="1" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--blue);color:var(--blue)">⚙ PLAN IT IN LABOUR SETTINGS</button>`:''}
         </div></div>`;
       const used=grandHrs, left=planned-used, pct=Math.min(100,(used/planned)*100);
       const col=pct>=100?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
@@ -7687,7 +7773,7 @@ function manpowerHTML(){
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
             <span style="font-size:13px;font-weight:700">⏱ LABOUR BUDGET — ${used.toFixed(1)} of ${planned.toFixed(0)} hours used</span>
             <span style="font-size:12px;color:${col};font-weight:700">${pct.toFixed(0)}%</span>
-            <button class="zadd" data-setmen="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px">👥 ${(()=>{const p=(store.projects||[]).find(x=>String(x.id)===String(sel));return p&&p.planned_manpower?p.planned_manpower+' people planned':'planned manpower';})()}</button><button class="zadd" data-setplanned="${sel}" style="font-size:10px;padding:5px 10px">✎ CHANGE</button>
+            <span class="hint" style="margin-left:auto;padding:0">${(()=>{const p=(store.projects||[]).find(x=>String(x.id)===String(sel));return p&&p.planned_manpower?p.planned_manpower+' people planned':'';})()}</span>${store.account.accountType==='manager'?`<button class="zadd" data-lsopen="1" style="font-size:10px;padding:5px 10px">✎ CHANGE</button>`:''}
           </div>
           <div style="height:14px;background:var(--steel);border-radius:7px;overflow:hidden;border:1px solid var(--line)">
             <div style="height:100%;width:${pct}%;background:${col};transition:width .3s"></div>
@@ -7695,6 +7781,7 @@ function manpowerHTML(){
           <div style="margin-top:8px;font-size:12px;color:${left<0?'var(--red)':'var(--mut)'}">
             ${left>=0?`${left.toFixed(1)} hours remaining`:`⚠ ${Math.abs(left).toFixed(1)} hours OVER the planned budget`}
           </div>
+          ${(()=>{if(!(pr2&&+pr2.labour_budget>0))return '';const c=projectLabourCost(sel),bud=+pr2.labour_budget,pc=Math.min(100,c/bud*100),cc=pc>=100?'var(--red)':pc>=75?'var(--amber)':'var(--green)';return `<div style="margin-top:8px;font-size:12px">💰 LABOUR COST — <strong>${(store.currency||'AED')} ${c.toLocaleString(undefined,{maximumFractionDigits:0})}</strong> of ${(store.currency||'AED')} ${bud.toLocaleString()} budget <span style="color:${cc};font-weight:700">${pc.toFixed(0)}%</span> <span class="hint" style="padding:0">· at base rates, overtime premium not included</span></div>`;})()}
           <div class="hint" style="padding:8px 0 0">This counts staff and crew hours together. Compare it against how far the work has actually progressed — if half the hours are gone but the job isn't half done, that's worth knowing now rather than at handover.</div>
         </div></div>`;})()}
     ${(()=>{ if(!sel)return '';
@@ -7703,7 +7790,7 @@ function manpowerHTML(){
       return `<div class="card" style="border-color:${has?'var(--green)':'var(--amber)'}">
         <div style="padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <span style="font-size:12px">${has?`📍 Site location set — sign-ins are measured against it`:`⚠ No site location set for this project — sign-ins show GPS but not whether it was actually on site`}</span>
-          <button class="zadd" data-setsiteloc="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--amber);color:var(--amber)">📍 ${has?'UPDATE':'SET'} SITE LOCATION</button>
+          ${store.account.accountType==='manager'?`<button class="zadd" data-lsopen="1" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--amber);color:var(--amber)">⚙ SET IN LABOUR SETTINGS</button>`:`<button class="zadd" data-setsiteloc="${sel}" style="margin-left:auto;font-size:10px;padding:5px 10px;border-color:var(--amber);color:var(--amber)">📍 ${has?'UPDATE':'SET'} SITE LOCATION</button>`}
         </div></div>`;})()}
     <div class="settings">
       <div class="stat"><div class="sv" style="color:var(--green)">${totalOnNow}</div><div class="sl">WORKING NOW · ${onNow.length} staff + ${crewOnNow.length} crew</div></div>
@@ -8814,6 +8901,7 @@ function wire(){
   if(typeof ownerWire==='function')ownerWire();
   if(typeof supportWire==='function')supportWire();
   if(store.showResetPassword){const rb=document.getElementById('doSetNewPass');const sErr=t=>{store.authBusy=false;store.authMsg=t;render();};if(rb)rb.onclick=async()=>{const pw=(document.getElementById('f_newpass')||{}).value||'';const pw2=(document.getElementById('f_newpass2')||document.getElementById('f_newpass')||{}).value||'';if(pw.length<6)return sErr('Password must be at least 6 characters.');if(pw!==pw2)return sErr('The two passwords do not match.');if(!sb)return sErr('No connection.');store.authBusy=true;store.authMsg='';render();try{const {error}=await withTimeout(sb.auth.updateUser({password:pw}),12000,'Updating password');store.authBusy=false;if(error)return sErr(error.message);store.showResetPassword=false;store.authMsg='';try{history.replaceState(null,'',window.location.pathname);}catch(e){}await loadSession();}catch(ex){store.authBusy=false;sErr(ex.message||'Could not update password.');}};const rc=document.getElementById('cancelReset');if(rc)rc.onclick=()=>{store.showResetPassword=false;render();};return;}
+  {const lo=document.getElementById('lsOpen');if(lo)lo.onclick=()=>{store.showLabourSettings=true;if(!store.staffLoaded)loadStaffRates();render();};document.querySelectorAll('[data-lsopen]').forEach(b=>b.onclick=()=>{store.showLabourSettings=true;if(!store.staffLoaded)loadStaffRates();render();});const lc=document.getElementById('lsClose');if(lc)lc.onclick=()=>{store.showLabourSettings=false;store.lsRatesMsg='';store.lsProjMsg='';store.coSetMsg='';render();};const sr=document.getElementById('ls_saveRates');if(sr)sr.onclick=saveRates;const spj=document.getElementById('ls_saveProjects');if(spj)spj.onclick=saveProjectPlans;}
   {const cs=document.getElementById('cs_save');if(cs)cs.onclick=saveCompanySettings;document.querySelectorAll('[data-workerrec]').forEach(a=>a.onclick=(e)=>{e.preventDefault();store.workerRec=a.dataset.workerrec;render();});const wc=document.getElementById('workerRecClose');if(wc)wc.onclick=()=>{store.workerRec=null;render();};}
   if(typeof needsWire==='function')needsWire();
   document.querySelectorAll('[data-crewmethod]').forEach(b=>b.onclick=()=>{store.crewMethod=b.dataset.crewmethod;render();});
